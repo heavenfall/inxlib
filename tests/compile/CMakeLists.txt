@@ -34,6 +34,6 @@ add_custom_command(OUTPUT ${COMPILE_SOURCES}
 
 add_executable(inxlib_test_compile EXCLUDE_FROM_ALL compile.cpp)
 add_executable(inxlib::test::compile ALIAS inxlib_test_compile)
-target_link_libraries(inxlib_test_compile PUBLIC inxlib::inxlib)
+target_link_libraries(inxlib_test_compile PUBLIC inxlib::lib)
 configure_file(compile_file.cpp.in inxlib/util/virtual_pointer.hpp)
 target_sources(inxlib_test_compile PRIVATE ${COMPILE_SOURCES})

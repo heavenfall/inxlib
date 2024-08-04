@@ -8,13 +8,13 @@ project(INXlib
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 
-add_library(inxlib_core INTERFACE)
-add_library(inxlib::inxlib ALIAS inxlib_core)
-target_include_directories(inxlib_core INTERFACE
+add_library(inxlib_lib INTERFACE)
+add_library(inxlib::lib ALIAS inxlib_lib)
+target_include_directories(inxlib_lib INTERFACE
 	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 	$<INSTALL_INTERFACE:include>
 )
-target_sources(inxlib_core PUBLIC include/inxlib/inx.hpp
+target_sources(inxlib_lib PUBLIC include/inxlib/inx.hpp
 # find include/inxlib/{data,io,util} -type f | sort
 include/inxlib/data/binary_tree.hpp
 include/inxlib/data/bit_table.hpp
@@ -34,4 +34,5 @@ include/inxlib/util/virtual_pointer.hpp
 include/inxlib/util/xoshiro256.hpp
 )
 
+add_subdirectory(inxflow)
 add_subdirectory(tests)

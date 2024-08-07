@@ -61,7 +61,7 @@ in a file to be loaded by command, so using `@` is encouraged.
 
 ## Commands
 
--V {name} {value}
+-D {name} {value}
 Stores var `name` with `value` string. Arg `name` is forced to be `var` grpup.
 
 -L {name} {filename}
@@ -76,6 +76,11 @@ Arg `dest` is either a string, which is treated as a filename, or some other dat
 When a data is given, will serialise (the same as -L) as a memory mapped file and pass to `name`
 to deserialise as a `std::istream`.
 If the user want to make a copy function between data types directly, use a user command instead.
+
+-M rm|mv|cp {name} {name2}?
+Either remove (rm) `name` (requires group), rename (mv) to `name2` (group optional, must match `name`),
+or copies to `name2` if supported (group optional, must match `name`).
+If no copy for a type was supplied, use -S. No `<sep>` are required for this command.
 
 -C {command} {args}...
 Runs a user command. As the number of arguments are not set, must always be delimited

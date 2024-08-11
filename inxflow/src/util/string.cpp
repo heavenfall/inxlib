@@ -63,6 +63,7 @@ std::pair<VarName, size_t> parse_varname(std::string_view parse, bool whitespace
 
 	// now subparse must match the whole VarName without '@' to worry about
 	VarName result{};
+	result.parsed_string_ = subparse.data();
 	uint32 sub_at = 0;
 	if (subparse[sub_at] == '%') {
 		++sub_at;

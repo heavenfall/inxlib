@@ -55,6 +55,8 @@ struct VarName
 	uint8 group_len_;
 	uint16 name_start_;
 	uint16 name_len_;
+	static_assert(MaxGroupLength <= std::numeric_limits<decltype(group_start_)>::max() - 8, "MaxGroupLength must fit group_start_.");
+	static_assert(MaxNameLength <= std::numeric_limits<decltype(name_len_)>::max() - MaxGroupLength - 8, "MaxNameLength must fit name_len_.");
 
 	std::string_view group() const noexcept { return group_len_ != 0 ? std::string_view(parsed_string_ + group_start_, group_len_) : std::string_view(); }
 	std::string_view name() const noexcept { return std::string_view(parsed_string_ + name_start_, name_len_); }

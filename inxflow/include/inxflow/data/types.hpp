@@ -22,25 +22,62 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#ifndef INXFLOW_DATA_CONCEPTS_HPP
-#define INXFLOW_DATA_CONCEPTS_HPP
+#ifndef INXFLOW_DATA_TYPES_HPP
+#define INXFLOW_DATA_TYPES_HPP
 
 #include <inxlib/inx.hpp>
+#include <istream>
+#include <ostream>
+#include <filesystem>
 
-namespace inx::data::flow
+namespace inx::flow::data
 {
 
 enum class StreamType : uint8
 {
-	File, // stream is a stream
-	Var, // stream is a memory file
-	StdOut, // stream is std::cout
-	StdIn, // stream is std::cin
-	DevNull, // stream is null
+	File = 1 << 0, // stream is a stream
+	Var = 1 << 1, // stream is a memory file
+	StdOut = 1 << 2, // stream is std::cout
+	StdIn = 1 << 3, // stream is std::cin
+	DevNull = 1 << 4, // stream is null
 };
 
+template <typename T>
+concept ser_load_full = requires (T& t, std::istream& stream, const std::filesystem::path& path)
+{ t.load(path, stream); };
+template <typename T>
+concept ser_load_full_type = requires (T& t, std::istream& stream, const std::filesystem::path& path, StreamType type)
+{ t.load(path, stream, type); };
+template <typename T>
+concept ser_load_stream = requires (T& t, std::istream& stream)
+{ t.load(stream); };
+template <typename T>
+concept ser_load_stream_type = requires (T& t, std::istream& stream, StreamType type)
+{ t.load(stream, type); };
+template <typename T>
+concept ser_load_filename = requires (T& t, const std::filesystem::path& path)
+{ t.load(path); };
+template <typename T>
+concept ser_load = ser_load_full<T> || ser_load_full_type<T> || ser_load_stream<T> || ser_load_stream_type<T> || ser_load_filename<T>;
 
+template <typename T>
+concept ser_save_full_type = requires (T& t, std::istream& stream, const std::filesystem::path& path)
+{ t.save(path, stream); };
+template <typename T>
+concept ser_save_full = requires (T& t, std::istream& stream, const std::filesystem::path& path, StreamType type)
+{ t.save(path, stream, type); };
+template <typename T>
+concept ser_save_stream = requires (T& t, std::istream& stream)
+{ t.save(stream); };
+template <typename T>
+concept ser_save_stream_type = requires (T& t, std::istream& stream, StreamType type)
+{ t.save(stream, type); };
+template <typename T>
+concept ser_save_filename = requires (T& t, const std::filesystem::path& path)
+{ t.save(path); };
+template <typename T>
+concept ser_save = ser_save_full<T> || ser_save_full_type<T> || ser_save_stream<T> || ser_save_stream_type<T> || ser_save_filename<T>;
 
-} // namespace inxflow::util
+} // namespace inx::flow::data
 
-#endif // INXFLOW_UTIL_STRING_HPP
+#endif // INXFLOW_DATA_TYPES_HPP

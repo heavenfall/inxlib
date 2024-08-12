@@ -22,8 +22,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#ifndef GMLIB_INX_HPP_INCLUDED
-#define GMLIB_INX_HPP_INCLUDED
+#ifndef INXLIB_INX_HPP_INCLUDED
+#define INXLIB_INX_HPP_INCLUDED
 
 #include <climits>
 #include <cfloat>
@@ -163,4 +163,4 @@ struct _Apply_Each<L, std::integer_sequence<T, Ints...>>
 
 }
 
-#endif // GMLIB_INX_HPP_INCLUDED
+#endif // INXLIB_INX_HPP_INCLUDED

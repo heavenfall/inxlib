@@ -91,7 +91,7 @@ protected:
 
 namespace details {
 template <ser_load T>
-bool serialize_load_stream(T& data, const std::filesystem::path& path, std::istream& in, StreamType stype)
+bool serialize_load_path_stream(T& data, const std::filesystem::path& path, std::istream& in, StreamType stype)
 {
 	if constexpr (ser_load_full_type<T>) {
 		data.load(path, in, stype);
@@ -100,13 +100,43 @@ bool serialize_load_stream(T& data, const std::filesystem::path& path, std::istr
 		data.load(path, in);
 		return true;
 	} else if constexpr (ser_load_stream_type<T>) {
-		data.load(path, stype);
+		data.load(in, stype);
 		return true;
 	} else if constexpr (ser_load_stream<T>) {
-		data.load(path);
+		data.load(in);
 		return true;
 	}
 	return false;
+}
+template <ser_load T>
+bool serialize_load_stream(T& data, std::istream& in, StreamType stype)
+{
+	if constexpr (ser_load_stream_type<T>) {
+		data.load(in, stype);
+		return true;
+	} else if constexpr (ser_load_stream<T>) {
+		data.load(in);
+		return true;
+	} else if constexpr (ser_load_full_type<T>) {
+		data.load({}, in, stype);
+		return true;
+	} else if constexpr (ser_load_full<T>) {
+		data.load({}, in);
+		return true;
+	}
+	return false;
+}
+template <ser_load T>
+bool serialize_load_file(T& data, const std::filesystem::path& path, std::ios_base::openmode mode)
+{
+	if constexpr (ser_load_filename<T>) {
+		return data.load(path);
+	} else {
+		std::ifstream in(path, mode);
+		if (!in)
+			return false;
+		return serialize_load_path_stream(data, path, in, StreamType::File);
+	}
 }
 }
 template <ser_load T>
@@ -114,8 +144,16 @@ bool serialize_load(T& data, const std::filesystem::path& path, StreamType stype
 {
 	switch (stype) {
 	case StreamType::StdIn:
-		return details::serialize_load_stream({}, std::cin, StreamType::StdIn);
+		return details::serialize_load_stream(std::cin, StreamType::StdIn);
 	case StreamType::DevNull:
+		// TODO: add devnull
+		return false;
+	case StreamType::File:
+		return details::serialize_load_file(path, mode);
+	case StreamType::StdOut:
+	case StreamType::Var:
+	default:
+		return false;
 	}
 }
 

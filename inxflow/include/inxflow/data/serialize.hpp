@@ -30,52 +30,53 @@ SOFTWARE.
 #include <inxlib/io/null.hpp>
 #include "types.hpp"
 #include <iostream>
+#include <fstream>
 #include <typeindex>
 
 namespace inx::flow::data
 {
 
 namespace details {
-template <ser_load T>
+template <concepts::ser_load T>
 bool serialize_load_path_stream(T& data, const std::filesystem::path& path, std::istream& in, StreamType stype)
 {
-	if constexpr (ser_load_full_type<T>) {
+	if constexpr (concepts::ser_load_full_type<T>) {
 		data.load(path, in, stype);
 		return true;
-	} else if constexpr (ser_load_full<T>) {
+	} else if constexpr (concepts::ser_load_full<T>) {
 		data.load(path, in);
 		return true;
-	} else if constexpr (ser_load_stream_type<T>) {
+	} else if constexpr (concepts::ser_load_stream_type<T>) {
 		data.load(in, stype);
 		return true;
-	} else if constexpr (ser_load_stream<T>) {
+	} else if constexpr (concepts::ser_load_stream<T>) {
 		data.load(in);
 		return true;
 	}
 	return false;
 }
-template <ser_load T>
+template <concepts::ser_load T>
 bool serialize_load_stream(T& data, std::istream& in, StreamType stype)
 {
-	if constexpr (ser_load_stream_type<T>) {
+	if constexpr (concepts::ser_load_stream_type<T>) {
 		data.load(in, stype);
 		return true;
-	} else if constexpr (ser_load_stream<T>) {
+	} else if constexpr (concepts::ser_load_stream<T>) {
 		data.load(in);
 		return true;
-	} else if constexpr (ser_load_full_type<T>) {
+	} else if constexpr (concepts::ser_load_full_type<T>) {
 		data.load({}, in, stype);
 		return true;
-	} else if constexpr (ser_load_full<T>) {
+	} else if constexpr (concepts::ser_load_full<T>) {
 		data.load({}, in);
 		return true;
 	}
 	return false;
 }
-template <ser_load T>
+template <concepts::ser_load T>
 bool serialize_load_file(T& data, const std::filesystem::path& path, std::ios_base::openmode mode)
 {
-	if constexpr (ser_load_filename<T>) {
+	if constexpr (concepts::ser_load_filename<T>) {
 		return data.load(path);
 	} else {
 		std::ifstream in(path, mode);
@@ -85,49 +86,49 @@ bool serialize_load_file(T& data, const std::filesystem::path& path, std::ios_ba
 	}
 }
 
-template <ser_save T>
+template <concepts::ser_save T>
 bool serialize_save_path_stream(T& data, const std::filesystem::path& path, std::ostream& out, StreamType stype)
 {
-	if constexpr (ser_save_full_type<T>) {
+	if constexpr (concepts::ser_save_full_type<T>) {
 		data.save(path, out, stype);
 		return true;
-	} else if constexpr (ser_save_full<T>) {
+	} else if constexpr (concepts::ser_save_full<T>) {
 		data.save(path, out);
 		return true;
-	} else if constexpr (ser_save_stream_type<T>) {
+	} else if constexpr (concepts::ser_save_stream_type<T>) {
 		data.save(out, stype);
 		return true;
-	} else if constexpr (ser_save_stream<T>) {
+	} else if constexpr (concepts::ser_save_stream<T>) {
 		data.save(out);
 		return true;
 	}
 	return false;
 }
-template <ser_save T>
+template <concepts::ser_save T>
 bool serialize_save_stream(T& data, std::istream& in, StreamType stype)
 {
-	if constexpr (ser_save_stream_type<T>) {
+	if constexpr (concepts::ser_save_stream_type<T>) {
 		data.save(in, stype);
 		return true;
-	} else if constexpr (ser_save_stream<T>) {
+	} else if constexpr (concepts::ser_save_stream<T>) {
 		data.save(in);
 		return true;
-	} else if constexpr (ser_save_full_type<T>) {
+	} else if constexpr (concepts::ser_save_full_type<T>) {
 		data.save({}, in, stype);
 		return true;
-	} else if constexpr (ser_save_full<T>) {
+	} else if constexpr (concepts::ser_save_full<T>) {
 		data.save({}, in);
 		return true;
 	}
 	return false;
 }
-template <ser_save T>
+template <concepts::ser_save T>
 bool serialize_save_file(T& data, const std::filesystem::path& path, std::ios_base::openmode mode)
 {
-	if constexpr (ser_save_filename<T>) {
+	if constexpr (concepts::ser_save_filename<T>) {
 		return data.save(path);
 	} else {
-		std::ifstream in(path, mode);
+		std::ofstream in(path, mode);
 		if (!in)
 			return false;
 		return serialize_save_path_stream(data, path, in, StreamType::File);
@@ -135,39 +136,49 @@ bool serialize_save_file(T& data, const std::filesystem::path& path, std::ios_ba
 }
 } // namespace details
 
-template <ser_load T>
-bool serialize_load(T& data, const std::filesystem::path& path, StreamType stype, std::ios_base::openmode mode = std::ios::in)
+template <concepts::ser_load T>
+bool serialize_load(T& data, std::istream& in, const std::filesystem::path& path, StreamType stype, std::ios_base::openmode mode = std::ios::in)
 {
 	switch (stype) {
+	case StreamType::File:
+		return details::serialize_load_file(data, path, mode);
+	case StreamType::Stream:
+		if (path.empty()) {
+			return details::serialize_load_stream(data, in, StreamType::Stream);
+		} else {
+			return details::serialize_load_path_stream(data, path, StreamType::Stream);
+		}
 	case StreamType::StdIn:
 		return details::serialize_load_stream(data, std::cin, StreamType::StdIn);
 	case StreamType::DevNull: {
 		inx::io::null_istream nulls;
 		return details::serialize_load_stream(data, nulls, StreamType::DevNull);
 	}
-	case StreamType::File:
-		return details::serialize_load_file(data, path, mode);
 	case StreamType::StdOut:
-	case StreamType::Var:
 	default:
 		return false;
 	}
 }
 
-template <ser_save T>
-bool serialize_save(T& data, const std::filesystem::path& path, StreamType stype, std::ios_base::openmode mode = std::ios::out | std::ios::trunc)
+template <concepts::ser_save T>
+bool serialize_save(T& data, std::ostream& out, const std::filesystem::path& path, StreamType stype, std::ios_base::openmode mode = std::ios::out | std::ios::trunc)
 {
 	switch (stype) {
-	case StreamType::StdOut:
-		return details::serialize_save_stream(data, std::cout, StreamType::StdOut);
-	case StreamType::DevNull: {
-		inx::io::null_ostream nulls;
-		return details::serialize_save_stream(data, nulls, StreamType::DevNull);
-	}
 	case StreamType::File:
 		return details::serialize_save_file(data, path, mode);
+	case StreamType::Stream:
+		if (path.empty()) {
+			return details::serialize_save_stream(data, out, StreamType::Stream);
+		} else {
+			return details::serialize_save_stream(data, path, StreamType::Stream);
+		}
+	case StreamType::StdOut:
+		return details::serialize_save_stream(data, std::cin, StreamType::StdIn);
+	case StreamType::DevNull: {
+		inx::io::null_istream nulls;
+		return details::serialize_save_stream(data, nulls, StreamType::DevNull);
+	}
 	case StreamType::StdIn:
-	case StreamType::Var:
 	default:
 		return false;
 	}
@@ -177,12 +188,6 @@ bool serialize_save(T& data, const std::filesystem::path& path, StreamType stype
 // SerializeWrapper
 //
 
-enum class SerMode {
-	Auto, // auto deduce from ser_save_mode(), ser_load_mode(), ser_binary() in order, defaults to text otherwise
-	Text,
-	Binary
-};
-
 namespace concepts {
 template <typename T>
 concept has_ser_binary = requires {
@@ -190,13 +195,77 @@ concept has_ser_binary = requires {
 };
 template <typename T>
 concept has_ser_load_mode = requires {
-	T::ser_load_mode();
+	T::concepts::ser_load_mode();
 };
 template <typename T>
 concept has_ser_save_mode = requires {
-	T::ser_save_mode();
+	T::concepts::ser_save_mode();
 };
 }
+
+namespace details {
+template <typename T, auto LoadFunc>
+struct SerializeLoader
+{
+	T* data;
+	void load(std::istream& in, const std::filesystem::path& filename, StreamType type)
+		requires requires (T& t) { LoadFunc(t, in, filename, type); }
+	{
+		LoadFunc(*data, in, filename, type);
+	}
+	void load(std::istream& in, const std::filesystem::path& filename)
+		requires requires (T& t) { LoadFunc(t, in, filename); }
+	{
+		LoadFunc(*data, in, filename);
+	}
+	void load(std::istream& in, StreamType type)
+		requires requires (T& t) { LoadFunc(t, in, type); }
+	{
+		LoadFunc(*data, in, type);
+	}
+	void load(std::istream& in)
+		requires requires (T& t) { LoadFunc(t, in); }
+	{
+		LoadFunc(*data, in);
+	}
+	void load(const std::filesystem::path& filename)
+		requires requires (T& t) { LoadFunc(t, filename); }
+	{
+		LoadFunc(*data, filename);
+	}
+};
+
+template <typename T, auto SaveFunc>
+struct SerializeSaver
+{
+	T* data;
+	void save(std::ostream& in, const std::filesystem::path& filename, StreamType type)
+		requires requires (T& t) { SaveFunc(t, in, filename, type); }
+	{
+		SaveFunc(*data, in, filename, type);
+	}
+	void save(std::ostream& in, const std::filesystem::path& filename)
+		requires requires (T& t) { SaveFunc(t, in, filename); }
+	{
+		SaveFunc(*data, in, filename);
+	}
+	void save(std::ostream& in, StreamType type)
+		requires requires (T& t) { SaveFunc(t, in, type); }
+	{
+		SaveFunc(*data, in, type);
+	}
+	void save(std::ostream& in)
+		requires requires (T& t) { SaveFunc(t, in); }
+	{
+		SaveFunc(*data, in);
+	}
+	void save(const std::filesystem::path& filename)
+		requires requires (T& t) { SaveFunc(t, filename); }
+	{
+		SaveFunc(*data, filename);
+	}
+};
+} // namespace details
 class SerializeWrapper
 {
 public:
@@ -209,6 +278,7 @@ public:
 		wrapper_op op;
 		StreamType stype;
 		void* data; // either T* or SerializeWrapper* for Construct
+		void* stream;
 		const std::filesystem::path* path;
 	};
 	using wrapper_fn = void(wrapper_input input);
@@ -251,7 +321,13 @@ protected:
 	wrapper_fn* m_operators;
 };
 
-template <typename T, SerMode OpenMode>
+/**
+ * Wrapper class for type T to serialize.
+ * OpenMode determines if file should be opened in text, binary or determined by T (auto).
+ * LoadFunc overrides the load function, nullptr will use T::load
+ * SaveFunc overrides the save function, nullptr will use T::save
+ */
+template <typename T, SerMode OpenMode = SerMode::Auto, auto LoadFunc = nullptr, auto SaveFunc = nullptr>
 class SerializeWrap : public SerializeWrapper
 {
 public:
@@ -263,7 +339,7 @@ public:
 		case wrapper_op::Load: {
 			std::ios::openmode mode;
 			if constexpr (concepts::has_ser_load_mode<T>) {
-				mode = T::ser_load_mode();
+				mode = T::concepts::ser_load_mode();
 			} else if constexpr (concepts::has_ser_binary<T>) {
 				mode = std::ios::in | (T::ser_binary() ? std::ios::binary : 0);
 			} else {
@@ -273,13 +349,18 @@ public:
 			T* data = static_cast<T*>( static_cast<inx::util::any_ptr*>(input.data)->get() );
 			if (data == nullptr)
 				throw std::runtime_error("Serialize Load/Save requires Construct first.");
-			serialize_load(*data, *input.path, input.stype, mode);
+			if constexpr (!std::is_null_pointer_v<LoadFunc>) {
+				details::SerializeLoader<T, LoadFunc> loader{data};
+				serialize_load(loader, *input.path, input.stype, mode);
+			} else {
+				serialize_load(*data, *input.path, input.stype, mode);
+			}
 			break;
 		}
 		case wrapper_op::Save: {
 			std::ios::openmode mode;
 			if constexpr (concepts::has_ser_save_mode<T>) {
-				mode = T::ser_save_mode();
+				mode = T::concepts::ser_save_mode();
 			} else if constexpr (concepts::has_ser_binary<T>) {
 				mode = std::ios::out | std::ios::trunc | (T::ser_binary() ? std::ios::binary : 0);
 			} else {
@@ -289,7 +370,12 @@ public:
 			T* data = static_cast<T*>( static_cast<inx::util::any_ptr*>(input.data)->get() );
 			if (data == nullptr)
 				throw std::runtime_error("Serialize Load/Save requires Construct first.");
-			serialize_save(*data, *input.path, input.stype, mode);
+			if constexpr (!std::is_null_pointer_v<SaveFunc>) {
+				details::SerializeSaver<T, SaveFunc> saver{data};
+				serialize_save(saver, *input.path, input.stype, mode);
+			} else {
+				serialize_save(*data, *input.path, input.stype, mode);
+			}
 			break;
 		}
 		default:

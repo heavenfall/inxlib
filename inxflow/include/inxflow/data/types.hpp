@@ -35,12 +35,20 @@ namespace inx::flow::data
 
 enum class StreamType : uint8
 {
-	File = 1 << 0, // stream is a stream
-	Var = 1 << 1, // stream is a memory file
+	File = 1 << 0, // stream not open, use fname
+	Stream = 1 << 1, // stream is a user-provided stream
 	StdOut = 1 << 2, // stream is std::cout
 	StdIn = 1 << 3, // stream is std::cin
 	DevNull = 1 << 4, // stream is null
 };
+
+enum class SerMode {
+	Auto, // auto deduce from ser_save_mode(), ser_load_mode(), ser_binary() in order, defaults to text otherwise
+	Text,
+	Binary
+};
+
+namespace concepts {
 
 template <typename T>
 concept ser_load_full = requires (T& t, std::istream& stream, const std::filesystem::path& path)
@@ -61,10 +69,10 @@ template <typename T>
 concept ser_load = ser_load_full<T> || ser_load_full_type<T> || ser_load_stream<T> || ser_load_stream_type<T> || ser_load_filename<T>;
 
 template <typename T>
-concept ser_save_full_type = requires (T& t, std::istream& stream, const std::filesystem::path& path)
+concept ser_save_full = requires (T& t, std::istream& stream, const std::filesystem::path& path)
 { t.save(path, stream); };
 template <typename T>
-concept ser_save_full = requires (T& t, std::istream& stream, const std::filesystem::path& path, StreamType type)
+concept ser_save_full_type = requires (T& t, std::istream& stream, const std::filesystem::path& path, StreamType type)
 { t.save(path, stream, type); };
 template <typename T>
 concept ser_save_stream = requires (T& t, std::istream& stream)
@@ -77,6 +85,8 @@ concept ser_save_filename = requires (T& t, const std::filesystem::path& path)
 { t.save(path); };
 template <typename T>
 concept ser_save = ser_save_full<T> || ser_save_full_type<T> || ser_save_stream<T> || ser_save_stream_type<T> || ser_save_filename<T>;
+
+} // namespace concepts
 
 } // namespace inx::flow::data
 

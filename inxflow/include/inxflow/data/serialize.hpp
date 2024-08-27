@@ -266,22 +266,62 @@ struct SerializeSaver
 	}
 };
 } // namespace details
+
 class SerializeWrapper
 {
 public:
 	enum class wrapper_op : uint8 {
-		Construct, // (SerializeWrapper*)
+		Support,
+		Construct, // (any_ptr*)
+		Copy, // (any_ptr*, T*)
+		Move, // (any_ptr*, T*)
 		Load, // (T*, std::istream*, const std::filesystem::path*, StreamType)
 		Save, // (T*, std::ostream*, const std::filesystem::path*, StreamType)
 	};
 	struct wrapper_input {
 		wrapper_op op;
+		wrapper_op support;
 		StreamType stype;
-		void* data; // either T* or SerializeWrapper* for Construct
-		void* stream;
+		void* stream; // either SerializeWrapper* or stream*
+		void* data;
 		const std::filesystem::path* path;
 	};
-	using wrapper_fn = void(wrapper_input input);
+	using wrapper_fn = bool(wrapper_input input);
+
+protected:
+	SerializeWrapper(std::type_index type, wrapper_fn* fn);
+public:
+	SerializeWrapper() = delete;
+	SerializeWrapper(const SerializeWrapper& other);
+	SerializeWrapper(SerializeWrapper&& other);
+	SerializeWrapper(const SerializeWrapper& other, bool copy);
+
+	SerializeWrapper& operator=(const SerializeWrapper& other);
+	SerializeWrapper& operator=(SerializeWrapper&& other);
+
+protected:
+	void copy_(const void* other);
+	void move_(void* other);
+public:
+	void clear();
+
+	template <typename T>
+	void copy(const T& other)
+	{
+		if (m_type != typeid(T))
+			throw std::logic_error("type mismatch");
+		copy_(&other);
+	}
+	template <typename T>
+	void move(T&& other)
+	{
+		if (m_type != typeid(T))
+			throw std::logic_error("type mismatch");
+		move_(&other);
+	}
+
+	bool supported(wrapper_op op) const;
+
 	/**
 	 * Deserialize the data.
 	 */
@@ -331,11 +371,68 @@ template <typename T, SerMode OpenMode = SerMode::Auto, auto LoadFunc = nullptr,
 class SerializeWrap : public SerializeWrapper
 {
 public:
-	static void wrapper_operator(wrapper_input input) {
+	static bool wrapper_operator(wrapper_input input) {
 		switch (input.op) {
+		case wrapper_op::Support:
+			switch (input.support) {
+			case wrapper_op::Construct:
+				return true;
+			case wrapper_op::Copy:
+				return std::is_copy_constructible_v<T> || std::is_copy_assignable_v<T>;
+			case wrapper_op::Move:
+				return std::is_move_constructible_v<T> || std::is_move_assignable_v<T>;
+			case wrapper_op::Load:
+				return !std::is_null_pointer_v<LoadFunc> || concepts::ser_load<T>;
+			case wrapper_op::Save:
+				return !std::is_null_pointer_v<SaveFunc> || concepts::ser_save<T>;
+			default:
+				return false;
+			}
 		case wrapper_op::Construct:
-			*static_cast<inx::util::any_ptr*>(input.data) = std::make_unique<T>();
-			break;
+			*static_cast<inx::util::any_ptr*>(input.stream) = std::make_unique<T>();
+			return true;
+		case wrapper_op::Copy:
+			if constexpr (std::is_copy_assignable_v<T>) {
+				if constexpr (!std::is_copy_constructible_v<T>) { // construct then copy
+					auto& ptr = *static_cast<inx::util::any_ptr*>(input.stream);
+					if (!ptr) {
+						ptr = std::make_unique<T>();
+					}
+					*static_cast<T*>(ptr.get()) = *static_cast<const T*>(const_cast<const void*>(input.data));
+					return true;
+				} else { // try to copy
+					if (auto* g = static_cast<inx::util::any_ptr*>(input.stream)->get(); g != nullptr) {
+						*static_cast<T*>(g) = *static_cast<const T*>(const_cast<const void*>(input.data));
+						return true;
+					}
+				}
+			}
+			if constexpr (std::is_copy_constructible_v<T>) { // try to copy construct
+				*static_cast<inx::util::any_ptr*>(input.stream) = std::make_unique<T>( *static_cast<const T*>(const_cast<const void*>(input.data)) );
+				return true;
+			}
+			return false;
+		case wrapper_op::Move:
+			if constexpr (std::is_move_assignable_v<T>) {
+				if constexpr (!std::is_move_constructible_v<T>) { // construct then move
+					auto& ptr = *static_cast<inx::util::any_ptr*>(input.stream);
+					if (!ptr) {
+						ptr = std::make_unique<T>();
+					}
+					*static_cast<T*>(ptr.get()) = std::move(*static_cast<T*>(input.data));
+					return true;
+				} else { // try to move
+					if (auto* g = static_cast<inx::util::any_ptr*>(input.stream)->get(); g != nullptr) {
+						*static_cast<T*>(g) = std::move(*static_cast<T*>(input.data));
+						return true;
+					}
+				}
+			}
+			if constexpr (std::is_move_constructible_v<T>) { // try to move construct
+				*static_cast<inx::util::any_ptr*>(input.stream) = std::make_unique<T>( std::move(*static_cast<T*>(input.data)) );
+				return true;
+			}
+			return false;
 		case wrapper_op::Load: {
 			std::ios::openmode mode;
 			if constexpr (concepts::has_ser_load_mode<T>) {

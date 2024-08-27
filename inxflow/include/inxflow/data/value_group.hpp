@@ -25,19 +25,12 @@ SOFTWARE.
 #ifndef INXFLOW_DATA_VALUE_GROUP_HPP
 #define INXFLOW_DATA_VALUE_GROUP_HPP
 
-namespace inx::flow::data
-{
+namespace inx::flow::data {
 
-class Value
-{
-	
-};
+class Value {};
 
-class ValueGroup
-{
+class ValueGroup {};
 
-};
+}  // namespace inx::flow::data
 
-} // namespace inx::flow::data
-
-#endif // INXFLOW_DATA_VALUE_GROUP_HPP
+#endif  // INXFLOW_DATA_VALUE_GROUP_HPP

@@ -28,15 +28,12 @@ SOFTWARE.
 #include <inxlib/inx.hpp>
 #include <memory_resource>
 
-namespace inx::data
-{
+namespace inx::data {
 
-template <typename T = char, bool NullTerm = true, typename Allocator = std::allocator<T>>
-class LineArray
-{
+template <typename T = char, bool NullTerm = true,
+          typename Allocator = std::allocator<T>>
+class LineArray {};
 
-};
+}  // namespace inx::data
 
-} // namespace inx
-
-#endif // INXLIB_DATA_LINE_ARRAY_HPP
+#endif  // INXLIB_DATA_LINE_ARRAY_HPP

@@ -27,16 +27,13 @@ SOFTWARE.
 
 #include <inxlib/inx.hpp>
 
-namespace inx::flow::util
-{
+namespace inx::flow::util {
 
-enum class VarClass : uint8
-{
+enum class VarClass : uint8 {
 	Global,
 	Local,
 };
-enum class VarOp : uint8
-{
+enum class VarOp : uint8 {
 	Name,
 	Print,
 };
@@ -44,8 +41,7 @@ enum class VarOp : uint8
 /**
  * Stored result of parsed variable. Does not own the underlying string.
  */
-struct VarName
-{
+struct VarName {
 	static constexpr size_t MaxGroupLength = 63;
 	static constexpr size_t MaxNameLength = (1 << 14) - 1;
 	const char* parsed_string_;
@@ -55,11 +51,22 @@ struct VarName
 	uint8 group_len_;
 	uint16 name_start_;
 	uint16 name_len_;
-	static_assert(MaxGroupLength <= std::numeric_limits<decltype(group_start_)>::max() - 8, "MaxGroupLength must fit group_start_.");
-	static_assert(MaxNameLength <= std::numeric_limits<decltype(name_len_)>::max() - MaxGroupLength - 8, "MaxNameLength must fit name_len_.");
+	static_assert(MaxGroupLength <=
+	                  std::numeric_limits<decltype(group_start_)>::max() - 8,
+	              "MaxGroupLength must fit group_start_.");
+	static_assert(MaxNameLength <=
+	                  std::numeric_limits<decltype(name_len_)>::max() -
+	                      MaxGroupLength - 8,
+	              "MaxNameLength must fit name_len_.");
 
-	std::string_view group() const noexcept { return group_len_ != 0 ? std::string_view(parsed_string_ + group_start_, group_len_) : std::string_view(); }
-	std::string_view name() const noexcept { return std::string_view(parsed_string_ + name_start_, name_len_); }
+	std::string_view group() const noexcept {
+		return group_len_ != 0
+		           ? std::string_view(parsed_string_ + group_start_, group_len_)
+		           : std::string_view();
+	}
+	std::string_view name() const noexcept {
+		return std::string_view(parsed_string_ + name_start_, name_len_);
+	}
 	VarOp op() const noexcept { return var_op_; }
 	VarClass cls() const noexcept { return var_class_; }
 	bool global() const noexcept { return var_class_ == VarClass::Global; }
@@ -70,14 +77,18 @@ struct VarName
 };
 
 /**
- * Parse string and produce the VarName as formatted by `@[op]?[group:]?[varname]@`. `@` is optional.
- * On success returns a filled VarName and the position parsed to. Expects to match either the whole
- * string or if the string starts with `@`, match only until the next `@` or the whole string if missing second `@`.
- * On invalid string, returns a null VarName and 0.
- * @param whitespace If true, allows for whitespace in variable name. Group never permits whitespace.
+ * Parse string and produce the VarName as formatted by
+ * `@[op]?[group:]?[varname]@`. `@` is optional. On success returns a filled
+ * VarName and the position parsed to. Expects to match either the whole string
+ * or if the string starts with `@`, match only until the next `@` or the whole
+ * string if missing second `@`. On invalid string, returns a null VarName and
+ * 0.
+ * @param whitespace If true, allows for whitespace in variable name. Group
+ * never permits whitespace.
  */
-std::pair<VarName, size_t> parse_varname(std::string_view parse, bool whitespace = false);
+std::pair<VarName, size_t> parse_varname(std::string_view parse,
+                                         bool whitespace = false);
 
-} // namespace inxflow::util
+}  // namespace inx::flow::util
 
-#endif // INXFLOW_UTIL_STRING_HPP
+#endif  // INXFLOW_UTIL_STRING_HPP

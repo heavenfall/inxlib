@@ -1,7 +1,6 @@
 #include <iostream>
 
-int main()
-{
+int main() {
 	std::cout << "Compile successful\n";
 	return 0;
 }

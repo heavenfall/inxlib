@@ -26,27 +26,27 @@ SOFTWARE.
 
 namespace inx::flow::data {
 
-SerializeWrapper::SerializeWrapper(std::type_index type, wrapper_fn* fn)
+Serialize::Serialize(std::type_index type, wrapper_fn* fn)
     : m_type(type), m_operators(fn) {}
 
-SerializeWrapper::SerializeWrapper(const SerializeWrapper& other)
-    : SerializeWrapper(other.m_type, other.m_operators) {
+Serialize::Serialize(const Serialize& other)
+    : Serialize(other.m_type, other.m_operators) {
 	if (other.m_data && supported(wrapper_op::Copy)) {
 		wrapper_input send{wrapper_op::Copy,   {}, {}, &m_data,
 		                   other.m_data.get(), {}};
 		(*m_operators)(send);
 	}
 }
-SerializeWrapper::SerializeWrapper(SerializeWrapper&& other)
-    : SerializeWrapper(other.m_type, other.m_operators) {
+Serialize::Serialize(Serialize&& other)
+    : Serialize(other.m_type, other.m_operators) {
 	if (other.m_data && supported(wrapper_op::Move)) {
 		wrapper_input send{wrapper_op::Copy,   {}, {}, &m_data,
 		                   other.m_data.get(), {}};
 		(*m_operators)(send);
 	}
 }
-SerializeWrapper::SerializeWrapper(const SerializeWrapper& other, bool copy)
-    : SerializeWrapper(other.m_type, other.m_operators) {
+Serialize::Serialize(const Serialize& other, bool copy)
+    : Serialize(other.m_type, other.m_operators) {
 	if (copy) {
 		if (!supported(wrapper_op::Copy)) throw std::logic_error("unsupported");
 		if (other.m_data) {
@@ -57,7 +57,7 @@ SerializeWrapper::SerializeWrapper(const SerializeWrapper& other, bool copy)
 	}
 }
 
-void SerializeWrapper::copy_(const void* other) {
+void Serialize::copy_(const void* other) {
 	if (other == nullptr || !supported(wrapper_op::Copy))
 		throw std::logic_error("unsupported");
 	wrapper_input send{wrapper_op::Copy,         {}, {}, &m_data,
@@ -65,7 +65,7 @@ void SerializeWrapper::copy_(const void* other) {
 	(*m_operators)(send);
 }
 
-void SerializeWrapper::move_(void* other) {
+void Serialize::move_(void* other) {
 	bool do_move = supported(wrapper_op::Move);
 	bool do_copy = !do_move && supported(wrapper_op::Copy);
 	if (other == nullptr || !do_move || !do_copy)
@@ -79,7 +79,7 @@ void SerializeWrapper::move_(void* other) {
 	}
 }
 
-SerializeWrapper& SerializeWrapper::operator=(const SerializeWrapper& other) {
+Serialize& Serialize::operator=(const Serialize& other) {
 	if (m_type != other.m_type) throw std::logic_error("type mismatch");
 	if (auto* g = other.m_data.get(); g == nullptr) {
 		clear();
@@ -89,7 +89,7 @@ SerializeWrapper& SerializeWrapper::operator=(const SerializeWrapper& other) {
 	return *this;
 }
 
-SerializeWrapper& SerializeWrapper::operator=(SerializeWrapper&& other) {
+Serialize& Serialize::operator=(Serialize&& other) {
 	if (m_type != other.m_type) throw std::logic_error("type mismatch");
 	if (auto* g = other.m_data.get(); g == nullptr) {
 		clear();
@@ -99,7 +99,7 @@ SerializeWrapper& SerializeWrapper::operator=(SerializeWrapper&& other) {
 	return *this;
 }
 
-void SerializeWrapper::load(std::istream& in,
+void Serialize::load(std::istream& in,
                             const std::filesystem::path& fname,
                             StreamType type) {
 	wrapper_input send{wrapper_op::Load, wrapper_op{}, type,
@@ -107,7 +107,7 @@ void SerializeWrapper::load(std::istream& in,
 	(*m_operators)(send);
 }
 
-void SerializeWrapper::save(std::ostream& out,
+void Serialize::save(std::ostream& out,
                             const std::filesystem::path& fname,
                             StreamType type) {
 	wrapper_input send{wrapper_op::Save, wrapper_op{}, type,

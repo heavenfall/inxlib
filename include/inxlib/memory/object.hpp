@@ -22,15 +22,16 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#ifndef INXFLOW_DATA_VALUE_GROUP_HPP
-#define INXFLOW_DATA_VALUE_GROUP_HPP
+#ifndef INXLIB_MEMORY_OBJECT_HPP
+#define INXLIB_MEMORY_OBJECT_HPP
 
-namespace inx::flow::data {
+#include <inxlib/inx.hpp>
 
-class Value {};
+namespace inx::memory {
 
-class ValueGroup {};
+template <typename T>
+using object_bytes = alignas(T) std::array<std::byte, sizeof(T)>;
 
-}  // namespace inx::flow::data
+}  // namespace inx::memory
 
-#endif  // INXFLOW_DATA_VALUE_GROUP_HPP
+#endif  // INXLIB_MEMORY_OBJECT_HPP

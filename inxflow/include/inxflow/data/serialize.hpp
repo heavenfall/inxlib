@@ -31,6 +31,7 @@ SOFTWARE.
 #include <inxlib/util/functions.hpp>
 #include <iostream>
 #include <typeindex>
+#include <concepts>
 
 #include "types.hpp"
 
@@ -265,7 +266,7 @@ struct SerializeSaver {
 };
 }  // namespace details
 
-class SerializeWrapper {
+class Serialize {
 public:
 	enum class wrapper_op : uint8 {
 		Support,
@@ -279,23 +280,23 @@ public:
 		wrapper_op op;
 		wrapper_op support;
 		StreamType stype;
-		void* stream;  // either SerializeWrapper* or stream*
+		void* stream;  // either Serialize* or stream*
 		void* data;
 		const std::filesystem::path* path;
 	};
 	using wrapper_fn = bool(wrapper_input input);
 
 protected:
-	SerializeWrapper(std::type_index type, wrapper_fn* fn);
+	Serialize(std::type_index type, wrapper_fn* fn);
 
 public:
-	SerializeWrapper() = delete;
-	SerializeWrapper(const SerializeWrapper& other);
-	SerializeWrapper(SerializeWrapper&& other);
-	SerializeWrapper(const SerializeWrapper& other, bool copy);
+	Serialize() = delete;
+	Serialize(const Serialize& other);
+	Serialize(Serialize&& other);
+	Serialize(const Serialize& other, bool copy);
 
-	SerializeWrapper& operator=(const SerializeWrapper& other);
-	SerializeWrapper& operator=(SerializeWrapper&& other);
+	Serialize& operator=(const Serialize& other);
+	Serialize& operator=(Serialize&& other);
 
 protected:
 	void copy_(const void* other);
@@ -356,6 +357,11 @@ protected:
 	wrapper_fn* m_operators;
 };
 
+namespace concepts {
+template <typename T>
+concept serializable = std::derived_from<Serialize>;
+}
+
 /**
  * Wrapper class for type T to serialize.
  * OpenMode determines if file should be opened in text, binary or determined by
@@ -364,7 +370,7 @@ protected:
  */
 template <typename T, SerMode OpenMode = SerMode::Auto, auto LoadFunc = nullptr,
           auto SaveFunc = nullptr>
-class SerializeWrap : public SerializeWrapper {
+class SerializeWrap : public Serialize {
 public:
 	static bool wrapper_operator(wrapper_input input) {
 		switch (input.op) {

@@ -359,7 +359,7 @@ protected:
 
 namespace concepts {
 template <typename T>
-concept serializable = std::derived_from<Serialize>;
+concept serializable = std::derived_from<T, Serialize>;
 }
 
 /**
@@ -372,6 +372,9 @@ template <typename T, SerMode OpenMode = SerMode::Auto, auto LoadFunc = nullptr,
           auto SaveFunc = nullptr>
 class SerializeWrap : public Serialize {
 public:
+	static constexpr bool load_func_null = std::is_null_pointer_v<decltype(LoadFunc)>;
+	static constexpr bool save_func_null = std::is_null_pointer_v<decltype(LoadFunc)>;
+
 	static bool wrapper_operator(wrapper_input input) {
 		switch (input.op) {
 		case wrapper_op::Support:
@@ -385,10 +388,10 @@ public:
 				return std::is_move_constructible_v<T> ||
 				       std::is_move_assignable_v<T>;
 			case wrapper_op::Load:
-				return !std::is_null_pointer_v<LoadFunc> ||
+				return !load_func_null ||
 				       concepts::ser_load<T>;
 			case wrapper_op::Save:
-				return !std::is_null_pointer_v<SaveFunc> ||
+				return !save_func_null ||
 				       concepts::ser_save<T>;
 			default:
 				return false;
@@ -399,8 +402,8 @@ public:
 			return true;
 		case wrapper_op::Copy:
 			if constexpr (std::is_copy_assignable_v<T>) {
-				if constexpr (!std::is_copy_constructible_v<T>) {  // construct
-					                                               // then copy
+				if constexpr (!std::is_copy_constructible_v<T>) { 
+					// construct then copy
 					auto& ptr = *static_cast<inx::util::any_ptr*>(input.stream);
 					if (!ptr) {
 						ptr = std::make_unique<T>();
@@ -470,7 +473,7 @@ public:
 			if (data == nullptr)
 				throw std::runtime_error(
 				    "Serialize Load/Save requires Construct first.");
-			if constexpr (!std::is_null_pointer_v<LoadFunc>) {
+			if constexpr (!load_func_null) {
 				details::SerializeLoader<T, LoadFunc> loader{data};
 				serialize_load(loader, *input.path, input.stype, mode);
 			} else {
@@ -494,7 +497,7 @@ public:
 			if (data == nullptr)
 				throw std::runtime_error(
 				    "Serialize Load/Save requires Construct first.");
-			if constexpr (!std::is_null_pointer_v<SaveFunc>) {
+			if constexpr (!save_func_null) {
 				details::SerializeSaver<T, SaveFunc> saver{data};
 				serialize_save(saver, *input.path, input.stype, mode);
 			} else {

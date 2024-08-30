@@ -25,14 +25,14 @@ SOFTWARE.
 #ifndef INXFLOW_DATA_GROUP_TEMPLATE_HPP
 #define INXFLOW_DATA_GROUP_TEMPLATE_HPP
 
+#include "serialize.hpp"
 #include <inxlib/inx.hpp>
 #include <inxlib/util/functions.hpp>
-#include "serialize.hpp"
 
-namespace inx::flow::data
-{
+namespace inx::flow::data {
 
-/// @brief Contains the information required to generate a Serialize type from group string
+/// @brief Contains the information required to generate a Serialize type from
+/// group string
 class GroupSignature
 {
 public:
@@ -42,18 +42,16 @@ public:
 	template <concepts::serializable T>
 	std::unique_ptr
 
-private:
-	GroupSignature();
+	  private : GroupSignature();
 	GroupSignature(GroupSignature&&) = delete;
 
 	std::string_view m_name;
-	std::unique_ptr<Serialize, inx::util::functor<[](Serialize&)noexcept{}>> m_base;
+	std::unique_ptr<Serialize, inx::util::functor<[](Serialize&) noexcept {}>>
+	  m_base;
 };
 
 class GroupTemplate
-{
-
-};
+{};
 
 } // namespace inx::flow::data
 

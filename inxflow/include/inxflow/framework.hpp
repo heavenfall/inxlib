@@ -25,6 +25,7 @@ SOFTWARE.
 #ifndef INXFLOW_FRAMEWORK_HPP
 #define INXFLOW_FRAMEWORK_HPP
 
-namespace inx::flow {}  // namespace inx::flow
+namespace inx::flow {
+} // namespace inx::flow
 
-#endif  // INXFLOW_FRAMEWORK_HPP
+#endif // INXFLOW_FRAMEWORK_HPP

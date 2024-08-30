@@ -32,14 +32,17 @@ SOFTWARE.
 
 namespace inx::util {
 
-template <typename T1, typename T2,
-          typename = std::enable_if_t<std::is_integral_v<T1> &&
-                                      std::is_integral_v<T2>>>
-auto div(T1 a, T2 b) noexcept {
+template <
+  typename T1,
+  typename T2,
+  typename = std::enable_if_t<std::is_integral_v<T1> && std::is_integral_v<T2>>>
+auto
+div(T1 a, T2 b) noexcept
+{
 	assert(b != 0);
 	if constexpr (std::is_unsigned_v<T1> != std::is_unsigned_v<T2>) {
 		using ir =
-		    std::common_type_t<std::make_signed_t<T1>, std::make_signed_t<T2>>;
+		  std::common_type_t<std::make_signed_t<T1>, std::make_signed_t<T2>>;
 		using rr = raise_integral_level_t<ir>;
 		if constexpr (std::is_unsigned_v<T1>) {
 			assert(static_cast<size_t>(a) <=
@@ -75,10 +78,13 @@ auto div_ceil(T1 a, T2 b) noexcept
 #endif
 
 template <
-    typename T1, typename T2,
-    typename = std::enable_if_t<std::is_integral_v<T1> &&
-                                std::is_integral_v<T2> && std::is_signed_v<T1>>>
-T2 div_modulo(T1& a, T2 b) noexcept {
+  typename T1,
+  typename T2,
+  typename = std::enable_if_t<std::is_integral_v<T1> &&
+                              std::is_integral_v<T2> && std::is_signed_v<T1>>>
+T2
+div_modulo(T1& a, T2 b) noexcept
+{
 	assert(b > 0);
 	using t2u = std::make_unsigned_t<T2>;
 
@@ -92,27 +98,34 @@ T2 div_modulo(T1& a, T2 b) noexcept {
 }
 
 template <typename F>
-constexpr F ipow_(F val, uint32 p) {
+constexpr F
+ipow_(F val, uint32 p)
+{
 	static_assert(std::is_floating_point_v<F>,
 	              "F must be a floating point number");
 	F res = 1.0;
 	for (uint32 i = 1u << clz_index(p); i != 0; i >>= 1) {
 		res *= res;
-		if ((p & i) != 0) res *= val;
+		if ((p & i) != 0)
+			res *= val;
 	}
 	return res;
 }
 template <typename F>
-constexpr F ipow(F val, int32 p) {
+constexpr F
+ipow(F val, int32 p)
+{
 	if constexpr (std::is_floating_point_v<F>) {
 		// raise F to power of p
-		if (p == 0) return 1;
+		if (p == 0)
+			return 1;
 		if (p > 0)
 			return ipow_(val, static_cast<uint32>(p));
 		else
 			return static_cast<F>(1.0) / ipow_(val, static_cast<uint32>(-p));
 	} else {
-		if (p <= 0) return 1;
+		if (p <= 0)
+			return 1;
 		F ans = val;
 		while (--p > 0) {
 			ans *= val;
@@ -121,6 +134,6 @@ constexpr F ipow(F val, int32 p) {
 	}
 }
 
-}  // namespace inx::util
+} // namespace inx::util
 
-#endif  // INXLIB_UTIL_MATH_HPP
+#endif // INXLIB_UTIL_MATH_HPP

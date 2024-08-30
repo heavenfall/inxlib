@@ -43,7 +43,8 @@ struct RandomIteratorWrapper;
 // };
 
 template <typename Iter, typename ValueType>
-struct RandomIteratorWrapper {
+struct RandomIteratorWrapper
+{
 	// using self = RandomIteratorWrapper<Iter, ValueType>;
 	using value_type = ValueType;
 	using difference_type = ptrdiff_t;
@@ -56,90 +57,112 @@ struct RandomIteratorWrapper {
 	    requires std::same_as<std::remove_cv_t<ValueType>,
 	                          std::remove_cv_t<ValueType2>>
 	auto operator<=>(
-	    const RandomIteratorWrapper<Iter2, ValueType2>& o) const noexcept {
+	  const RandomIteratorWrapper<Iter2, ValueType2>& o) const noexcept
+	{
 		return pos_ <=> o.pos_;
 	}
 
-	RandomIteratorWrapper() noexcept : pos_{} {}
-	explicit RandomIteratorWrapper(difference_type pos) noexcept : pos_(pos) {}
+	RandomIteratorWrapper() noexcept
+	  : pos_{}
+	{
+	}
+	explicit RandomIteratorWrapper(difference_type pos) noexcept
+	  : pos_(pos)
+	{
+	}
 	RandomIteratorWrapper(RandomIteratorWrapper&&) noexcept = default;
 	RandomIteratorWrapper(const RandomIteratorWrapper&) noexcept = default;
 	~RandomIteratorWrapper() noexcept = default;
 
 	RandomIteratorWrapper& operator=(RandomIteratorWrapper&&) noexcept =
-	    default;
+	  default;
 	RandomIteratorWrapper& operator=(const RandomIteratorWrapper&) noexcept =
-	    default;
+	  default;
 
 	// adjust index
-	Iter& operator++() noexcept {
+	Iter& operator++() noexcept
+	{
 		pos_ += 1;
 		return static_cast<Iter&>(*this);
 	}
-	Iter operator++(int) noexcept {
+	Iter operator++(int) noexcept
+	{
 		Iter res = static_cast<const Iter&>(std::as_const(*this));
 		pos_ += 1;
 		return res;
 	}
-	Iter& operator--() noexcept {
+	Iter& operator--() noexcept
+	{
 		pos_ -= 1;
 		return static_cast<Iter&>(*this);
 	}
-	Iter operator--(int) noexcept {
+	Iter operator--(int) noexcept
+	{
 		Iter res = static_cast<const Iter&>(std::as_const(*this));
 		pos_ -= 1;
 		return res;
 	}
 
 	// dereference
-	reference operator*() const noexcept {
+	reference operator*() const noexcept
+	{
 		return static_cast<const Iter&>(*this)[pos_];
 	}
-	pointer operator->() const noexcept {
+	pointer operator->() const noexcept
+	{
 		return &static_cast<const Iter&>(this)[pos_];
 	}
 };
 
 // +
 template <typename Iter, typename ValueType>
-Iter& operator+=(RandomIteratorWrapper<Iter, ValueType>& it,
-                 ptrdiff_t n) noexcept {
+Iter&
+operator+=(RandomIteratorWrapper<Iter, ValueType>& it, ptrdiff_t n) noexcept
+{
 	it.pos_ += n;
 	return static_cast<Iter>(it);
 }
 template <typename Iter, typename ValueType>
-Iter operator+(const RandomIteratorWrapper<Iter, ValueType>& it,
-               ptrdiff_t n) noexcept {
+Iter
+operator+(const RandomIteratorWrapper<Iter, ValueType>& it,
+          ptrdiff_t n) noexcept
+{
 	Iter res = static_cast<const Iter&>(it);
 	res.pos_ += n;
 	return res;
 }
 template <typename Iter, typename ValueType>
-Iter operator+(ptrdiff_t n,
-               const RandomIteratorWrapper<Iter, ValueType>& it) noexcept {
+Iter
+operator+(ptrdiff_t n,
+          const RandomIteratorWrapper<Iter, ValueType>& it) noexcept
+{
 	return it + n;
 }
 // -
 template <typename Iter, typename ValueType>
-Iter& operator-=(RandomIteratorWrapper<Iter, ValueType>& it,
-                 ptrdiff_t n) noexcept {
+Iter&
+operator-=(RandomIteratorWrapper<Iter, ValueType>& it, ptrdiff_t n) noexcept
+{
 	it.pos_ -= n;
 	return static_cast<Iter>(it);
 }
 template <typename Iter, typename ValueType>
-Iter operator-(const RandomIteratorWrapper<Iter, ValueType>& it,
-               ptrdiff_t n) noexcept {
+Iter
+operator-(const RandomIteratorWrapper<Iter, ValueType>& it,
+          ptrdiff_t n) noexcept
+{
 	Iter res = static_cast<const Iter&>(it);
 	res.pos_ -= n;
 	return res;
 }
 template <typename Iter, typename ValueType>
-ptrdiff_t operator-(
-    const RandomIteratorWrapper<Iter, ValueType>& it,
-    const RandomIteratorWrapper<Iter, ValueType>& it2) noexcept {
+ptrdiff_t
+operator-(const RandomIteratorWrapper<Iter, ValueType>& it,
+          const RandomIteratorWrapper<Iter, ValueType>& it2) noexcept
+{
 	return it2.pos_ - it.pos_;
 }
 
-}  // namespace inx::util
+} // namespace inx::util
 
-#endif  // INXLIB_UTIL_ITERATOR_HPP
+#endif // INXLIB_UTIL_ITERATOR_HPP

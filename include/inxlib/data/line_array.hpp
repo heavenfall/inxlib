@@ -30,10 +30,12 @@ SOFTWARE.
 
 namespace inx::data {
 
-template <typename T = char, bool NullTerm = true,
+template <typename T = char,
+          bool NullTerm = true,
           typename Allocator = std::allocator<T>>
-class LineArray {};
+class LineArray
+{};
 
-}  // namespace inx::data
+} // namespace inx::data
 
-#endif  // INXLIB_DATA_LINE_ARRAY_HPP
+#endif // INXLIB_DATA_LINE_ARRAY_HPP

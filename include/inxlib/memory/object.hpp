@@ -32,6 +32,6 @@ namespace inx::memory {
 template <typename T>
 using object_bytes = alignas(T) std::array<std::byte, sizeof(T)>;
 
-}  // namespace inx::memory
+} // namespace inx::memory
 
-#endif  // INXLIB_MEMORY_OBJECT_HPP
+#endif // INXLIB_MEMORY_OBJECT_HPP

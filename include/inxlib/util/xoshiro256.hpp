@@ -27,13 +27,18 @@ See <http://creativecommons.org/publicdomain/zero/1.0/>.*/
 
 namespace inx::util {
 
-class xoshiro256 {
+class xoshiro256
+{
 public:
 	using result_type = uint64_t;
-	xoshiro256() : s{} {}
+	xoshiro256()
+	  : s{}
+	{
+	}
 	xoshiro256(std::uniform_random_bit_generator auto& seeder) { seed(seeder); }
 
-	void seed(std::uniform_random_bit_generator auto& seeder) {
+	void seed(std::uniform_random_bit_generator auto& seeder)
+	{
 		using srt = std::remove_cvref_t<decltype(seeder)>::result_type;
 		for (int i = 0; i < 4; ++i) {
 			if constexpr (sizeof(result_type) <= sizeof(srt)) {
@@ -49,14 +54,17 @@ public:
 		}
 	}
 
-	consteval static result_type min() noexcept {
+	consteval static result_type min() noexcept
+	{
 		return std::numeric_limits<result_type>::min();
 	}
-	consteval static result_type max() noexcept {
+	consteval static result_type max() noexcept
+	{
 		return std::numeric_limits<result_type>::max();
 	}
 
-	result_type operator()() noexcept {
+	result_type operator()() noexcept
+	{
 		const result_type result = std::rotl(s[1] * 5, 7) * 9;
 
 		const result_type t = s[1] << 17;
@@ -76,10 +84,12 @@ public:
 	/**
 	 * Progress 2^128 rng states.
 	 */
-	xoshiro256& jump() {
-		constexpr std::array<uint64_t, 4> JUMP{
-		    (0x180ec6d33cfd0aba, 0xd5a61266f0c9392c, 0xa9582618e03fc9aa,
-		     0x39abdc4529b1661c)};
+	xoshiro256& jump()
+	{
+		constexpr std::array<uint64_t, 4> JUMP{ 0x180ec6d33cfd0aba,
+			                                    0xd5a61266f0c9392c,
+			                                    0xa9582618e03fc9aa,
+			                                    0x39abdc4529b1661c };
 
 		uint64_t s0 = 0;
 		uint64_t s1 = 0;
@@ -110,10 +120,12 @@ public:
 	/**
 	 * Progress 2^192 rng states.
 	 */
-	xoshiro256& long_jump() {
-		constexpr std::array<uint64_t, 4> JUMP{
-		    {0x76e15d3efefdcbbf, 0xc5004e441c522fb3, 0x77710069854ee241,
-		     0x39109bb02acbe635}};
+	xoshiro256& long_jump()
+	{
+		constexpr std::array<uint64_t, 4> JUMP{ 0x76e15d3efefdcbbf,
+			                                    0xc5004e441c522fb3,
+			                                    0x77710069854ee241,
+			                                    0x39109bb02acbe635 };
 
 		uint64_t s0 = 0;
 		uint64_t s1 = 0;
@@ -142,6 +154,6 @@ private:
 	result_type s[4];
 };
 
-}  // namespace inx::util
+} // namespace inx::util
 
-#endif  // INXLIB_UTIL_XOSHIRO256_HPP
+#endif // INXLIB_UTIL_XOSHIRO256_HPP

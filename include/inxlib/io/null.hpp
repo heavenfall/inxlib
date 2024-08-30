@@ -32,17 +32,20 @@ SOFTWARE.
 namespace inx::io {
 
 template <typename CharT, typename Traits = std::char_traits<CharT>>
-class basic_null_buffer final : public std::basic_streambuf<CharT, Traits> {
+class basic_null_buffer final : public std::basic_streambuf<CharT, Traits>
+{
 public:
 	using typename std::basic_streambuf<CharT, Traits>::int_type;
 	using typename std::basic_streambuf<CharT, Traits>::char_type;
 
 protected:
-	int overflow(int c) override {
+	int overflow(int c) override
+	{
 		setp(m_buffer.data(), m_buffer.data() + m_buffer.size());
 		return c;
 	}
-	std::streamsize xsputn(const char*, std::streamsize n) override {
+	std::streamsize xsputn(const char*, std::streamsize n) override
+	{
 		return n;
 	}
 
@@ -52,7 +55,7 @@ protected:
 
 private:
 	alignas(std::basic_streambuf<CharT, Traits>)
-	    std::array<CharT, sizeof(std::max_align_t) / sizeof(CharT)> m_buffer;
+	  std::array<CharT, sizeof(std::max_align_t) / sizeof(CharT)> m_buffer;
 };
 
 using null_buffer = basic_null_buffer<char>;
@@ -61,11 +64,13 @@ using wnull_buffer = basic_null_buffer<wchar_t>;
 namespace details {
 
 template <typename BaseStream, typename NullBuffer>
-class basic_null_stream final : public BaseStream {
+class basic_null_stream final : public BaseStream
+{
 public:
-	basic_null_stream() {
-		init(&m_buffer);  // paranoid, insuring NullBuffer is init before
-		                  // constructor
+	basic_null_stream()
+	{
+		init(&m_buffer); // paranoid, insuring NullBuffer is init before
+		                 // constructor
 	}
 	// ~basic_null_stream()
 	// can leave destruct, as istream/ostream/iostream does not touch the rdbuff
@@ -73,20 +78,20 @@ private:
 	NullBuffer m_buffer;
 };
 
-}  // namespace details
+} // namespace details
 
 template <typename CharT, typename Traits = std::char_traits<CharT>>
 using basic_null_istream =
-    details::basic_null_stream<std::basic_istream<CharT, Traits>,
-                               basic_null_buffer<CharT, Traits>>;
+  details::basic_null_stream<std::basic_istream<CharT, Traits>,
+                             basic_null_buffer<CharT, Traits>>;
 template <typename CharT, typename Traits = std::char_traits<CharT>>
 using basic_null_ostream =
-    details::basic_null_stream<std::basic_ostream<CharT, Traits>,
-                               basic_null_buffer<CharT, Traits>>;
+  details::basic_null_stream<std::basic_ostream<CharT, Traits>,
+                             basic_null_buffer<CharT, Traits>>;
 template <typename CharT, typename Traits = std::char_traits<CharT>>
 using basic_null_iostream =
-    details::basic_null_stream<std::basic_iostream<CharT, Traits>,
-                               basic_null_buffer<CharT, Traits>>;
+  details::basic_null_stream<std::basic_iostream<CharT, Traits>,
+                             basic_null_buffer<CharT, Traits>>;
 
 using null_istream = basic_null_istream<char>;
 using null_wistream = basic_null_istream<wchar_t>;
@@ -95,6 +100,6 @@ using null_wostream = basic_null_ostream<wchar_t>;
 using null_iostream = basic_null_iostream<char>;
 using null_wiostream = basic_null_iostream<wchar_t>;
 
-}  // namespace inx::io
+} // namespace inx::io
 
-#endif  // INXLIB_IO_NULL_HPP
+#endif // INXLIB_IO_NULL_HPP

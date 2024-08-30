@@ -33,10 +33,12 @@ namespace inx::data {
 
 namespace details {
 template <typename T, bool IsTrivial>
-struct FactoryPoolDelete {
+struct FactoryPoolDelete
+{
 	using obj_type = std::array<T*, 512>;
 	using obj_list = std::forward_list<obj_type>;
-	static constexpr uint32 size() noexcept {
+	static constexpr uint32 size() noexcept
+	{
 		return std::tuple_size<obj_type>::value;
 	}
 	obj_list objects;
@@ -45,16 +47,23 @@ struct FactoryPoolDelete {
 	uint32 obj_size;
 
 	FactoryPoolDelete()
-	    : obj_it(objects.before_begin()), obj_i(size()), obj_size(0) {}
+	  : obj_it(objects.before_begin())
+	  , obj_i(size())
+	  , obj_size(0)
+	{
+	}
 
-	static bool getDel(const T* obj) noexcept {
+	static bool getDel(const T* obj) noexcept
+	{
 		return reinterpret_cast<const bool*>(obj)[-1];
 	}
-	static void setDel(T* obj, bool del) noexcept {
+	static void setDel(T* obj, bool del) noexcept
+	{
 		reinterpret_cast<bool*>(obj)[-1] = del;
 	}
 
-	void push(T* obj) {
+	void push(T* obj)
+	{
 		if (obj_i >= size()) {
 			obj_i = 0;
 			if (auto it = std::next(obj_it); it == objects.end())
@@ -67,59 +76,77 @@ struct FactoryPoolDelete {
 	}
 };
 template <typename T>
-struct FactoryPoolDelete<T, true> {};
-}  // namespace details
+struct FactoryPoolDelete<T, true>
+{};
+} // namespace details
 
 template <typename T>
-class Factory {
+class Factory
+{
 public:
-	static constexpr bool is_trivial() noexcept {
+	static constexpr bool is_trivial() noexcept
+	{
 		return std::is_trivially_destructible_v<T>;
 	}
 	static constexpr size_t size() noexcept { return sizeof(T); }
 	static constexpr size_t align() noexcept { return alignof(T); }
-	static constexpr size_t size_del() noexcept {
+	static constexpr size_t size_del() noexcept
+	{
 		return is_trivial() ? size() : size() + align();
 	}
 	using auto_delete = details::FactoryPoolDelete<T, is_trivial()>;
 	Factory() {}
-	Factory(std::pmr::memory_resource* upstream) : m_pool(upstream) {}
-	Factory(std::size_t initial_size) : m_pool(initial_size * size()) {}
+	Factory(std::pmr::memory_resource* upstream)
+	  : m_pool(upstream)
+	{
+	}
+	Factory(std::size_t initial_size)
+	  : m_pool(initial_size * size())
+	{
+	}
 	Factory(std::size_t initial_size, std::pmr::memory_resource* upstream)
-	    : m_pool(initial_size * size_del(), upstream) {}
+	  : m_pool(initial_size * size_del(), upstream)
+	{
+	}
 	~Factory() { release(); }
 
-	[[nodiscard]] void* allocate() {
+	[[nodiscard]] void* allocate()
+	{
 		if constexpr (is_trivial()) {
 			return m_pool.allocate(size_del(), align());
 		} else {
 			return static_cast<void*>(
-			    static_cast<std::byte*>(m_pool.allocate(size_del(), align())) +
-			    align());
+			  static_cast<std::byte*>(m_pool.allocate(size_del(), align())) +
+			  align());
 		}
 	}
-	void deallocate(void* data) {
+	void deallocate(void* data)
+	{
 		if constexpr (is_trivial()) {
 			m_pool.deallocate(data, size_del(), align());
 		} else {
 			m_pool.deallocate(
-			    static_cast<void*>(static_cast<std::byte*>(data) - align()),
-			    size_del(), align());
+			  static_cast<void*>(static_cast<std::byte*>(data) - align()),
+			  size_del(),
+			  align());
 		}
 	}
 
 	template <typename... Args>
-	[[nodiscard]] T* construct(Args&&... args) {
+	[[nodiscard]] T* construct(Args&&... args)
+	{
 		T* data = ::new (allocate()) T(std::forward<Args>(args)...);
 		construct_(data);
 		return data;
 	}
-	void destruct(T* data) {
+	void destruct(T* data)
+	{
 		destruct_(data);
 		deallocate(data);
 	}
 
-	void release() noexcept {
+	void release() noexcept
+	{
 		if constexpr (!is_trivial()) {
 			constexpr uint32 objsize = auto_delete::size();
 			auto it = m_autoDelete.objects.before_begin();
@@ -143,13 +170,15 @@ public:
 	}
 
 protected:
-	void construct_(T* data) {
+	void construct_(T* data)
+	{
 		if constexpr (!is_trivial()) {
 			auto_delete::setDel(data, true);
 			m_autoDelete.push(data);
 		}
 	}
-	void destruct_(T* data) {
+	void destruct_(T* data)
+	{
 		if constexpr (!is_trivial()) {
 			assert(auto_delete::getDel(data));
 			auto_delete::setDel(data, false);
@@ -163,7 +192,8 @@ protected:
 };
 
 template <typename T>
-class ReuseFactory : Factory<T> {
+class ReuseFactory : Factory<T>
+{
 public:
 	using self = ReuseFactory<T>;
 	using super = Factory<T>;
@@ -171,7 +201,8 @@ public:
 	using super::super;
 	~ReuseFactory() { release(); }
 
-	[[nodiscard]] void* allocate() {
+	[[nodiscard]] void* allocate()
+	{
 		if (m_reuse.empty())
 			return super::allocate();
 		else {
@@ -180,23 +211,27 @@ public:
 			return m;
 		}
 	}
-	void deallocate(void* data) {
+	void deallocate(void* data)
+	{
 		m_reuse.push_back(data);
 		super::deallocate(data);
 	}
 
 	template <typename... Args>
-	[[nodiscard]] T* construct(Args&&... args) {
+	[[nodiscard]] T* construct(Args&&... args)
+	{
 		T* data = ::new (allocate()) T(std::forward<Args>(args)...);
 		this->construct_(data);
 		return data;
 	}
-	void destruct(T* data) {
+	void destruct(T* data)
+	{
 		this->destruct_(data);
 		deallocate(data);
 	}
 
-	void release() noexcept {
+	void release() noexcept
+	{
 		m_reuse = std::vector<void*>();
 		super::release();
 	}
@@ -206,17 +241,20 @@ protected:
 };
 
 template <typename T, size_t SlabN>
-class ReclaimFactory {
+class ReclaimFactory
+{
 public:
 	using self = ReclaimFactory<T, SlabN>;
 
-	struct Slab {
+	struct Slab
+	{
 		std::array<std::byte, sizeof(T) * SlabN> data;
 		std::unique_ptr<Slab> next;
 		T* castArray() noexcept { return reinterpret_cast<T*>(data.data()); }
 	};
 
-	ReclaimFactory() {
+	ReclaimFactory()
+	{
 		m_first = std::make_unique<Slab>();
 		m_current = m_first.get();
 		m_currentAt = m_current->castArray();
@@ -224,7 +262,8 @@ public:
 		m_reuse.reserve(64);
 	}
 
-	[[nodiscard]] void* allocate() {
+	[[nodiscard]] void* allocate()
+	{
 		if (m_reuse.empty()) {
 			if (m_currentAt == m_currentEnd) [[unlikely]] {
 				if (m_current->next == nullptr) {
@@ -244,23 +283,27 @@ public:
 	void deallocate(void* data) { m_reuse.push_back(data); }
 
 	template <typename... Args>
-	[[nodiscard]] T* construct(Args&&... args) {
+	[[nodiscard]] T* construct(Args&&... args)
+	{
 		T* data = std::construct_at<T>(static_cast<T*>(allocate()),
 		                               std::forward<Args>(args)...);
 		return data;
 	}
-	void destruct(T* data) {
+	void destruct(T* data)
+	{
 		std::destroy_at(data);
 		deallocate(data);
 	}
 
-	void reset() noexcept {
+	void reset() noexcept
+	{
 		m_current = m_first.get();
 		m_currentAt = m_current->castArray();
 		m_currentEnd = m_currentAt + SlabN;
 		m_reuse.clear();
 	}
-	void release() noexcept {
+	void release() noexcept
+	{
 		m_current = m_first.get();
 		m_currentAt = m_current->castArray();
 		m_currentEnd = m_currentAt + SlabN;
@@ -276,6 +319,6 @@ protected:
 	std::vector<void*> m_reuse;
 };
 
-}  // namespace inx::data
+} // namespace inx::data
 
-#endif  // INXLIB_DATA_FACTORY_HPP
+#endif // INXLIB_DATA_FACTORY_HPP

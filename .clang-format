@@ -1,8 +1,9 @@
 ---
-BasedOnStyle: Google
+BasedOnStyle: Mozilla
 AccessModifierOffset: '-4'
 IndentCaseLabels: 'false'
 IndentWidth: '4'
+SpaceAfterTemplateKeyword: 'true'
 TabWidth: '4'
 UseTab: ForIndentation
 

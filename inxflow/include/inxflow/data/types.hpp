@@ -32,17 +32,19 @@ SOFTWARE.
 
 namespace inx::flow::data {
 
-enum class StreamType : uint8 {
-	File = 1 << 0,     // stream not open, use fname
-	Stream = 1 << 1,   // stream is a user-provided stream
-	StdOut = 1 << 2,   // stream is std::cout
-	StdIn = 1 << 3,    // stream is std::cin
-	DevNull = 1 << 4,  // stream is null
+enum class StreamType : uint8
+{
+	File = 1 << 0,    // stream not open, use fname
+	Stream = 1 << 1,  // stream is a user-provided stream
+	StdOut = 1 << 2,  // stream is std::cout
+	StdIn = 1 << 3,   // stream is std::cin
+	DevNull = 1 << 4, // stream is null
 };
 
-enum class SerMode {
-	Auto,  // auto deduce from ser_save_mode(), ser_load_mode(), ser_binary() in
-	       // order, defaults to text otherwise
+enum class SerMode
+{
+	Auto, // auto deduce from ser_save_mode(), ser_load_mode(), ser_binary() in
+	      // order, defaults to text otherwise
 	Text,
 	Binary
 };
@@ -51,52 +53,60 @@ namespace concepts {
 
 template <typename T>
 concept ser_load_full =
-    requires(T& t, std::istream& stream, const std::filesystem::path& path) {
-	    t.load(path, stream);
-    };
+  requires(T& t, std::istream& stream, const std::filesystem::path& path) {
+	  t.load(path, stream);
+  };
 template <typename T>
 concept ser_load_full_type =
-    requires(T& t, std::istream& stream, const std::filesystem::path& path,
-             StreamType type) { t.load(path, stream, type); };
+  requires(T& t,
+           std::istream& stream,
+           const std::filesystem::path& path,
+           StreamType type) { t.load(path, stream, type); };
 template <typename T>
 concept ser_load_stream =
-    requires(T& t, std::istream& stream) { t.load(stream); };
+  requires(T& t, std::istream& stream) { t.load(stream); };
 template <typename T>
-concept ser_load_stream_type = requires(
-    T& t, std::istream& stream, StreamType type) { t.load(stream, type); };
+concept ser_load_stream_type =
+  requires(T& t, std::istream& stream, StreamType type) {
+	  t.load(stream, type);
+  };
 template <typename T>
 concept ser_load_filename =
-    requires(T& t, const std::filesystem::path& path) { t.load(path); };
+  requires(T& t, const std::filesystem::path& path) { t.load(path); };
 template <typename T>
 concept ser_load =
-    ser_load_full<T> || ser_load_full_type<T> || ser_load_stream<T> ||
-    ser_load_stream_type<T> || ser_load_filename<T>;
+  ser_load_full<T> || ser_load_full_type<T> || ser_load_stream<T> ||
+  ser_load_stream_type<T> || ser_load_filename<T>;
 
 template <typename T>
 concept ser_save_full =
-    requires(T& t, std::istream& stream, const std::filesystem::path& path) {
-	    t.save(path, stream);
-    };
+  requires(T& t, std::istream& stream, const std::filesystem::path& path) {
+	  t.save(path, stream);
+  };
 template <typename T>
 concept ser_save_full_type =
-    requires(T& t, std::istream& stream, const std::filesystem::path& path,
-             StreamType type) { t.save(path, stream, type); };
+  requires(T& t,
+           std::istream& stream,
+           const std::filesystem::path& path,
+           StreamType type) { t.save(path, stream, type); };
 template <typename T>
 concept ser_save_stream =
-    requires(T& t, std::istream& stream) { t.save(stream); };
+  requires(T& t, std::istream& stream) { t.save(stream); };
 template <typename T>
-concept ser_save_stream_type = requires(
-    T& t, std::istream& stream, StreamType type) { t.save(stream, type); };
+concept ser_save_stream_type =
+  requires(T& t, std::istream& stream, StreamType type) {
+	  t.save(stream, type);
+  };
 template <typename T>
 concept ser_save_filename =
-    requires(T& t, const std::filesystem::path& path) { t.save(path); };
+  requires(T& t, const std::filesystem::path& path) { t.save(path); };
 template <typename T>
 concept ser_save =
-    ser_save_full<T> || ser_save_full_type<T> || ser_save_stream<T> ||
-    ser_save_stream_type<T> || ser_save_filename<T>;
+  ser_save_full<T> || ser_save_full_type<T> || ser_save_stream<T> ||
+  ser_save_stream_type<T> || ser_save_filename<T>;
 
-}  // namespace concepts
+} // namespace concepts
 
-}  // namespace inx::flow::data
+} // namespace inx::flow::data
 
-#endif  // INXFLOW_DATA_TYPES_HPP
+#endif // INXFLOW_DATA_TYPES_HPP

@@ -22,20 +22,17 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#ifndef INXLIB_DATA_LINE_ARRAY_HPP
-#define INXLIB_DATA_LINE_ARRAY_HPP
+#ifndef INXFLOW_CMD_TYPES_HPP
+#define INXFLOW_CMD_TYPES_HPP
 
-#include <inxlib/inx.hpp>
-#include <memory_resource>
+#include <string_view>
+#include <span>
 
-namespace inx::data {
+namespace inx::flow::cmd
+{
 
-template <typename T = char,
-          bool NullTerm = true,
-          typename Allocator = std::allocator<T>>
-class LineArray
-{};
+using command_args = std::span<std::string_view>;
 
-} // namespace inx::data
+} // namespace inx::flow::cmd
 
-#endif // INXLIB_DATA_LINE_ARRAY_HPP
+#endif // INXFLOW_CMD_TYPES_HPP

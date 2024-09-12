@@ -7,13 +7,22 @@ project(INXflow
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 
+find_package(Threads REQUIRED)
+
 add_library(inxlib_flow)
 add_library(inxlib::flow ALIAS inxlib_flow)
-target_link_libraries(inxlib_flow PUBLIC inxlib::lib)
+target_link_libraries(inxlib_flow PUBLIC inxlib::lib Threads::Threads)
 target_include_directories(inxlib_lib INTERFACE
 	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 	$<INSTALL_INTERFACE:include>
 )
 
 add_subdirectory(src)
-target_sources(inxlib_flow PUBLIC include/inxflow/util/string.hpp)
+# find include/inxflow -type f | sort
+target_sources(inxlib_flow PUBLIC
+include/inxflow/data/group_template.hpp
+include/inxflow/data/serialize.hpp
+include/inxflow/data/types.hpp
+include/inxflow/framework.hpp
+include/inxflow/util/string.hpp
+)

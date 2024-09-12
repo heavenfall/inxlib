@@ -36,7 +36,7 @@ ending in a single `@` will end in the `@` character.
 
 The syntax is defined below:
 
-	@[op]?[group:]?[varname]@
+	@[op]?[group!]?[varname]@
 
 The `group` defines what the data is managed by. There is no default group,
 but certain arguments may default or expect data in a certain group.
@@ -48,10 +48,10 @@ By default, this string is simply left as is, but the command interpreter
 can refer to it to look up the data.
 If `op` is `%`, then convert the data string at the command line level (print).
 If no group is specified, then defaults to `var`.
-E.g. `@%name@` will put `var:name` to output.
+E.g. `@%name@` will be replaced with the value in `var!name`.
 
 The `varname` is the variable name inside the group.  Use of whitespace is discouraged,
-and no `@$:` characters are permitted, otherwise any ASCII is allowed.
+and no `@$!` characters are permitted, otherwise any ASCII is allowed.
 Varname is allowed to start with `$`, in which case it is a local variable, and will be
 discarded upon a `++` separator.
 

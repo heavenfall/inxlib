@@ -32,6 +32,7 @@ SOFTWARE.
 #include <inxlib/util/functions.hpp>
 #include <iostream>
 #include <typeindex>
+#include <memory_resource>
 
 #include "types.hpp"
 
@@ -229,6 +230,9 @@ template <typename T>
 concept has_ser_save_mode = requires { T::concepts::ser_save_mode(); };
 } // namespace concepts
 
+class Serialize;
+using serialize = std::shared_ptr<Serialize>;
+
 namespace details {
 template <typename T, auto LoadFunc>
 struct SerializeLoader
@@ -297,7 +301,7 @@ struct SerializeSaver
 };
 } // namespace details
 
-class Serialize
+class Serialize : public std::enable_shared_from_this<Serialize>
 {
 public:
 	enum class wrapper_op : uint8
@@ -314,14 +318,15 @@ public:
 		wrapper_op op;
 		wrapper_op support;
 		StreamType stype;
-		void* stream; // either Serialize* or stream*
+		void* stream; // either any_ptr* or stream*
 		void* data;
 		const std::filesystem::path* path;
 	};
 	using wrapper_fn = bool(wrapper_input input);
+	using serialize_construct = serialize(const std::pmr::polymorphic_allocator<>*);
 
 protected:
-	Serialize(std::type_index type, wrapper_fn* fn);
+	Serialize(std::type_index type, wrapper_fn* fn, serialize_construct* dup);
 
 public:
 	Serialize() = delete;
@@ -331,6 +336,8 @@ public:
 
 	Serialize& operator=(const Serialize& other);
 	Serialize& operator=(Serialize&& other);
+
+	serialize construct_new(const std::pmr::polymorphic_allocator<>* alloc) const;
 
 protected:
 	void copy_(const void* other);
@@ -397,7 +404,10 @@ protected:
 	std::type_index m_type;
 	inx::util::any_ptr m_data;
 	wrapper_fn* m_operators;
+	serialize_construct* m_duplicate;
 };
+
+
 
 namespace concepts {
 template <typename T>
@@ -422,7 +432,8 @@ public:
 	static constexpr bool save_func_null =
 	  std::is_null_pointer_v<decltype(LoadFunc)>;
 
-	static bool wrapper_operator(wrapper_input input)
+protected:
+	static bool wrapper_operator_(wrapper_input input)
 	{
 		switch (input.op) {
 		case wrapper_op::Support:
@@ -554,6 +565,17 @@ public:
 			assert(false);
 		}
 	};
+
+public:
+	static serialize construct(const std::pmr::polymorphic_allocator<>* alloc) {
+		serialize obj;
+		if (alloc != nullptr) {
+			obj = std::allocate_shared<SerializeWrap>(*alloc, typeid(SerializeWrap), &SerializeWrap::wrapper_operator_, &SerializeWrap::construct);
+		} else {
+			obj = std::make_shared<SerializeWrap>(typeid(SerializeWrap), &SerializeWrap::wrapper_operator_, &SerializeWrap::construct);
+		}
+		return obj;
+	}
 };
 
 } // namespace inx::flow::data

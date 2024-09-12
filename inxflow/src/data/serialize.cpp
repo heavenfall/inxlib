@@ -26,11 +26,14 @@ SOFTWARE.
 
 namespace inx::flow::data {
 
-Serialize::Serialize(std::type_index type, wrapper_fn* fn)
-    : m_type(type), m_operators(fn) {}
+Serialize::Serialize(std::type_index type, wrapper_fn* fn, serialize_construct* dup)
+    : m_type(type), m_operators(fn), m_duplicate(dup)
+{
+	assert(fn != nullptr && dup != nullptr);
+}
 
 Serialize::Serialize(const Serialize& other)
-    : Serialize(other.m_type, other.m_operators) {
+    : Serialize(other.m_type, other.m_operators, other.m_duplicate) {
 	if (other.m_data && supported(wrapper_op::Copy)) {
 		wrapper_input send{wrapper_op::Copy,   {}, {}, &m_data,
 		                   other.m_data.get(), {}};
@@ -38,7 +41,7 @@ Serialize::Serialize(const Serialize& other)
 	}
 }
 Serialize::Serialize(Serialize&& other)
-    : Serialize(other.m_type, other.m_operators) {
+    : Serialize(other.m_type, other.m_operators, other.m_duplicate) {
 	if (other.m_data && supported(wrapper_op::Move)) {
 		wrapper_input send{wrapper_op::Copy,   {}, {}, &m_data,
 		                   other.m_data.get(), {}};
@@ -46,7 +49,7 @@ Serialize::Serialize(Serialize&& other)
 	}
 }
 Serialize::Serialize(const Serialize& other, bool copy)
-    : Serialize(other.m_type, other.m_operators) {
+    : Serialize(other.m_type, other.m_operators, other.m_duplicate) {
 	if (copy) {
 		if (!supported(wrapper_op::Copy)) throw std::logic_error("unsupported");
 		if (other.m_data) {
@@ -77,6 +80,14 @@ void Serialize::move_(void* other) {
 		wrapper_input send{wrapper_op::Move, {}, {}, &m_data, other, {}};
 		(*m_operators)(send);
 	}
+}
+
+serialize Serialize::construct_new(const std::pmr::polymorphic_allocator<>* alloc) const
+{
+	auto obj = m_duplicate(alloc);
+	wrapper_input send{wrapper_op::Construct, {}, {}, &obj->m_data, {}, {}};
+	(*obj->m_operators)(send);
+	return obj;
 }
 
 Serialize& Serialize::operator=(const Serialize& other) {

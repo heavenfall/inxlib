@@ -28,6 +28,7 @@ SOFTWARE.
 #include "serialize.hpp"
 #include <inxlib/inx.hpp>
 #include <inxlib/util/functions.hpp>
+#include <mutex>
 
 namespace inx::flow::data {
 
@@ -39,19 +40,54 @@ public:
 	std::string_view name() const noexcept { return m_name; }
 	const Serialize& base() const noexcept { return *m_base; }
 
-	template <concepts::serializable T>
-	std::unique_ptr
+	[[nodiscard]]
+	serialize construct()
+	{
+		std::lock_guard lock(m_mutex);
+		return m_base->construct_new(m_alloc);
+	}
+	[[nodiscard]]
+	serialize construct_nolock()
+	{
+		return m_base->construct_new(m_alloc);
+	}
 
-	  private : GroupSignature();
-	GroupSignature(GroupSignature&&) = delete;
+	GroupSignature(std::string&& name, serialize&& base, const std::pmr::polymorphic_allocator<>* alloc = nullptr);
 
-	std::string_view m_name;
-	std::unique_ptr<Serialize, inx::util::functor<[](Serialize&) noexcept {}>>
-	  m_base;
+	std::string m_name;
+	serialize m_base;
+	const std::pmr::polymorphic_allocator<>* m_alloc;
+	std::mutex m_mutex;
 };
 
+/// @brief Variable scope of GroupSignature
 class GroupTemplate
-{};
+{
+public:
+	GroupTemplate(const std::pmr::polymorphic_allocator<>& var_alloc, std::string_view name, serialize&& base, const std::pmr::polymorphic_allocator<>* alloc = nullptr);
+	GroupTemplate(const std::pmr::polymorphic_allocator<>& var_alloc, GroupTemplate& higher);
+	GroupTemplate(GroupTemplate& higher);
+
+	Serialize& at(std::string_view id) const; /// finds id, raises std::out_of_range if key does not exist
+	serialize get(std::string_view id) const; /// finds id, returns null shared_ptr if key does not exist
+	
+	Serialize& at_chain(std::string_view id) const; /// finds id, chains to higher scope if does not exists
+	serialize get_chain(std::string_view id) const; /// finds id, chains to higher scope if does not exists
+	
+	Serialize& at_make(std::string_view id); /// finds id, constructs if does not exists on scope
+	serialize get_make(std::string_view id); /// finds id, constructs if does not exists on scope
+
+	const auto& data() const noexcept { return m_vars; }
+
+private:
+	serialize get_chain_nolock(std::string_view id) const; /// finds id, chains to higher scope if does not exists
+	
+protected:
+	std::shared_ptr<GroupSignature> m_signature; /// Object signature
+	GroupTemplate* m_higherScope; /// higher variable scope (global), if present
+	std::pmr::unordered_map<std::pmr::string, serialize> m_vars;
+	std::pmr::string mutable m_varTemp;
+};
 
 } // namespace inx::flow::data
 

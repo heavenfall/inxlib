@@ -25,11 +25,10 @@ SOFTWARE.
 #ifndef INXFLOW_CMD_TYPES_HPP
 #define INXFLOW_CMD_TYPES_HPP
 
-#include <string_view>
 #include <span>
+#include <string_view>
 
-namespace inx::flow::cmd
-{
+namespace inx::flow::cmd {
 
 using command_args = std::span<std::string_view>;
 

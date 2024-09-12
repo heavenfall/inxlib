@@ -27,18 +27,21 @@ SOFTWARE.
 
 namespace inx::flow::util {
 
-std::pair<VarName, size_t> parse_varname(std::string_view parse,
-                                         bool whitespace) {
+std::pair<VarName, size_t>
+parse_varname(std::string_view parse, bool whitespace)
+{
 	using namespace std::string_view_literals;
 	// handle default case
 	switch (parse.size()) {
 	case 0:
 		return {};
 	case 1:
-		if (parse[0] == '@') return {};
+		if (parse[0] == '@')
+			return {};
 		break;
-	default:  // either "@@" or "x@" is an invalid parse
-		if (parse[1] == '@') return {};
+	default: // either "@@" or "x@" is an invalid parse
+		if (parse[1] == '@')
+			return {};
 		break;
 	}
 	size_t parsed_length;
@@ -78,8 +81,8 @@ std::pair<VarName, size_t> parse_varname(std::string_view parse,
 		}
 		if (len != 0) {
 			if (std::ranges::any_of(
-			        subparse.substr(sub_at, len),
-			        [](unsigned char c) { return std::isspace(c); })) {
+			      subparse.substr(sub_at, len),
+			      [](unsigned char c) { return std::isspace(c); })) {
 				// no whitespace permitted in group
 				return {};
 			}
@@ -91,7 +94,8 @@ std::pair<VarName, size_t> parse_varname(std::string_view parse,
 		result.group_start_ = result.group_len_ = 0;
 	}
 	// var
-	if (sub_at >= subparse.size()) return {};
+	if (sub_at >= subparse.size())
+		return {};
 	if (subparse[sub_at] == '$') {
 		++sub_at;
 		result.var_class_ = VarClass::Local;
@@ -100,17 +104,17 @@ std::pair<VarName, size_t> parse_varname(std::string_view parse,
 	}
 	auto varname = subparse.substr(sub_at);
 	if (varname.size() == 0 || varname.size() > VarName::MaxNameLength)
-		return {};  // varname size out of bounds
+		return {}; // varname size out of bounds
 	if (varname.find_first_of(":$"sv) != std::string_view::npos)
-		return {};  // invalid character
+		return {}; // invalid character
 	if (whitespace && std::ranges::any_of(varname, [](unsigned char c) {
 		    return std::isspace(c);
 	    }))
-		return {};  // whitespace
+		return {}; // whitespace
 	result.name_start_ = sub_at;
 	result.name_len_ = varname.size();
 
-	return {result, parsed_length};
+	return { result, parsed_length };
 }
 
-}  // namespace inx::flow::util
+} // namespace inx::flow::util

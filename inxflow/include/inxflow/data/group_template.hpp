@@ -52,7 +52,9 @@ public:
 		return m_base->construct_new(m_alloc);
 	}
 
-	GroupSignature(std::string&& name, serialize&& base, const std::pmr::polymorphic_allocator<>* alloc = nullptr);
+	GroupSignature(std::string&& name,
+	               serialize&& base,
+	               const std::pmr::polymorphic_allocator<>* alloc = nullptr);
 
 	std::string m_name;
 	serialize m_base;
@@ -64,24 +66,35 @@ public:
 class GroupTemplate
 {
 public:
-	GroupTemplate(const std::pmr::polymorphic_allocator<>& var_alloc, std::string_view name, serialize&& base, const std::pmr::polymorphic_allocator<>* alloc = nullptr);
-	GroupTemplate(const std::pmr::polymorphic_allocator<>& var_alloc, GroupTemplate& higher);
+	GroupTemplate(const std::pmr::polymorphic_allocator<>& var_alloc,
+	              std::string_view name,
+	              serialize&& base,
+	              const std::pmr::polymorphic_allocator<>* alloc = nullptr);
+	GroupTemplate(const std::pmr::polymorphic_allocator<>& var_alloc,
+	              GroupTemplate& higher);
 	GroupTemplate(GroupTemplate& higher);
 
-	Serialize& at(std::string_view id) const; /// finds id, raises std::out_of_range if key does not exist
-	serialize get(std::string_view id) const; /// finds id, returns null shared_ptr if key does not exist
-	
-	Serialize& at_chain(std::string_view id) const; /// finds id, chains to higher scope if does not exists
-	serialize get_chain(std::string_view id) const; /// finds id, chains to higher scope if does not exists
-	
-	Serialize& at_make(std::string_view id); /// finds id, constructs if does not exists on scope
-	serialize get_make(std::string_view id); /// finds id, constructs if does not exists on scope
+	Serialize& at(std::string_view id)
+	  const; /// finds id, raises std::out_of_range if key does not exist
+	serialize get(std::string_view id)
+	  const; /// finds id, returns null shared_ptr if key does not exist
+
+	Serialize& at_chain(std::string_view id)
+	  const; /// finds id, chains to higher scope if does not exists
+	serialize get_chain(std::string_view id)
+	  const; /// finds id, chains to higher scope if does not exists
+
+	Serialize& at_make(
+	  std::string_view id); /// finds id, constructs if does not exists on scope
+	serialize get_make(
+	  std::string_view id); /// finds id, constructs if does not exists on scope
 
 	const auto& data() const noexcept { return m_vars; }
 
 private:
-	serialize get_chain_nolock(std::string_view id) const; /// finds id, chains to higher scope if does not exists
-	
+	serialize get_chain_nolock(std::string_view id)
+	  const; /// finds id, chains to higher scope if does not exists
+
 protected:
 	std::shared_ptr<GroupSignature> m_signature; /// Object signature
 	GroupTemplate* m_higherScope; /// higher variable scope (global), if present

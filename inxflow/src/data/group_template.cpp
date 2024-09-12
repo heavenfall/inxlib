@@ -24,31 +24,49 @@ SOFTWARE.
 
 #include <inxflow/data/group_template.hpp>
 
-namespace inx::flow::data
+namespace inx::flow::data {
+
+GroupSignature::GroupSignature(std::string&& name,
+                               serialize&& base,
+                               const std::pmr::polymorphic_allocator<>* alloc)
+  : m_name(std::move(name))
+  , m_base(std::move(base))
+  , m_alloc(alloc)
 {
-	
-GroupSignature::GroupSignature(std::string&& name, serialize&& base, const std::pmr::polymorphic_allocator<>* alloc)
-	: m_name(std::move(name)), m_base(std::move(base)), m_alloc(alloc)
-{}
+}
 
-GroupTemplate::GroupTemplate(const std::pmr::polymorphic_allocator<>& var_alloc, std::string_view name, serialize&& base, const std::pmr::polymorphic_allocator<>* alloc)
-	: m_signature(std::make_shared<GroupSignature>(std::string(name), std::move(base), alloc)),
-	m_higherScope(nullptr), m_vars(var_alloc)
-{}
-GroupTemplate::GroupTemplate(const std::pmr::polymorphic_allocator<>& var_alloc, GroupTemplate& higher)
-	: m_signature(higher.m_signature), m_higherScope(&higher), m_vars(var_alloc)
-{}
-GroupTemplate::GroupTemplate(GroupTemplate& higher) :
-	GroupTemplate(higher.m_vars.get_allocator(), higher)
-{}
+GroupTemplate::GroupTemplate(const std::pmr::polymorphic_allocator<>& var_alloc,
+                             std::string_view name,
+                             serialize&& base,
+                             const std::pmr::polymorphic_allocator<>* alloc)
+  : m_signature(std::make_shared<GroupSignature>(std::string(name),
+                                                 std::move(base),
+                                                 alloc))
+  , m_higherScope(nullptr)
+  , m_vars(var_alloc)
+{
+}
+GroupTemplate::GroupTemplate(const std::pmr::polymorphic_allocator<>& var_alloc,
+                             GroupTemplate& higher)
+  : m_signature(higher.m_signature)
+  , m_higherScope(&higher)
+  , m_vars(var_alloc)
+{
+}
+GroupTemplate::GroupTemplate(GroupTemplate& higher)
+  : GroupTemplate(higher.m_vars.get_allocator(), higher)
+{
+}
 
-Serialize& GroupTemplate::at(std::string_view id) const
+Serialize&
+GroupTemplate::at(std::string_view id) const
 {
 	std::lock_guard lock(m_signature->m_mutex);
 	m_varTemp = id;
 	return *m_vars.at(m_varTemp);
 }
-serialize GroupTemplate::get(std::string_view id) const
+serialize
+GroupTemplate::get(std::string_view id) const
 {
 	std::lock_guard lock(m_signature->m_mutex);
 	m_varTemp = id;
@@ -56,7 +74,8 @@ serialize GroupTemplate::get(std::string_view id) const
 	return it != m_vars.end() ? it->second : serialize();
 }
 
-Serialize& GroupTemplate::at_chain(std::string_view id) const
+Serialize&
+GroupTemplate::at_chain(std::string_view id) const
 {
 	std::lock_guard lock(m_signature->m_mutex);
 	auto obj = get_chain_nolock(id);
@@ -64,12 +83,14 @@ Serialize& GroupTemplate::at_chain(std::string_view id) const
 		throw std::out_of_range("id");
 	return *obj;
 }
-serialize GroupTemplate::get_chain(std::string_view id) const
+serialize
+GroupTemplate::get_chain(std::string_view id) const
 {
 	std::lock_guard lock(m_signature->m_mutex);
 	return get_chain_nolock(id);
 }
-serialize GroupTemplate::get_chain_nolock(std::string_view id) const
+serialize
+GroupTemplate::get_chain_nolock(std::string_view id) const
 {
 	m_varTemp = id;
 	auto it = m_vars.find(m_varTemp);
@@ -81,14 +102,16 @@ serialize GroupTemplate::get_chain_nolock(std::string_view id) const
 	return serialize();
 }
 
-Serialize& GroupTemplate::at_make(std::string_view id)
+Serialize&
+GroupTemplate::at_make(std::string_view id)
 {
 	auto ser = get_make(id);
 	if (ser == nullptr)
 		throw std::out_of_range("id");
 	return *ser;
 }
-serialize GroupTemplate::get_make(std::string_view id)
+serialize
+GroupTemplate::get_make(std::string_view id)
 {
 	std::lock_guard lock(m_signature->m_mutex);
 	m_varTemp = id;

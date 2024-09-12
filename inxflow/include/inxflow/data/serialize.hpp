@@ -31,8 +31,8 @@ SOFTWARE.
 #include <inxlib/types.hpp>
 #include <inxlib/util/functions.hpp>
 #include <iostream>
-#include <typeindex>
 #include <memory_resource>
+#include <typeindex>
 
 #include "types.hpp"
 
@@ -323,7 +323,8 @@ public:
 		const std::filesystem::path* path;
 	};
 	using wrapper_fn = bool(wrapper_input input);
-	using serialize_construct = serialize(const std::pmr::polymorphic_allocator<>*);
+	using serialize_construct =
+	  serialize(const std::pmr::polymorphic_allocator<>*);
 
 protected:
 	Serialize(std::type_index type, wrapper_fn* fn, serialize_construct* dup);
@@ -337,7 +338,8 @@ public:
 	Serialize& operator=(const Serialize& other);
 	Serialize& operator=(Serialize&& other);
 
-	serialize construct_new(const std::pmr::polymorphic_allocator<>* alloc) const;
+	serialize construct_new(
+	  const std::pmr::polymorphic_allocator<>* alloc) const;
 
 protected:
 	void copy_(const void* other);
@@ -406,8 +408,6 @@ protected:
 	wrapper_fn* m_operators;
 	serialize_construct* m_duplicate;
 };
-
-
 
 namespace concepts {
 template <typename T>
@@ -567,12 +567,20 @@ protected:
 	};
 
 public:
-	static serialize construct(const std::pmr::polymorphic_allocator<>* alloc) {
+	static serialize construct(const std::pmr::polymorphic_allocator<>* alloc)
+	{
 		serialize obj;
 		if (alloc != nullptr) {
-			obj = std::allocate_shared<SerializeWrap>(*alloc, typeid(SerializeWrap), &SerializeWrap::wrapper_operator_, &SerializeWrap::construct);
+			obj = std::allocate_shared<SerializeWrap>(
+			  *alloc,
+			  typeid(SerializeWrap),
+			  &SerializeWrap::wrapper_operator_,
+			  &SerializeWrap::construct);
 		} else {
-			obj = std::make_shared<SerializeWrap>(typeid(SerializeWrap), &SerializeWrap::wrapper_operator_, &SerializeWrap::construct);
+			obj =
+			  std::make_shared<SerializeWrap>(typeid(SerializeWrap),
+			                                  &SerializeWrap::wrapper_operator_,
+			                                  &SerializeWrap::construct);
 		}
 		return obj;
 	}

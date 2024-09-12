@@ -27,8 +27,6 @@ SOFTWARE.
 
 namespace inx::flow {
 
-
-
 } // namespace inx::flow
 
 #endif // INXFLOW_FRAMEWORK_HPP

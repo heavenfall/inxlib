@@ -26,72 +26,88 @@ SOFTWARE.
 
 namespace inx::flow::data {
 
-Serialize::Serialize(std::type_index type, wrapper_fn* fn, serialize_construct* dup)
-    : m_type(type), m_operators(fn), m_duplicate(dup)
+Serialize::Serialize(std::type_index type,
+                     wrapper_fn* fn,
+                     serialize_construct* dup)
+  : m_type(type)
+  , m_operators(fn)
+  , m_duplicate(dup)
 {
 	assert(fn != nullptr && dup != nullptr);
 }
 
 Serialize::Serialize(const Serialize& other)
-    : Serialize(other.m_type, other.m_operators, other.m_duplicate) {
+  : Serialize(other.m_type, other.m_operators, other.m_duplicate)
+{
 	if (other.m_data && supported(wrapper_op::Copy)) {
-		wrapper_input send{wrapper_op::Copy,   {}, {}, &m_data,
-		                   other.m_data.get(), {}};
+		wrapper_input send{ wrapper_op::Copy,   {}, {}, &m_data,
+			                other.m_data.get(), {} };
 		(*m_operators)(send);
 	}
 }
 Serialize::Serialize(Serialize&& other)
-    : Serialize(other.m_type, other.m_operators, other.m_duplicate) {
+  : Serialize(other.m_type, other.m_operators, other.m_duplicate)
+{
 	if (other.m_data && supported(wrapper_op::Move)) {
-		wrapper_input send{wrapper_op::Copy,   {}, {}, &m_data,
-		                   other.m_data.get(), {}};
+		wrapper_input send{ wrapper_op::Copy,   {}, {}, &m_data,
+			                other.m_data.get(), {} };
 		(*m_operators)(send);
 	}
 }
 Serialize::Serialize(const Serialize& other, bool copy)
-    : Serialize(other.m_type, other.m_operators, other.m_duplicate) {
+  : Serialize(other.m_type, other.m_operators, other.m_duplicate)
+{
 	if (copy) {
-		if (!supported(wrapper_op::Copy)) throw std::logic_error("unsupported");
+		if (!supported(wrapper_op::Copy))
+			throw std::logic_error("unsupported");
 		if (other.m_data) {
-			wrapper_input send{wrapper_op::Copy,   {}, {}, &m_data,
-			                   other.m_data.get(), {}};
+			wrapper_input send{ wrapper_op::Copy,   {}, {}, &m_data,
+				                other.m_data.get(), {} };
 			(*m_operators)(send);
 		}
 	}
 }
 
-void Serialize::copy_(const void* other) {
+void
+Serialize::copy_(const void* other)
+{
 	if (other == nullptr || !supported(wrapper_op::Copy))
 		throw std::logic_error("unsupported");
-	wrapper_input send{wrapper_op::Copy,         {}, {}, &m_data,
-	                   const_cast<void*>(other), {}};
+	wrapper_input send{ wrapper_op::Copy,         {}, {}, &m_data,
+		                const_cast<void*>(other), {} };
 	(*m_operators)(send);
 }
 
-void Serialize::move_(void* other) {
+void
+Serialize::move_(void* other)
+{
 	bool do_move = supported(wrapper_op::Move);
 	bool do_copy = !do_move && supported(wrapper_op::Copy);
 	if (other == nullptr || !do_move || !do_copy)
 		throw std::logic_error("unsupported");
 	if (do_copy) [[unlikely]] {
-		wrapper_input send{wrapper_op::Copy, {}, {}, &m_data, other, {}};
+		wrapper_input send{ wrapper_op::Copy, {}, {}, &m_data, other, {} };
 		(*m_operators)(send);
 	} else {
-		wrapper_input send{wrapper_op::Move, {}, {}, &m_data, other, {}};
+		wrapper_input send{ wrapper_op::Move, {}, {}, &m_data, other, {} };
 		(*m_operators)(send);
 	}
 }
 
-serialize Serialize::construct_new(const std::pmr::polymorphic_allocator<>* alloc) const
+serialize
+Serialize::construct_new(const std::pmr::polymorphic_allocator<>* alloc) const
 {
 	auto obj = m_duplicate(alloc);
-	wrapper_input send{wrapper_op::Construct, {}, {}, &obj->m_data, {}, {}};
+	wrapper_input send{ wrapper_op::Construct, {}, {}, &obj->m_data, {}, {} };
 	(*obj->m_operators)(send);
 	return obj;
 }
 
-Serialize& Serialize::operator=(const Serialize& other) {
-	if (m_type != other.m_type) throw std::logic_error("type mismatch");
+Serialize&
+Serialize::operator=(const Serialize& other)
+{
+	if (m_type != other.m_type)
+		throw std::logic_error("type mismatch");
 	if (auto* g = other.m_data.get(); g == nullptr) {
 		clear();
 	} else {
@@ -100,8 +116,11 @@ Serialize& Serialize::operator=(const Serialize& other) {
 	return *this;
 }
 
-Serialize& Serialize::operator=(Serialize&& other) {
-	if (m_type != other.m_type) throw std::logic_error("type mismatch");
+Serialize&
+Serialize::operator=(Serialize&& other)
+{
+	if (m_type != other.m_type)
+		throw std::logic_error("type mismatch");
 	if (auto* g = other.m_data.get(); g == nullptr) {
 		clear();
 	} else {
@@ -110,20 +129,24 @@ Serialize& Serialize::operator=(Serialize&& other) {
 	return *this;
 }
 
-void Serialize::load(std::istream& in,
-                            const std::filesystem::path& fname,
-                            StreamType type) {
-	wrapper_input send{wrapper_op::Load, wrapper_op{}, type,
-	                   &m_data,          &in,          &fname};
+void
+Serialize::load(std::istream& in,
+                const std::filesystem::path& fname,
+                StreamType type)
+{
+	wrapper_input send{ wrapper_op::Load, wrapper_op{}, type,
+		                &m_data,          &in,          &fname };
 	(*m_operators)(send);
 }
 
-void Serialize::save(std::ostream& out,
-                            const std::filesystem::path& fname,
-                            StreamType type) {
-	wrapper_input send{wrapper_op::Save, wrapper_op{}, type,
-	                   &m_data,          &out,         &fname};
+void
+Serialize::save(std::ostream& out,
+                const std::filesystem::path& fname,
+                StreamType type)
+{
+	wrapper_input send{ wrapper_op::Save, wrapper_op{}, type,
+		                &m_data,          &out,         &fname };
 	(*m_operators)(send);
 }
 
-}  // namespace inx::flow::data
+} // namespace inx::flow::data

@@ -49,6 +49,16 @@ enum class SerMode
 	Binary
 };
 
+enum class wrapper_op : uint8
+{
+	Support,
+	Construct, // (any_ptr*)
+	Copy,      // (any_ptr*, T*)
+	Move,      // (any_ptr*, T*)
+	Load,      // (T*, std::istream*, const std::filesystem::path*, StreamType)
+	Save,      // (T*, std::ostream*, const std::filesystem::path*, StreamType)
+};
+
 namespace concepts {
 
 template <typename T>

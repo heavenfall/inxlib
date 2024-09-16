@@ -30,8 +30,9 @@ SOFTWARE.
 #include <inxlib/util/functions.hpp>
 #include <mutex>
 
-namespace inx::flow::data {
+namespace inx::flow {
 
+namespace data {
 /// @brief Contains the information required to generate a Serialize type from
 /// group string
 class GroupSignature
@@ -54,22 +55,27 @@ public:
 
 	GroupSignature(std::string&& name,
 	               serialize&& base,
-	               const std::pmr::polymorphic_allocator<>* alloc = nullptr);
+	               const std::pmr::polymorphic_allocator<>& alloc =
+	                 std::pmr::polymorphic_allocator<>());
+	GroupSignature(const GroupSignature&) = delete;
+	GroupSignature(GroupSignature&&) = delete;
 
 	std::string m_name;
 	serialize m_base;
-	const std::pmr::polymorphic_allocator<>* m_alloc;
+	std::pmr::polymorphic_allocator<> m_alloc;
 	std::mutex m_mutex;
 };
+} // namespace data
+using signature = std::shared_ptr<data::GroupSignature>;
+
+namespace data {
 
 /// @brief Variable scope of GroupSignature
 class GroupTemplate
 {
 public:
 	GroupTemplate(const std::pmr::polymorphic_allocator<>& var_alloc,
-	              std::string_view name,
-	              serialize&& base,
-	              const std::pmr::polymorphic_allocator<>* alloc = nullptr);
+	              signature&& signature);
 	GroupTemplate(const std::pmr::polymorphic_allocator<>& var_alloc,
 	              GroupTemplate& higher);
 	GroupTemplate(GroupTemplate& higher);
@@ -96,12 +102,13 @@ private:
 	  const; /// finds id, chains to higher scope if does not exists
 
 protected:
-	std::shared_ptr<GroupSignature> m_signature; /// Object signature
+	signature m_signature;        /// Object signature
 	GroupTemplate* m_higherScope; /// higher variable scope (global), if present
 	std::pmr::unordered_map<std::pmr::string, serialize> m_vars;
 	std::pmr::string mutable m_varTemp;
 };
 
-} // namespace inx::flow::data
+} // namespace data
+} // namespace inx::flow
 
 #endif // INXFLOW_DATA_GROUP_TEMPLATE_HPP

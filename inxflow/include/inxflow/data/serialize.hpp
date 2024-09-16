@@ -36,7 +36,9 @@ SOFTWARE.
 
 #include "types.hpp"
 
-namespace inx::flow::data {
+namespace inx::flow {
+
+namespace data {
 
 namespace details {
 template <concepts::ser_load T>
@@ -231,7 +233,12 @@ concept has_ser_save_mode = requires { T::concepts::ser_save_mode(); };
 } // namespace concepts
 
 class Serialize;
-using serialize = std::shared_ptr<Serialize>;
+
+} // namespace data
+
+using serialize = std::shared_ptr<data::Serialize>;
+
+namespace data {
 
 namespace details {
 template <typename T, auto LoadFunc>
@@ -304,15 +311,6 @@ struct SerializeSaver
 class Serialize : public std::enable_shared_from_this<Serialize>
 {
 public:
-	enum class wrapper_op : uint8
-	{
-		Support,
-		Construct, // (any_ptr*)
-		Copy,      // (any_ptr*, T*)
-		Move,      // (any_ptr*, T*)
-		Load, // (T*, std::istream*, const std::filesystem::path*, StreamType)
-		Save, // (T*, std::ostream*, const std::filesystem::path*, StreamType)
-	};
 	struct wrapper_input
 	{
 		wrapper_op op;
@@ -324,7 +322,7 @@ public:
 	};
 	using wrapper_fn = bool(wrapper_input input);
 	using serialize_construct =
-	  serialize(const std::pmr::polymorphic_allocator<>*);
+	  serialize(const std::pmr::polymorphic_allocator<>&);
 
 protected:
 	Serialize(std::type_index type, wrapper_fn* fn, serialize_construct* dup);
@@ -339,7 +337,7 @@ public:
 	Serialize& operator=(Serialize&& other);
 
 	serialize construct_new(
-	  const std::pmr::polymorphic_allocator<>* alloc) const;
+	  const std::pmr::polymorphic_allocator<>& alloc) const;
 
 protected:
 	void copy_(const void* other);
@@ -586,6 +584,7 @@ public:
 	}
 };
 
-} // namespace inx::flow::data
+} // namespace data
+} // namespace inx::flow
 
 #endif // INXFLOW_DATA_SERIALIZE_HPP

@@ -28,7 +28,7 @@ namespace inx::flow::data {
 
 GroupSignature::GroupSignature(std::string&& name,
                                serialize&& base,
-                               const std::pmr::polymorphic_allocator<>* alloc)
+                               const std::pmr::polymorphic_allocator<>& alloc)
   : m_name(std::move(name))
   , m_base(std::move(base))
   , m_alloc(alloc)
@@ -36,12 +36,8 @@ GroupSignature::GroupSignature(std::string&& name,
 }
 
 GroupTemplate::GroupTemplate(const std::pmr::polymorphic_allocator<>& var_alloc,
-                             std::string_view name,
-                             serialize&& base,
-                             const std::pmr::polymorphic_allocator<>* alloc)
-  : m_signature(std::make_shared<GroupSignature>(std::string(name),
-                                                 std::move(base),
-                                                 alloc))
+                             signature&& signature)
+  : m_signature(signature)
   , m_higherScope(nullptr)
   , m_vars(var_alloc)
 {

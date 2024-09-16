@@ -95,7 +95,7 @@ Serialize::move_(void* other)
 }
 
 serialize
-Serialize::construct_new(const std::pmr::polymorphic_allocator<>* alloc) const
+Serialize::construct_new(const std::pmr::polymorphic_allocator<>& alloc) const
 {
 	auto obj = m_duplicate(alloc);
 	wrapper_input send{ wrapper_op::Construct, {}, {}, &obj->m_data, {}, {} };

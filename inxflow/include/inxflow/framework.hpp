@@ -25,7 +25,69 @@ SOFTWARE.
 #ifndef INXFLOW_FRAMEWORK_HPP
 #define INXFLOW_FRAMEWORK_HPP
 
+#include "data/group_template.hpp"
+#include "data/string_serialize.hpp"
+#include <inxlib/inx.hpp>
+#include <memory_resource>
+#include <ranges>
+#include <vector>
+
 namespace inx::flow {
+
+struct VarScope
+{
+	VarScope(signature&& l_sig, const std::pmr::polymorphic_allocator<>& alloc);
+	signature sig;
+	data::GroupTemplate global;
+	data::GroupTemplate local;
+};
+
+class Framework
+{
+public:
+	void set_args_main(int argc, char* argv[])
+	{
+		if (argc < 1)
+			throw std::out_of_range("argc");
+		m_arguments.assign(argv + 1, argv + argc);
+	}
+	template <std::ranges::input_range G>
+	void set_args_range(G&& args)
+	{
+		m_arguments.assign(args.begin(), args.end());
+	}
+
+	/// @brief A memory_resource that is never freed, not thread safe
+	/// @return monotonic_buffer_resource
+	std::pmr::memory_resource& get_immutable_resource() noexcept
+	{
+		return m_immRes;
+	}
+	/// @brief A memory_resource that is never freed, thread safe
+	/// @return synchronized_pool_resource
+	std::pmr::memory_resource& get_mutable_resource() noexcept
+	{
+		return m_immRes;
+	}
+
+	template <data::concepts::serializable T, typename... Args>
+	const signature& emplace_signature(std::string_view name, Args&&... args)
+	{
+		signature sig = std::allocate_shared<T>(std::forward<Args>(args)...);
+		return push_signature(name, std::move(sig));
+	}
+	const signature& push_signature(std::string_view name, signature&& sig);
+
+protected:
+	std::pmr::monotonic_buffer_resource m_immRes;
+	std::pmr::synchronized_pool_resource m_mutRes;
+	std::vector<std::string> m_arguments;
+	std::pmr::unordered_map<std::string, signature> m_signatures;
+	std::pmr::unordered_map<std::string, VarScope> m_variables;
+};
+
+void
+framework_data_default(Framework& fw);
 
 } // namespace inx::flow
 

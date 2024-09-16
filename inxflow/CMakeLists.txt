@@ -20,8 +20,10 @@ target_include_directories(inxlib_lib INTERFACE
 add_subdirectory(src)
 # find include/inxflow -type f | sort
 target_sources(inxlib_flow PUBLIC
+include/inxflow/cmd/types.hpp
 include/inxflow/data/group_template.hpp
 include/inxflow/data/serialize.hpp
+include/inxflow/data/string_serialize.hpp
 include/inxflow/data/types.hpp
 include/inxflow/framework.hpp
 include/inxflow/util/string.hpp

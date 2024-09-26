@@ -40,6 +40,11 @@ enum class VarOp : uint8
 	Print,
 };
 
+constexpr char VarBlockChar = '@';
+constexpr char GroupSepChar = '!';
+constexpr char LocalChar = '$';
+constexpr char PrintChar = '%';
+
 /**
  * Stored result of parsed variable. Does not own the underlying string.
  */

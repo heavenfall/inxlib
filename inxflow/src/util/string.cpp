@@ -36,19 +36,19 @@ parse_varname(std::string_view parse, bool whitespace)
 	case 0:
 		return {};
 	case 1:
-		if (parse[0] == '@')
+		if (parse[0] == VarBlockChar)
 			return {};
 		break;
 	default: // either "@@" or "x@" is an invalid parse
-		if (parse[1] == '@')
+		if (parse[1] == VarBlockChar)
 			return {};
 		break;
 	}
 	size_t parsed_length;
 	std::string_view subparse;
-	if (parse[0] == '@') {
-		assert(parse[1] != '@');
-		if (auto p = parse.find('@', 1); p != std::string_view::npos) {
+	if (parse[0] == VarBlockChar) {
+		assert(parse[1] != VarBlockChar);
+		if (auto p = parse.find(VarBlockChar, 1); p != std::string_view::npos) {
 			parsed_length = p + 1;
 			subparse = parse.substr(1, p - 1);
 		} else {
@@ -61,18 +61,26 @@ parse_varname(std::string_view parse, bool whitespace)
 	}
 	assert(!subparse.empty());
 
-	// now subparse must match the whole VarName without '@' to worry about
+	// now subparse must match the whole VarName without VarBlockChar to worry about
 	VarName result{};
 	result.parsed_string_ = subparse.data();
 	uint32 sub_at = 0;
-	if (subparse[sub_at] == '%') {
-		++sub_at;
+	if (subparse[sub_at] == PrintChar) {
+		if (++sub_at >= subparse.size())
+			return {};
 		result.var_op_ = VarOp::Print;
 	} else {
 		result.var_op_ = VarOp::Name;
 	}
 	// group
-	if (auto len = subparse.find(':', sub_at); len != std::string_view::npos) {
+	if (subparse[sub_at] == LocalChar) {
+		if (++sub_at >= subparse.size())
+			return {};
+		result.var_class_ = VarClass::Local;
+	} else {
+		result.var_class_ = VarClass::Global;
+	}
+	if (auto len = subparse.find(GroupSepChar, sub_at); len != std::string_view::npos) {
 		// found group, parse
 		len -= sub_at;
 		if (len > VarName::MaxGroupLength) {
@@ -96,12 +104,6 @@ parse_varname(std::string_view parse, bool whitespace)
 	// var
 	if (sub_at >= subparse.size())
 		return {};
-	if (subparse[sub_at] == '$') {
-		++sub_at;
-		result.var_class_ = VarClass::Local;
-	} else {
-		result.var_class_ = VarClass::Global;
-	}
 	auto varname = subparse.substr(sub_at);
 	if (varname.size() == 0 || varname.size() > VarName::MaxNameLength)
 		return {}; // varname size out of bounds

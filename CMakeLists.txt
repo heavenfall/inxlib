@@ -34,5 +34,20 @@ include/inxlib/util/virtual_pointer.hpp
 include/inxlib/util/xoshiro256.hpp
 )
 
+option(BUILD_TESTING "Building testing suite" OFF)
+include(CTest)
+include(FetchContent)
+FetchContent_Declare(
+  Catch2
+  GIT_REPOSITORY https://github.com/catchorg/Catch2.git
+  GIT_TAG        v3.7.1
+  EXCLUDE_FROM_ALL
+)
+
+if(BUILD_TESTING)
+	FetchContent_MakeAvailable(Catch2)
+	include(Catch)
+	add_subdirectory(tests)
+endif()
+
 add_subdirectory(inxflow)
-add_subdirectory(tests)

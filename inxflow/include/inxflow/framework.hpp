@@ -67,7 +67,7 @@ public:
 	/// @return synchronized_pool_resource
 	std::pmr::memory_resource& get_mutable_resource() noexcept
 	{
-		return m_immRes;
+		return m_mutRes;
 	}
 
 	template <data::concepts::serializable T, typename... Args>

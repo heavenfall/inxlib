@@ -28,3 +28,7 @@ include/inxflow/data/types.hpp
 include/inxflow/framework.hpp
 include/inxflow/util/string.hpp
 )
+
+if(BUILD_TESTING)
+	add_subdirectory(tests)
+endif()

@@ -29,6 +29,6 @@ include/inxflow/framework.hpp
 include/inxflow/util/string.hpp
 )
 
-if(BUILD_TESTING)
-	add_subdirectory(tests)
+if(InxIsTopProject AND BUILD_TESTING)
+	add_subdirectory(tests EXCLUDE_FROM_ALL)
 endif()

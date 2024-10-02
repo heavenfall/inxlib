@@ -41,9 +41,10 @@ enum class VarOp : uint8
 };
 
 constexpr char VarBlockChar = '@';
-constexpr char GroupSepChar = '!';
+constexpr char GroupSepChar = '.';
 constexpr char LocalChar = '$';
 constexpr char PrintChar = '%';
+constexpr std::string_view InvalidVarChars("$%");
 
 /**
  * Stored result of parsed variable. Does not own the underlying string.

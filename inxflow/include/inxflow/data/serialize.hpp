@@ -528,7 +528,7 @@ protected:
 				throw std::runtime_error(
 				  "Serialize Load/Save requires Construct first.");
 			if constexpr (!load_func_null) {
-				details::SerializeLoader<T, LoadFunc> loader{ data };
+				details::SerializeLoader<T, LoadFunc> loader{data};
 				serialize_load(loader, *input.path, input.stype, mode);
 			} else {
 				serialize_load(*data, *input.path, input.stype, mode);
@@ -552,7 +552,7 @@ protected:
 				throw std::runtime_error(
 				  "Serialize Load/Save requires Construct first.");
 			if constexpr (!save_func_null) {
-				details::SerializeSaver<T, SaveFunc> saver{ data };
+				details::SerializeSaver<T, SaveFunc> saver{data};
 				serialize_save(saver, *input.path, input.stype, mode);
 			} else {
 				serialize_save(*data, *input.path, input.stype, mode);

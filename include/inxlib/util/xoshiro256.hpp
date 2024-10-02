@@ -86,10 +86,10 @@ public:
 	 */
 	xoshiro256& jump()
 	{
-		constexpr std::array<uint64_t, 4> JUMP{ 0x180ec6d33cfd0aba,
-			                                    0xd5a61266f0c9392c,
-			                                    0xa9582618e03fc9aa,
-			                                    0x39abdc4529b1661c };
+		constexpr std::array<uint64_t, 4> JUMP{0x180ec6d33cfd0aba,
+		                                       0xd5a61266f0c9392c,
+		                                       0xa9582618e03fc9aa,
+		                                       0x39abdc4529b1661c};
 
 		uint64_t s0 = 0;
 		uint64_t s1 = 0;
@@ -122,10 +122,10 @@ public:
 	 */
 	xoshiro256& long_jump()
 	{
-		constexpr std::array<uint64_t, 4> JUMP{ 0x76e15d3efefdcbbf,
-			                                    0xc5004e441c522fb3,
-			                                    0x77710069854ee241,
-			                                    0x39109bb02acbe635 };
+		constexpr std::array<uint64_t, 4> JUMP{0x76e15d3efefdcbbf,
+		                                       0xc5004e441c522fb3,
+		                                       0x77710069854ee241,
+		                                       0x39109bb02acbe635};
 
 		uint64_t s0 = 0;
 		uint64_t s1 = 0;

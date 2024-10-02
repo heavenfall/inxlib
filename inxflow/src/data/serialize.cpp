@@ -40,8 +40,8 @@ Serialize::Serialize(const Serialize& other)
   : Serialize(other.m_type, other.m_operators, other.m_duplicate)
 {
 	if (other.m_data && supported(wrapper_op::Copy)) {
-		wrapper_input send{ wrapper_op::Copy,   {}, {}, &m_data,
-			                other.m_data.get(), {} };
+		wrapper_input send{
+		  wrapper_op::Copy, {}, {}, &m_data, other.m_data.get(), {}};
 		(*m_operators)(send);
 	}
 }
@@ -49,8 +49,8 @@ Serialize::Serialize(Serialize&& other)
   : Serialize(other.m_type, other.m_operators, other.m_duplicate)
 {
 	if (other.m_data && supported(wrapper_op::Move)) {
-		wrapper_input send{ wrapper_op::Copy,   {}, {}, &m_data,
-			                other.m_data.get(), {} };
+		wrapper_input send{
+		  wrapper_op::Copy, {}, {}, &m_data, other.m_data.get(), {}};
 		(*m_operators)(send);
 	}
 }
@@ -61,8 +61,8 @@ Serialize::Serialize(const Serialize& other, bool copy)
 		if (!supported(wrapper_op::Copy))
 			throw std::logic_error("unsupported");
 		if (other.m_data) {
-			wrapper_input send{ wrapper_op::Copy,   {}, {}, &m_data,
-				                other.m_data.get(), {} };
+			wrapper_input send{
+			  wrapper_op::Copy, {}, {}, &m_data, other.m_data.get(), {}};
 			(*m_operators)(send);
 		}
 	}
@@ -73,8 +73,8 @@ Serialize::copy_(const void* other)
 {
 	if (other == nullptr || !supported(wrapper_op::Copy))
 		throw std::logic_error("unsupported");
-	wrapper_input send{ wrapper_op::Copy,         {}, {}, &m_data,
-		                const_cast<void*>(other), {} };
+	wrapper_input send{
+	  wrapper_op::Copy, {}, {}, &m_data, const_cast<void*>(other), {}};
 	(*m_operators)(send);
 }
 
@@ -86,10 +86,10 @@ Serialize::move_(void* other)
 	if (other == nullptr || !do_move || !do_copy)
 		throw std::logic_error("unsupported");
 	if (do_copy) [[unlikely]] {
-		wrapper_input send{ wrapper_op::Copy, {}, {}, &m_data, other, {} };
+		wrapper_input send{wrapper_op::Copy, {}, {}, &m_data, other, {}};
 		(*m_operators)(send);
 	} else {
-		wrapper_input send{ wrapper_op::Move, {}, {}, &m_data, other, {} };
+		wrapper_input send{wrapper_op::Move, {}, {}, &m_data, other, {}};
 		(*m_operators)(send);
 	}
 }
@@ -98,7 +98,7 @@ serialize
 Serialize::construct_new(const std::pmr::polymorphic_allocator<>& alloc) const
 {
 	auto obj = m_duplicate(alloc);
-	wrapper_input send{ wrapper_op::Construct, {}, {}, &obj->m_data, {}, {} };
+	wrapper_input send{wrapper_op::Construct, {}, {}, &obj->m_data, {}, {}};
 	(*obj->m_operators)(send);
 	return obj;
 }
@@ -134,8 +134,8 @@ Serialize::load(std::istream& in,
                 const std::filesystem::path& fname,
                 StreamType type)
 {
-	wrapper_input send{ wrapper_op::Load, wrapper_op{}, type,
-		                &m_data,          &in,          &fname };
+	wrapper_input send{
+	  wrapper_op::Load, wrapper_op{}, type, &m_data, &in, &fname};
 	(*m_operators)(send);
 }
 
@@ -144,8 +144,8 @@ Serialize::save(std::ostream& out,
                 const std::filesystem::path& fname,
                 StreamType type)
 {
-	wrapper_input send{ wrapper_op::Save, wrapper_op{}, type,
-		                &m_data,          &out,         &fname };
+	wrapper_input send{
+	  wrapper_op::Save, wrapper_op{}, type, &m_data, &out, &fname};
 	(*m_operators)(send);
 }
 

@@ -122,8 +122,8 @@ private:
 		static constexpr std::pair<uint32, uint32> split_index(
 		  uint32 size) noexcept
 		{
-			return { static_cast<uint32>(size >> BlockPower),
-				     static_cast<uint32>(size & ((1u << BlockPower) - 1)) };
+			return {static_cast<uint32>(size >> BlockPower),
+			        static_cast<uint32>(size & ((1u << BlockPower) - 1))};
 		}
 
 		[[nodiscard]] ValueType* allocate_block()

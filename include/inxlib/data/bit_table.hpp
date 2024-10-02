@@ -661,10 +661,9 @@ public:
 		assert(-static_cast<int32>(buffer_size) <= y &&
 		       y < static_cast<int32>(mHeight + buffer_size));
 		x += buffer_size;
-		return { static_cast<uint32>((y + buffer_size) * mRowWords +
-			                         (x >> super::pack_size)),
-			     static_cast<uint32>((x & super::pack_mask)
-			                         << super::bit_adj) };
+		return {static_cast<uint32>((y + buffer_size) * mRowWords +
+		                            (x >> super::pack_size)),
+		        static_cast<uint32>((x & super::pack_mask) << super::bit_adj)};
 	}
 	index_t bit_index(int32 x, int32 y) const noexcept
 	{
@@ -1220,7 +1219,7 @@ public:
 	  const noexcept /// returns pair[word,bit]
 	{
 		index_t id = bit_index(x, y);
-		return { id.word(), id.bit() };
+		return {id.word(), id.bit()};
 	}
 	index_t bit_index(int32 x, int32 y) const noexcept
 	{

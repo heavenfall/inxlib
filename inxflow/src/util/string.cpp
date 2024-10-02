@@ -64,7 +64,8 @@ parse_varname(std::string_view parse, bool whitespace)
 	}
 	assert(!subparse.empty());
 
-	// now subparse must match the whole VarName without VarBlockChar to worry about
+	// now subparse must match the whole VarName without VarBlockChar to worry
+	// about
 	VarName result{};
 	result.parsed_string_ = subparse.data();
 	uint32 sub_at = 0;
@@ -118,7 +119,7 @@ parse_varname(std::string_view parse, bool whitespace)
 	result.name_start_ = sub_at;
 	result.name_len_ = varname.size();
 
-	return { result, parsed_length };
+	return {result, parsed_length};
 }
 
 } // namespace inx::flow::util

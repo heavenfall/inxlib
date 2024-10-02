@@ -32,3 +32,5 @@ include/inxflow/util/string.hpp
 if(InxIsTopProject AND BUILD_TESTING)
 	add_subdirectory(tests EXCLUDE_FROM_ALL)
 endif()
+
+add_subdirectory(examples EXCLUDE_FROM_ALL)

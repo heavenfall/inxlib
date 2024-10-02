@@ -90,21 +90,21 @@ concept ser_load =
 
 template <typename T>
 concept ser_save_full =
-  requires(T& t, std::istream& stream, const std::filesystem::path& path) {
+  requires(T& t, std::ostream& stream, const std::filesystem::path& path) {
 	  t.save(path, stream);
   };
 template <typename T>
 concept ser_save_full_type =
   requires(T& t,
-           std::istream& stream,
+           std::ostream& stream,
            const std::filesystem::path& path,
            StreamType type) { t.save(path, stream, type); };
 template <typename T>
 concept ser_save_stream =
-  requires(T& t, std::istream& stream) { t.save(stream); };
+  requires(T& t, std::ostream& stream) { t.save(stream); };
 template <typename T>
 concept ser_save_stream_type =
-  requires(T& t, std::istream& stream, StreamType type) {
+  requires(T& t, std::ostream& stream, StreamType type) {
 	  t.save(stream, type);
   };
 template <typename T>

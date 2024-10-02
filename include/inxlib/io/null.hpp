@@ -41,7 +41,7 @@ public:
 protected:
 	int overflow(int c) override
 	{
-		setp(m_buffer.data(), m_buffer.data() + m_buffer.size());
+		this->setp(m_buffer.data(), m_buffer.data() + m_buffer.size());
 		return c;
 	}
 	std::streamsize xsputn(const char*, std::streamsize n) override
@@ -69,8 +69,8 @@ class basic_null_stream final : public BaseStream
 public:
 	basic_null_stream()
 	{
-		init(&m_buffer); // paranoid, insuring NullBuffer is init before
-		                 // constructor
+		this->init(&m_buffer); // paranoid, insuring NullBuffer is init before
+		                       // constructor
 	}
 	// ~basic_null_stream()
 	// can leave destruct, as istream/ostream/iostream does not touch the rdbuff

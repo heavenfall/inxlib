@@ -31,8 +31,8 @@ namespace inx::flow::util {
 
 enum class VarClass : uint8
 {
-	Global,
 	Local,
+	Global,
 };
 enum class VarOp : uint8
 {
@@ -42,9 +42,9 @@ enum class VarOp : uint8
 
 constexpr char VarBlockChar = '@';
 constexpr char GroupSepChar = '.';
-constexpr char LocalChar = '$';
+constexpr char GlobalChar = '+';
 constexpr char PrintChar = '%';
-constexpr std::string_view InvalidVarChars("$%");
+constexpr std::string_view InvalidVarChars("+%");
 
 /**
  * Stored result of parsed variable. Does not own the underlying string.

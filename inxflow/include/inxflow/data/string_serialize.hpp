@@ -60,6 +60,17 @@ public:
 		ss >> out.rdbuf();
 	}
 
+	StringSerialize& operator=(std::string_view str)
+	{
+		m_data = str;
+		return *this;
+	}
+
+	std::pmr::string& str() noexcept { return m_data; }
+	const std::pmr::string& str() const noexcept { return m_data; }
+
+	std::string_view view() const noexcept { return m_data; }
+
 protected:
 	std::pmr::string m_data;
 };

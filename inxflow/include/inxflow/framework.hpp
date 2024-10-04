@@ -45,6 +45,9 @@ struct VarScope
 	data::GroupTemplate local;
 };
 
+using var_string = data::StringSerialize;
+using var_file = data::StringSerialize;
+
 class Framework
 {
 public:
@@ -113,9 +116,9 @@ public:
 	data::Serialize& operator[](std::string_view l_var);
 
 	/**
-	 * Returns varable l_var.
+	 * Returns varable l_var at specified local/global scope.
 	 * If no group exists and default_group is specified, use that group,
-	 * requires group to exists. Will create variable name if not exists.
+	 * Requires group to exists. Will create variable name if not exists.
 	 */
 	data::Serialize& var(util::VarName l_var,
 	                     std::string_view default_group = std::string_view());
@@ -123,9 +126,9 @@ public:
 	                     std::string_view default_group = std::string_view());
 
 	/**
-	 * Returns varable var.
+	 * Returns varable l_var. If local scope, try local first, then try global.
 	 * If no group exists and default_group is specified, use that group,
-	 * requires group to exists. Will not create variable name.
+	 * Requires group to exists. Will not create variable name.
 	 */
 	data::Serialize& at(util::VarName l_var,
 	                    std::string_view default_group = std::string_view());

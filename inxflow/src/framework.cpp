@@ -122,10 +122,13 @@ void
 framework_default(Framework& fw)
 {
 	auto* var_sig =
-	  fw.emplace_signature<data::SerializeWrap<data::StringSerialize>>("var"sv)
-	    .first;
+	  fw.emplace_signature<data::SerializeWrap<var_string>>("var"sv).first;
 	assert(var_sig != nullptr);
 	fw.emplace_scope("var"sv, signature(*var_sig));
+	var_sig =
+	  fw.emplace_signature<data::SerializeWrap<var_file>>("file"sv).first;
+	assert(var_sig != nullptr);
+	fw.emplace_scope("file"sv, signature(*var_sig));
 }
 
 } // namespace inx::flow

@@ -344,6 +344,7 @@ protected:
 	void move_(void* other);
 
 public:
+	/// @brief Destruccts contained object
 	void clear();
 
 	template <typename T>
@@ -431,7 +432,7 @@ public:
 	  std::is_null_pointer_v<decltype(SaveFunc)>;
 
 	SerializeWrap()
-	  : Serialize(typeid(SerializeWrap), &wrapper_operator_, &construct_)
+	  : Serialize(typeid(T), &wrapper_operator_, &construct_)
 	{
 	}
 

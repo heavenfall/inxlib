@@ -94,12 +94,20 @@ Serialize::move_(void* other)
 	}
 }
 
+bool
+Serialize::supported(wrapper_op op) const
+{
+	wrapper_input send{wrapper_op::Support, op, {}, {}, {}, {}};
+	return (*m_operators)(send);
+}
+
 serialize
 Serialize::construct_new(const std::pmr::polymorphic_allocator<>& alloc) const
 {
 	auto obj = m_duplicate(&alloc);
 	wrapper_input send{wrapper_op::Construct, {}, {}, &obj->m_data, {}, {}};
-	(*obj->m_operators)(send);
+	bool success [[maybe_unused]] = (*obj->m_operators)(send);
+	assert(success);
 	return obj;
 }
 
@@ -127,6 +135,12 @@ Serialize::operator=(Serialize&& other)
 		move_(g);
 	}
 	return *this;
+}
+
+void
+Serialize::clear()
+{
+	m_data = nullptr;
 }
 
 void

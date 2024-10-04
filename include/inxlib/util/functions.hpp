@@ -70,9 +70,21 @@ public:
 	               }))
 	{
 	}
-	using std::unique_ptr<void, functor_ptr<void(void*)>>::operator=;
+	using unique_ptr<void, functor_ptr<void(void*)>>::operator=;
 	any_ptr& operator=(any_ptr&&) = default;
-	any_ptr& operator=(const any_ptr&) = delete;
+	void reset(std::nullptr_t = nullptr) noexcept { unique_ptr::reset(); }
+	template <typename T>
+	void reset(T* ptr) noexcept
+	{
+		if (ptr == nullptr) {
+			unique_ptr::reset();
+		} else {
+			(*this) = unique_ptr(static_cast<void*>(ptr),
+			                     functor_ptr<void(void*)>([](void* p) noexcept {
+				                     std::destroy_at<T>(static_cast<T*>(p));
+			                     }));
+		}
+	}
 };
 
 template <typename T, typename Deleter = std::default_delete<T>>

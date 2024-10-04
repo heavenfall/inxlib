@@ -77,12 +77,12 @@ parse_varname(std::string_view parse, bool whitespace)
 		result.var_op_ = VarOp::Name;
 	}
 	// group
-	if (subparse[sub_at] == LocalChar) {
+	if (subparse[sub_at] == GlobalChar) {
 		if (++sub_at >= subparse.size())
 			return {};
-		result.var_class_ = VarClass::Local;
-	} else {
 		result.var_class_ = VarClass::Global;
+	} else {
+		result.var_class_ = VarClass::Local;
 	}
 	if (auto len = subparse.substr(sub_at).rfind(GroupSepChar);
 	    len != std::string_view::npos) {

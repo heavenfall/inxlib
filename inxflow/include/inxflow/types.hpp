@@ -22,19 +22,13 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#ifndef INXFLOW_CMD_TYPES_HPP
-#define INXFLOW_CMD_TYPES_HPP
+#ifndef INXFLOW_TYPES_HPP
+#define INXFLOW_TYPES_HPP
 
-#include <inxflow/types.hpp>
-#include <span>
-#include <string_view>
+namespace inx::flow {
 
-namespace inx::flow::cmd {
+class Framework;
 
-using command_args = std::span<std::string_view>;
+} // namespace inx::flow
 
-using command_exec = int(Framework& fw, command_args args);
-
-} // namespace inx::flow::cmd
-
-#endif // INXFLOW_CMD_TYPES_HPP
+#endif // INXFLOW_TYPES_HPP

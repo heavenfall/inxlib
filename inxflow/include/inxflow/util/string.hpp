@@ -100,6 +100,9 @@ struct VarName
 std::pair<VarName, size_t>
 parse_varname(std::string_view parse, bool whitespace = false);
 
+VarName
+match_varname(std::string_view parse, bool force_token);
+
 } // namespace inx::flow::util
 
 #endif // INXFLOW_UTIL_STRING_HPP

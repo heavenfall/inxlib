@@ -74,7 +74,8 @@ Serialize&
 GroupTemplate::at_chain(std::string_view id) const
 {
 	std::lock_guard lock(m_signature->m_mutex);
-	auto obj = get_chain_nolock(id);
+	m_varTemp = id;
+	auto obj = get_chain_nolock(m_varTemp);
 	if (obj == nullptr)
 		throw std::out_of_range("id");
 	return *obj;
@@ -83,13 +84,13 @@ serialize
 GroupTemplate::get_chain(std::string_view id) const
 {
 	std::lock_guard lock(m_signature->m_mutex);
-	return get_chain_nolock(id);
+	m_varTemp = id;
+	return get_chain_nolock(m_varTemp);
 }
 serialize
-GroupTemplate::get_chain_nolock(std::string_view id) const
+GroupTemplate::get_chain_nolock(const std::pmr::string& id) const
 {
-	m_varTemp = id;
-	auto it = m_vars.find(m_varTemp);
+	auto it = m_vars.find(id);
 	if (it != m_vars.end())
 		return it->second;
 	if (m_higherScope != nullptr)
@@ -116,6 +117,70 @@ GroupTemplate::get_make(std::string_view id)
 		ser = m_signature->construct_nolock();
 	}
 	return ser;
+}
+
+Serialize&
+GroupTemplate::at_chain_make(std::string_view id)
+{
+	auto ser = get_chain_make(id);
+	if (ser == nullptr)
+		throw std::out_of_range("id");
+	return *ser;
+}
+serialize
+GroupTemplate::get_chain_make(std::string_view id)
+{
+	std::lock_guard lock(m_signature->m_mutex);
+	m_varTemp = id;
+	auto ser = get_chain(id);
+	if (ser == nullptr) {
+		auto& make_ser = m_vars[m_varTemp];
+		make_ser = m_signature->construct_nolock();
+		ser = make_ser;
+	}
+	return ser;
+}
+
+int
+GroupTemplate::remove(std::string_view id)
+{
+	std::lock_guard lock(m_signature->m_mutex);
+	m_varTemp = id;
+	return m_vars.erase(m_varTemp);
+}
+int
+GroupTemplate::remove_chain(std::string_view id)
+{
+	std::lock_guard lock(m_signature->m_mutex);
+	m_varTemp = id;
+	return remove_chain_nolock(m_varTemp);
+}
+int
+GroupTemplate::remove_chain_nolock(const std::pmr::string& id)
+{
+	int c = m_vars.erase(m_varTemp);
+	if (m_higherScope != nullptr)
+		c += m_higherScope->remove_chain_nolock(id);
+	return c;
+}
+void
+GroupTemplate::clear()
+{
+	std::lock_guard lock(m_signature->m_mutex);
+	m_vars.clear();
+}
+void
+GroupTemplate::clear_chain()
+{
+	std::lock_guard lock(m_signature->m_mutex);
+	clear_chain_nolock();
+}
+void
+GroupTemplate::clear_chain_nolock()
+{
+	m_vars.clear();
+	if (m_higherScope != nullptr)
+		m_higherScope->clear_chain_nolock();
 }
 
 } // namespace inx::flow::data

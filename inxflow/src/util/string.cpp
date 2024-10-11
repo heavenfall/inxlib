@@ -122,4 +122,15 @@ parse_varname(std::string_view parse, bool whitespace)
 	return {result, parsed_length};
 }
 
+VarName
+match_varname(std::string_view parse, bool force_token)
+{
+	if (parse.empty() || (force_token && parse[0] != '@'))
+		return {};
+	auto res = parse_varname(parse);
+	if (!res.first || res.second != parse.size())
+		return {};
+	return res.first;
+}
+
 } // namespace inx::flow::util

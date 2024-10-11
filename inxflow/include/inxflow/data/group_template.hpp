@@ -66,6 +66,7 @@ public:
 	std::mutex m_mutex;
 };
 } // namespace data
+
 using signature = std::shared_ptr<data::GroupSignature>;
 
 namespace data {
@@ -95,11 +96,27 @@ public:
 	serialize get_make(
 	  std::string_view id); /// finds id, constructs if does not exists on scope
 
+	Serialize& at_chain_make(
+	  std::string_view id); /// finds id, chains to higher scope if does not
+	                        /// exists, constructs if does not exists on scope
+	serialize get_chain_make(
+	  std::string_view id); /// finds id, chains to higher scope if does not
+	                        /// exists, constructs if does not exists on scope
+
+	int remove(std::string_view
+	             id); /// delete an variable, returns number of elements removed
+	int remove_chain(
+	  std::string_view id); /// deletes all variables on and above this scope
+	void clear();           /// clear all variables at this scope
+	void clear_chain();     /// clear all variables at and above this scope
+
 	const auto& data() const noexcept { return m_vars; }
 
 private:
-	serialize get_chain_nolock(std::string_view id)
+	serialize get_chain_nolock(const std::pmr::string& id)
 	  const; /// finds id, chains to higher scope if does not exists
+	int remove_chain_nolock(const std::pmr::string& id);
+	void clear_chain_nolock();
 
 protected:
 	signature m_signature;        /// Object signature

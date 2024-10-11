@@ -27,6 +27,8 @@ The command line results in a set of exec groups split by `+|++`.
 The `+` is only needed for function with no set number of arguments,
 it is implicit otherwise.
 The `++` separator splits between local groups, effecting what is kept.
+Any argument starting with `++` but not equal will have the `++` remove,
+thus allowing for `+` and `++` strings in input.
 
 ## Data
 

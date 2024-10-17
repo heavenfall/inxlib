@@ -22,15 +22,28 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#ifndef INXFLOW_TYPES_HPP
-#define INXFLOW_TYPES_HPP
+#ifndef INXFLOW_EXCEPTIONS_HPP
+#define INXFLOW_EXCEPTIONS_HPP
 
-#include "exceptions.hpp"
+#include <stdexcept>
 
 namespace inx::flow {
 
-class Framework;
+class flow_error : public std::runtime_error
+{
+	using runtime_error::runtime_error;
+};
+
+class var_group_missing : public flow_error
+{
+	using flow_error::flow_error;
+};
+
+class var_name_missing : public flow_error
+{
+	using flow_error::flow_error;
+};
 
 } // namespace inx::flow
 
-#endif // INXFLOW_TYPES_HPP
+#endif // INXFLOW_EXCEPTIONS_HPP

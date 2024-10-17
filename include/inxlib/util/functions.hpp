@@ -72,6 +72,12 @@ public:
 	}
 	using unique_ptr<void, functor_ptr<void(void*)>>::operator=;
 	any_ptr& operator=(any_ptr&&) = default;
+	template <typename T>
+	any_ptr& operator=(std::unique_ptr<T>&& ptr)
+	{
+		reset(ptr.release());
+		return *this;
+	}
 	void reset(std::nullptr_t = nullptr) noexcept { unique_ptr::reset(); }
 	template <typename T>
 	void reset(T* ptr) noexcept

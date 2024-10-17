@@ -51,7 +51,10 @@ protected:
 
 	int_type underflow() override { return Traits::eof(); }
 	int_type uflow() override { return Traits::eof(); }
-	std::streamsize xsgetn(char_type* s, std::streamsize count) { return 0; }
+	std::streamsize xsgetn(char_type* s, std::streamsize count) override
+	{
+		return 0;
+	}
 
 private:
 	alignas(std::basic_streambuf<CharT, Traits>)

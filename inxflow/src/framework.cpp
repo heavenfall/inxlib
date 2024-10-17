@@ -85,6 +85,12 @@ Framework::exec()
 		  "Framework::exec called when m_exec_run is locked.");
 	inx::util::destruct_adaptor is_running_lock(
 	  [&r = m_exec_run]() noexcept { r.clear(); });
+	if (m_arguments.size() == 0)
+		return 0;
+	if (m_arguments.size() == 1 && m_arguments[0] == "--help") {
+		print_help();
+		return 0;
+	}
 	std::vector<std::string> arg_parsed;
 	std::vector<std::string_view> arg_pass;
 	for (int arg_i = 0, arg_n = m_arguments.size(); arg_i < arg_n;) {
@@ -164,6 +170,13 @@ Framework::exec()
 	return 0;
 }
 
+void
+Framework::print_help()
+{
+	if (m_help_print)
+		m_help_print(*this);
+}
+
 std::pair<const signature*, bool>
 Framework::push_signature(signature&& sig)
 {
@@ -175,7 +188,7 @@ Framework::push_signature(signature&& sig)
 void
 Framework::emplace_scope(std::string_view name, signature&& sig)
 {
-	m_variables.try_emplace(*m_strings.insert(sig->m_name).first,
+	m_variables.try_emplace(*m_strings.insert(std::string(name)).first,
 	                        std::move(sig),
 	                        &get_mutable_resource());
 }
@@ -329,7 +342,11 @@ Framework::var_group(std::string_view var, std::string_view default_group)
 	if (var.empty()) {
 		var = default_group;
 	}
-	return m_variables.at(var);
+	try {
+		return m_variables.at(var);
+	} catch (const std::exception&) {
+		throw var_group_missing(std::string(var));
+	}
 }
 
 data::Serialize&
@@ -361,7 +378,7 @@ Framework::var(util::VarName l_var, std::string_view default_group)
 data::Serialize&
 Framework::var(std::string_view l_var, std::string_view default_group)
 {
-	return var(util::parse_varname(l_var).first, default_group);
+	return var(util::match_varname(l_var, false), default_group);
 }
 
 data::Serialize&
@@ -382,7 +399,7 @@ Framework::at(util::VarName l_var, std::string_view default_group)
 data::Serialize&
 Framework::at(std::string_view l_var, std::string_view default_group)
 {
-	return at(util::parse_varname(l_var).first, default_group);
+	return at(util::match_varname(l_var, false), default_group);
 }
 
 serialize
@@ -400,32 +417,34 @@ Framework::get(util::VarName l_var, std::string_view default_group, int param)
 	switch (l_var.cls()) {
 	case util::VarClass::Global:
 		gt = &group.global;
+		break;
 	case util::VarClass::Local:
 		gt = &group.local;
+		break;
 	default:
 		throw std::logic_error("l_var.cls()");
 	}
-	switch (param & (vget_create | vget_scope)) {
+	switch (param & static_cast<int>(vget_create | vget_scope)) {
 	case 0:
 		return gt->get_chain(l_var.name());
-		break;
 	case vget_scope:
 		return gt->get(l_var.name());
-		break;
 	case vget_create:
 		return gt->get_chain_make(l_var.name());
-		break;
 	case vget_create | vget_scope:
 		return gt->get_make(l_var.name());
-		break;
 	}
+	assert(false);
+#ifdef __GNUC__
+	__builtin_unreachable();
+#endif
 }
 serialize
 Framework::get(std::string_view l_var,
                std::string_view default_group,
                int param)
 {
-	return get(util::parse_varname(l_var).first, default_group, param);
+	return get(util::match_varname(l_var, false), default_group, param);
 }
 
 void
@@ -439,6 +458,19 @@ framework_default(Framework& fw)
 	  fw.emplace_signature<data::SerializeWrap<var_file>>("file"sv).first;
 	assert(var_sig != nullptr);
 	fw.emplace_scope("file"sv, signature(*var_sig));
+
+	{
+		auto var_cmd = fw.emplace_command("inxflow:serialize"sv).first;
+		var_cmd->set_args_count(2);
+		var_cmd->set_cmd(&command_serialize);
+		fw.register_short_command('S', std::move(var_cmd), 2);
+	}
+	{
+		auto var_cmd = fw.emplace_command("inxflow:deserialize"sv).first;
+		var_cmd->set_args_count(2);
+		var_cmd->set_cmd(&command_deserialize);
+		fw.register_short_command('L', std::move(var_cmd), 2);
+	}
 }
 
 int
@@ -448,7 +480,31 @@ command_serialize(Framework& fw, command_args args)
 	if (args.size() != 2)
 		return 1;
 
-	auto p = fw.get(args[0], "file"sv, vget_create | vget_scope);
+	serialize p;
+	try {
+		p = fw.get(args[0], "file"sv, vget_scope);
+	} catch (const std::exception& e) {
+		std::cerr << "Failed to retrive variable: " << args[0] << std::endl
+		          << e.what() << std::endl;
+		return 1;
+	}
+	try {
+		auto path = args[1];
+		if (path == "/dev/stdout")
+			p->save_stdout();
+		else if (path == "/dev/null")
+			p->save_null();
+		else
+			p->save(path);
+	} catch (const std::exception& e) {
+		std::cerr << "Failed to serialise" << std::endl
+		          << e.what() << std::endl;
+		return 2;
+	} catch (...) {
+		std::cerr << "Failed to serialise" << std::endl;
+		return 2;
+	}
+	return 0;
 }
 int
 command_deserialize(Framework& fw, command_args args)
@@ -456,7 +512,31 @@ command_deserialize(Framework& fw, command_args args)
 	if (args.size() != 2)
 		return 1;
 
-	auto p = fw.get(args[0], "file"sv, vget_create | vget_scope);
+	serialize p;
+	try {
+		p = fw.get(args[0], "file"sv, vget_create | vget_scope);
+	} catch (const std::exception& e) {
+		std::cerr << "Failed to create variable: " << args[0] << std::endl
+		          << e.what() << std::endl;
+		return 1;
+	}
+	try {
+		auto path = args[1];
+		if (path == "/dev/stdin")
+			p->load_stdin();
+		else if (path == "/dev/null")
+			p->load_null();
+		else
+			p->load(path);
+	} catch (const std::exception& e) {
+		std::cerr << "Failed to deserialise" << std::endl
+		          << e.what() << std::endl;
+		return 2;
+	} catch (...) {
+		std::cerr << "Failed to deserialise" << std::endl;
+		return 2;
+	}
+	return 0;
 }
 
 } // namespace inx::flow

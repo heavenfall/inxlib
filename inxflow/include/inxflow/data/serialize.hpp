@@ -159,7 +159,7 @@ serialize_save_file(T& data,
 template <concepts::ser_load T>
 bool
 serialize_load(T& data,
-               std::istream& in,
+               std::istream* in,
                const std::filesystem::path& path,
                StreamType stype,
                std::ios::openmode mode = std::ios::in)
@@ -168,11 +168,14 @@ serialize_load(T& data,
 	case StreamType::File:
 		return details::serialize_load_file(data, path, mode);
 	case StreamType::Stream:
+		if (in == nullptr)
+			return false;
 		if (path.empty()) {
-			return details::serialize_load_stream(data, in, StreamType::Stream);
+			return details::serialize_load_stream(
+			  data, *in, StreamType::Stream);
 		} else {
 			return details::serialize_load_path_stream(
-			  data, path, in, StreamType::Stream);
+			  data, path, *in, StreamType::Stream);
 		}
 	case StreamType::StdIn:
 		return details::serialize_load_stream(
@@ -190,7 +193,7 @@ serialize_load(T& data,
 template <concepts::ser_save T>
 bool
 serialize_save(T& data,
-               std::ostream& out,
+               std::ostream* out,
                const std::filesystem::path& path,
                StreamType stype,
                std::ios::openmode mode = std::ios::out | std::ios::trunc)
@@ -199,12 +202,14 @@ serialize_save(T& data,
 	case StreamType::File:
 		return details::serialize_save_file(data, path, mode);
 	case StreamType::Stream:
+		if (out == nullptr)
+			return false;
 		if (path.empty()) {
 			return details::serialize_save_stream(
-			  data, out, StreamType::Stream);
+			  data, *out, StreamType::Stream);
 		} else {
 			return details::serialize_save_path_stream(
-			  data, path, out, StreamType::Stream);
+			  data, path, *out, StreamType::Stream);
 		}
 	case StreamType::StdOut:
 		return details::serialize_save_stream(
@@ -316,8 +321,13 @@ public:
 		wrapper_op op;
 		wrapper_op support;
 		StreamType stype;
-		void* stream; // either any_ptr* or stream*
-		void* data;
+		inx::util::any_ptr* data;
+		union Stream
+		{
+			std::istream* i;
+			std::ostream* o;
+			void* v;
+		} stream;
 		const std::filesystem::path* path;
 	};
 	using wrapper_fn = bool(wrapper_input input);
@@ -367,15 +377,25 @@ public:
 	/**
 	 * Deserialize the data.
 	 */
-	void load(std::istream& in,
+	void load(std::istream* in,
 	          const std::filesystem::path& fname,
 	          StreamType type);
+	void load(std::istream& in);
+	void load(const std::filesystem::path& fname);
+	void load(std::istream& in, const std::filesystem::path& fname);
+	void load_stdin();
+	void load_null();
 	/**
 	 * Serialize the data
 	 */
-	void save(std::ostream& out,
+	void save(std::ostream* out,
 	          const std::filesystem::path& fname,
 	          StreamType type);
+	void save(std::ostream& in);
+	void save(const std::filesystem::path& fname);
+	void save(std::ostream& in, const std::filesystem::path& fname);
+	void save_stdout();
+	void save_null();
 
 	std::type_index type() const noexcept { return m_type; }
 	void* data() noexcept { return m_data.get(); }
@@ -458,115 +478,123 @@ protected:
 				return false;
 			}
 		case wrapper_op::Construct:
-			static_cast<inx::util::any_ptr*>(input.stream)->reset(new T());
+			*input.data = std::make_unique<T>();
 			return true;
 		case wrapper_op::Copy:
-			if constexpr (std::is_copy_assignable_v<T>) {
-				if constexpr (!std::is_copy_constructible_v<T>) {
-					// construct then copy
-					auto& ptr = *static_cast<inx::util::any_ptr*>(input.stream);
-					if (!ptr) {
-						ptr = std::make_unique<T>();
-					}
-					*static_cast<T*>(ptr.get()) = *static_cast<const T*>(
-					  const_cast<const void*>(input.data));
+			assert(input.stream.v != nullptr);
+			if constexpr (!(std::is_copy_constructible_v<T> ||
+			                std::is_copy_assignable_v<T>)) {
+				return false;
+			} else {
+				// if not copy assignable, then must be constructed from copy
+				// construct
+				if (!std::is_copy_assignable_v<T>) {
+					*input.data = std::make_unique<T>(
+					  *static_cast<const T*>(input.stream.v));
 					return true;
-				} else { // try to copy
-					if (auto* g =
-					      static_cast<inx::util::any_ptr*>(input.stream)->get();
-					    g != nullptr) {
-						*static_cast<T*>(g) = *static_cast<const T*>(
-						  const_cast<const void*>(input.data));
-						return true;
+				} else {
+					if (!*input.data) {
+						if constexpr (std::is_copy_constructible_v<T>) {
+							*input.data = std::make_unique<T>(
+							  *static_cast<const T*>(input.stream.v));
+							return true;
+						} else {
+							*input.data = std::make_unique<T>();
+						}
 					}
+					*static_cast<T*>(input.data->get()) =
+					  *static_cast<const T*>(input.stream.v);
+					return true;
 				}
+				return false;
 			}
-			if constexpr (std::is_copy_constructible_v<T>) { // try to copy
-				                                             // construct
-				static_cast<inx::util::any_ptr*>(input.stream)
-				  ->reset(new T(*static_cast<const T*>(
-				    const_cast<const void*>(input.data))));
-				return true;
-			}
-			return false;
 		case wrapper_op::Move:
-			if constexpr (std::is_move_assignable_v<T>) {
-				if constexpr (!std::is_move_constructible_v<T>) { // construct
-					                                              // then move
-					auto& ptr = *static_cast<inx::util::any_ptr*>(input.stream);
-					if (!ptr) {
-						ptr = std::make_unique<T>();
-					}
-					*static_cast<T*>(ptr.get()) =
-					  std::move(*static_cast<T*>(input.data));
+			assert(input.stream.v != nullptr);
+			if constexpr (!(std::is_move_constructible_v<T> ||
+			                std::is_move_assignable_v<T>)) {
+				return false;
+			} else {
+				// if not copy assignable, then must be constructed from copy
+				// construct
+				if (!std::is_move_assignable_v<T>) {
+					*input.data = std::make_unique<T>(
+					  std::move(*static_cast<const T*>(input.stream.v)));
 					return true;
-				} else { // try to move
-					if (auto* g =
-					      static_cast<inx::util::any_ptr*>(input.stream)->get();
-					    g != nullptr) {
-						*static_cast<T*>(g) =
-						  std::move(*static_cast<T*>(input.data));
-						return true;
+				} else {
+					if (!*input.data) {
+						if constexpr (std::is_move_constructible_v<T>) {
+							*input.data = std::make_unique<T>(std::move(
+							  *static_cast<const T*>(input.stream.v)));
+							return true;
+						} else {
+							*input.data = std::make_unique<T>();
+						}
 					}
+					*static_cast<T*>(input.data->get()) =
+					  std::move(*static_cast<const T*>(input.stream.v));
+					return true;
 				}
+				return false;
 			}
-			if constexpr (std::is_move_constructible_v<T>) { // try to move
-				                                             // construct
-				static_cast<inx::util::any_ptr*>(input.stream)
-				  ->reset(new T(std::move(*static_cast<T*>(input.data))));
+		case wrapper_op::Load: {
+			if constexpr (!(!load_func_null || concepts::ser_load<T>)) {
+				return false;
+			} else {
+				assert(input.data != nullptr && input.path != nullptr);
+				std::ios::openmode mode;
+				if constexpr (concepts::has_ser_load_mode<T>) {
+					mode = T::concepts::ser_load_mode();
+				} else if constexpr (concepts::has_ser_binary<T>) {
+					mode =
+					  std::ios::in | (T::ser_binary() ? std::ios::binary
+					                                  : std::ios::openmode{});
+				} else {
+					mode = std::ios::in;
+				}
+				T* data = static_cast<T*>(input.data->get());
+				if (data == nullptr)
+					throw std::runtime_error(
+					  "Serialize Load/Save requires Construct first.");
+				if constexpr (!load_func_null) {
+					details::SerializeLoader<T, LoadFunc> loader{data};
+					serialize_load(
+					  loader, input.stream.i, *input.path, input.stype, mode);
+				} else {
+					serialize_load(
+					  *data, input.stream.i, *input.path, input.stype, mode);
+				}
 				return true;
 			}
-			return false;
-		case wrapper_op::Load: {
-			std::ios::openmode mode;
-			if constexpr (concepts::has_ser_load_mode<T>) {
-				mode = T::concepts::ser_load_mode();
-			} else if constexpr (concepts::has_ser_binary<T>) {
-				mode = std::ios::in | (T::ser_binary() ? std::ios::binary
-				                                       : std::ios::openmode{});
-			} else {
-				mode = std::ios::in;
-			}
-			assert(input.data != nullptr && input.path != nullptr);
-			std::istream* stream = static_cast<std::istream*>(input.stream);
-			T* data = static_cast<T*>(
-			  static_cast<inx::util::any_ptr*>(input.data)->get());
-			if (data == nullptr)
-				throw std::runtime_error(
-				  "Serialize Load/Save requires Construct first.");
-			if constexpr (!load_func_null) {
-				details::SerializeLoader<T, LoadFunc> loader{data};
-				serialize_load(loader, *stream, *input.path, input.stype, mode);
-			} else {
-				serialize_load(*data, *stream, *input.path, input.stype, mode);
-			}
-			break;
 		}
 		case wrapper_op::Save: {
-			std::ios::openmode mode;
-			if constexpr (concepts::has_ser_save_mode<T>) {
-				mode = T::concepts::ser_save_mode();
-			} else if constexpr (concepts::has_ser_binary<T>) {
-				mode =
-				  std::ios::out | std::ios::trunc |
-				  (T::ser_binary() ? std::ios::binary : std::ios::openmode{});
+			if constexpr (!(!save_func_null || concepts::ser_save<T>)) {
+				return false;
 			} else {
-				mode = std::ios::out | std::ios::trunc;
+				assert(input.data != nullptr && input.path != nullptr);
+				std::ios::openmode mode;
+				if constexpr (concepts::has_ser_save_mode<T>) {
+					mode = T::concepts::ser_save_mode();
+				} else if constexpr (concepts::has_ser_binary<T>) {
+					mode = std::ios::out | std::ios::trunc |
+					       (T::ser_binary() ? std::ios::binary
+					                        : std::ios::openmode{});
+				} else {
+					mode = std::ios::out | std::ios::trunc;
+				}
+				T* data = static_cast<T*>(input.data->get());
+				if (data == nullptr)
+					throw std::runtime_error(
+					  "Serialize Load/Save requires Construct first.");
+				if constexpr (!save_func_null) {
+					details::SerializeSaver<T, SaveFunc> saver{data};
+					serialize_save(
+					  saver, input.stream.o, *input.path, input.stype, mode);
+				} else {
+					serialize_save(
+					  *data, input.stream.o, *input.path, input.stype, mode);
+				}
+				return true;
 			}
-			assert(input.data != nullptr && input.path != nullptr);
-			std::ostream* stream = static_cast<std::ostream*>(input.stream);
-			T* data = static_cast<T*>(
-			  static_cast<inx::util::any_ptr*>(input.data)->get());
-			if (data == nullptr)
-				throw std::runtime_error(
-				  "Serialize Load/Save requires Construct first.");
-			if constexpr (!save_func_null) {
-				details::SerializeSaver<T, SaveFunc> saver{data};
-				serialize_save(saver, *stream, *input.path, input.stype, mode);
-			} else {
-				serialize_save(*data, *stream, *input.path, input.stype, mode);
-			}
-			break;
 		}
 		default:
 			assert(false);

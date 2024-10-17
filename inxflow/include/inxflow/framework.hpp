@@ -60,7 +60,7 @@ struct CommandReg
 using var_string = data::StringSerialize;
 using var_file = data::StringSerialize;
 
-enum VarGet : int
+enum VarGet
 {
 	vget_get = 0,
 	vget_scope =
@@ -114,6 +114,17 @@ public:
 		  [&r = m_exec_run]() noexcept { r.clear(); });
 		m_arguments.assign(args.begin(), args.end());
 	}
+	template <typename HelpFn>
+	void set_help_print(HelpFn&& func)
+	{
+		if constexpr (std::is_invocable_v<HelpFn, Framework&>) {
+			m_help_print = std::forward<HelpFn>(func);
+		} else {
+			m_help_print = std::bind(std::forward<HelpFn>(func));
+		}
+	}
+
+	void print_help();
 
 	/// @brief Run command from arguments.  Args from set_args_main or
 	/// set_args_range
@@ -269,6 +280,7 @@ protected:
 	std::pmr::unordered_map<std::string_view, CommandReg> m_general_cmd;
 	std::atomic_flag m_exec_run;
 	std::ostringstream m_arg_builder;
+	std::function<void(Framework&)> m_help_print;
 };
 
 /**

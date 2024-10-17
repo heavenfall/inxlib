@@ -30,7 +30,7 @@ using vec_type = std::vector<double>;
 int
 add(Framework& fw, command_args args)
 {
-	if (args.size() < 2)
+	if (args.size() != 2)
 		return 1;
 	auto v = fw.get(args[0], "vec"sv, inx::flow::vget_group);
 	if (v == nullptr)
@@ -48,7 +48,7 @@ add(Framework& fw, command_args args)
 		i += mod_val;
 	}
 
-	fw["vec:output"].as<vec_type>() = std::move(vec);
+	fw["vec.output"].as<vec_type>() = std::move(vec);
 	return 0;
 }
 
@@ -64,11 +64,21 @@ main(int argc, char* argv[])
 	                                 &vector_save<vec_type::value_type>>;
 	fw.emplace_signature<sig_type>("vecdouble");
 	fw.emplace_scope("vec", "vecdouble");
-	auto cmd = fw.emplace_command("add");
-	cmd.first->set_cmd(&add);
-	cmd.first->set_args_count(2);
+	auto cmd = fw.emplace_command("add").first;
+	cmd->set_cmd(&add);
+	cmd->set_args_count(2);
+	fw.register_general_command("add", std::move(cmd));
 
 	fw.set_args_main(argc, argv);
+
+	fw.set_help_print([]() {
+		std::cout << "Usage: custom_command {commands}\n\n"
+		             "{commands}:\n"
+		             "Normal inxflow commands (-S,-L,ect)\n"
+		             "add @vec:@ <value:double>: add value to whole vector, "
+		             "then stores result in @vec:output@\n"
+		          << std::flush;
+	});
 
 	return fw.exec();
 }

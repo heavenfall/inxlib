@@ -8,5 +8,4 @@ TabWidth: '4'
 UseTab: ForIndentation
 FixNamespaceComments: 'true'
 Cpp11BracedListStyle: 'true'
-
-...
+ColumnLimit: 120

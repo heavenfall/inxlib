@@ -37,56 +37,38 @@ template <size_t SliceSize, size_t SlabSize, size_t SlabMinLevel = 0>
 class SliceFactoryImpl
 {
 public:
-	static_assert(SlabSize >= SliceSize,
-	              "SlabSize must be at least as large as SliceSize");
+	static_assert(SlabSize >= SliceSize, "SlabSize must be at least as large as SliceSize");
 	using self = SliceFactoryImpl<SliceSize, SlabSize>;
 	using value_type = std::byte;
 	using pointer = value_type*;
-	constexpr static size_t align_size() noexcept
-	{
-		return sizeof(std::max_align_t);
-	}
+	constexpr static size_t align_size() noexcept { return sizeof(std::max_align_t); }
 	constexpr static size_t padding1() noexcept
 	{
 		return align_size() >= sizeof(void*)
 		         ? align_size()
-		         : sizeof(void*) +
-		             (align_size() - sizeof(void*) % align_size()) %
-		               align_size();
+		         : sizeof(void*) + (align_size() - sizeof(void*) % align_size()) % align_size();
 	}
 	constexpr static size_t padding2() noexcept
 	{
-		return padding1() +
-		       (align_size() >= sizeof(size_t)
-		          ? align_size()
-		          : sizeof(size_t) +
-		              (align_size() - sizeof(size_t) % align_size()) %
-		                align_size());
+		return padding1() + (align_size() >= sizeof(size_t)
+		                       ? align_size()
+		                       : sizeof(size_t) + (align_size() - sizeof(size_t) % align_size()) % align_size());
 	}
 	constexpr static size_t slice_size() noexcept { return SliceSize; }
 	constexpr static size_t slab_size() noexcept
 	{
-		return std::max((SlabSize + align_size() - 1) / align_size() *
-		                  align_size(),
+		return std::max((SlabSize + align_size() - 1) / align_size() * align_size(),
 		                2 * std::max(align_size(), sizeof(void*)));
 	}
-	constexpr static size_t init_slab_count() noexcept
-	{
-		return slab_size() / slice_size();
-	}
+	constexpr static size_t init_slab_count() noexcept { return slab_size() / slice_size(); }
 	constexpr static size_t slab_min_level() noexcept
 	{
-		return std::max(
-		  static_cast<size_t>(
-		    slice_size() < padding1()
-		      ? util::clz_index((slice_size() + padding1() - 1) / padding1())
-		      : 0),
-		  SlabMinLevel);
+		return std::max(static_cast<size_t>(slice_size() < padding1()
+		                                      ? util::clz_index((slice_size() + padding1() - 1) / padding1())
+		                                      : 0),
+		                SlabMinLevel);
 	}
-	constexpr static size_t slab_max_level() noexcept
-	{
-		return util::clz_index(init_slab_count());
-	}
+	constexpr static size_t slab_max_level() noexcept { return util::clz_index(init_slab_count()); }
 
 	struct SlabCtrl
 	{
@@ -161,12 +143,10 @@ public:
 			data = std::exchange(ctrl.reuse, get_reuse_pointer_at(ctrl.reuse));
 		} else if (level <= slab_max_level()) {
 			size_t chunk = slice_size() << level;
-			if (ctrl.slab == nullptr ||
-			    get_slab_pos_at(ctrl.slab) + chunk > slab_size()) {
+			if (ctrl.slab == nullptr || get_slab_pos_at(ctrl.slab) + chunk > slab_size()) {
 				pointer newSlab = allocate_slab(level);
 				get_slab_pos_at(newSlab) = 0;
-				get_slab_pointer_at(newSlab) =
-				  std::exchange(ctrl.slab, newSlab);
+				get_slab_pointer_at(newSlab) = std::exchange(ctrl.slab, newSlab);
 			}
 			auto& p = get_slab_pos_at(ctrl.slab);
 			data = ctrl.slab + p;
@@ -187,11 +167,9 @@ public:
 				level = slab_min_level();
 		}
 		if (level <= slab_max_level()) {
-			get_reuse_pointer_at(ptr) =
-			  std::exchange(m_data.slabs[level].reuse, ptr);
+			get_reuse_pointer_at(ptr) = std::exchange(m_data.slabs[level].reuse, ptr);
 		} else {
-			get_slab_pointer_at(ptr) =
-			  std::exchange(m_data.slabs[level].reuse, ptr);
+			get_slab_pointer_at(ptr) = std::exchange(m_data.slabs[level].reuse, ptr);
 		}
 	}
 
@@ -229,10 +207,7 @@ protected:
 			}
 		}
 	}
-	constexpr static pointer& get_reuse_pointer_at(pointer slab) noexcept
-	{
-		return *reinterpret_cast<pointer*>(slab);
-	}
+	constexpr static pointer& get_reuse_pointer_at(pointer slab) noexcept { return *reinterpret_cast<pointer*>(slab); }
 	constexpr static pointer& get_slab_pointer_at(pointer slab) noexcept
 	{
 		return *reinterpret_cast<pointer*>(slab - padding1());
@@ -252,19 +227,15 @@ protected:
 	// }
 	constexpr static size_t get_slab_size_padded(size_t index) noexcept
 	{
-		return index <= slab_max_level()
-		         ? (slab_size() + padding2())
-		         : ((slice_size() << index) + padding2());
+		return index <= slab_max_level() ? (slab_size() + padding2()) : ((slice_size() << index) + padding2());
 	}
 
 	pointer allocate_slab(size_t level)
 	{
 		assert(level >= slab_min_level() && level < 32);
 		if (level <= slab_max_level()) {
-			if (pointer slab = m_data.slabReuse;
-			    slab != nullptr) { // reuse old slab
-				if (pointer& slab2 = get_slab_pointer_at(slab);
-				    slab2 != nullptr) { // next slab on same level
+			if (pointer slab = m_data.slabReuse; slab != nullptr) {                 // reuse old slab
+				if (pointer& slab2 = get_slab_pointer_at(slab); slab2 != nullptr) { // next slab on same level
 					slab = slab2;
 					slab2 = get_slab_pointer_at(slab2);
 					return slab;
@@ -273,8 +244,7 @@ protected:
 				return slab;
 			}
 		}
-		pointer slab = static_cast<pointer>(
-		  m_data.mr->allocate(get_slab_size_padded(level), align_size()));
+		pointer slab = static_cast<pointer>(m_data.mr->allocate(get_slab_size_padded(level), align_size()));
 		slab += padding2();
 		return slab;
 	}
@@ -285,19 +255,16 @@ protected:
 } // namespace details
 
 template <typename ValueType, size_t SlabSize, size_t SlabMinLevel = 0>
-class SliceFactory
-  : public details::SliceFactoryImpl<sizeof(ValueType), SlabSize, SlabMinLevel>
+class SliceFactory : public details::SliceFactoryImpl<sizeof(ValueType), SlabSize, SlabMinLevel>
 {
 public:
 	using self = SliceFactory<ValueType, SlabSize, SlabMinLevel>;
-	using super =
-	  details::SliceFactoryImpl<sizeof(ValueType), SlabSize, SlabMinLevel>;
+	using super = details::SliceFactoryImpl<sizeof(ValueType), SlabSize, SlabMinLevel>;
 	using super::super;
 };
 
 template <typename ValueType, size_t N, size_t SlabMinLevel = 0>
-using SliceFactoryN =
-  SliceFactory<ValueType, N * sizeof(ValueType), SlabMinLevel>;
+using SliceFactoryN = SliceFactory<ValueType, N * sizeof(ValueType), SlabMinLevel>;
 
 } // namespace inx::data
 

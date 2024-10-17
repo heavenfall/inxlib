@@ -84,17 +84,14 @@ parse_varname(std::string_view parse, bool whitespace)
 	} else {
 		result.var_class_ = VarClass::Local;
 	}
-	if (auto len = subparse.substr(sub_at).rfind(GroupSepChar);
-	    len != std::string_view::npos) {
+	if (auto len = subparse.substr(sub_at).rfind(GroupSepChar); len != std::string_view::npos) {
 		// found group, parse
 		// len -= sub_at;
 		if (len == 0 || len > VarName::MaxGroupLength) {
 			// bounds check
 			return {};
 		}
-		if (std::ranges::any_of(
-		      subparse.substr(sub_at, len),
-		      [](unsigned char c) { return std::isspace(c); })) {
+		if (std::ranges::any_of(subparse.substr(sub_at, len), [](unsigned char c) { return std::isspace(c); })) {
 			// no whitespace permitted in group
 			return {};
 		}
@@ -112,9 +109,7 @@ parse_varname(std::string_view parse, bool whitespace)
 		return {}; // varname size out of bounds
 	if (varname.find_first_of(InvalidVarChars) != std::string_view::npos)
 		return {}; // invalid character
-	if (whitespace && std::ranges::any_of(varname, [](unsigned char c) {
-		    return std::isspace(c);
-	    }))
+	if (whitespace && std::ranges::any_of(varname, [](unsigned char c) { return std::isspace(c); }))
 		return {}; // whitespace
 	result.name_start_ = sub_at;
 	result.name_len_ = varname.size();

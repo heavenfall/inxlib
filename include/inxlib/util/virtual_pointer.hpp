@@ -23,9 +23,7 @@ struct virtual_pointer_next<T1, T2, Ts...>
 template <typename T1>
 struct virtual_pointer_next<T1>
 {
-	using type = std::conditional_t<std::is_const_v<T1>,
-	                                virtual_pointer<const void>,
-	                                virtual_pointer<void>>;
+	using type = std::conditional_t<std::is_const_v<T1>, virtual_pointer<const void>, virtual_pointer<void>>;
 };
 
 template <typename... Ts>
@@ -34,8 +32,7 @@ using virtual_pointer_next_t = typename virtual_pointer_next<Ts...>::type;
 } // namespace details
 
 template <typename T, typename... Ts>
-class virtual_pointer<T, Ts...>
-  : public details::virtual_pointer_next_t<T, Ts...>
+class virtual_pointer<T, Ts...> : public details::virtual_pointer_next_t<T, Ts...>
 {
 protected:
 	using super = typename details::virtual_pointer_next<T, Ts...>::type;
@@ -61,26 +58,22 @@ public:
 			using ToC = std::remove_const_t<To>;
 			if constexpr (std::is_same<ToC, void>::value) {
 				return this->m_ptr;
-			} else if constexpr (std::is_same<ToC, virtual_pointer<T, Ts...>>::
-			                       value) {
+			} else if constexpr (std::is_same<ToC, virtual_pointer<T, Ts...>>::value) {
 				return get();
 			} else if constexpr (std::is_base_of<ToC, T>::value) {
 				return static_cast<To*>(get());
 			} else if constexpr (std::is_base_of<T, ToC>::value) {
-				return static_cast<ToC*>(
-				  this->m_cast(this->m_ptr, typeid(ToC)));
+				return static_cast<ToC*>(this->m_cast(this->m_ptr, typeid(ToC)));
 			} else {
 				return nullptr;
 			}
 		} else {
 			if constexpr (!std::is_const<To>::value) {
-				static_assert(std::is_const<To>::value,
-				              "can't cast away qualifiers");
+				static_assert(std::is_const<To>::value, "can't cast away qualifiers");
 				return nullptr;
 			} else if constexpr (std::is_same<To, const void>::value) {
 				return this->m_ptr;
-			} else if constexpr (std::is_same<To, virtual_pointer<T, Ts...>>::
-			                       value) {
+			} else if constexpr (std::is_same<To, virtual_pointer<T, Ts...>>::value) {
 				return get();
 			} else if constexpr (std::is_base_of<To, T>::value) {
 				return static_cast<To*>(get());
@@ -97,13 +90,8 @@ protected:
 	  : super(l_ptr, l_cast)
 	{
 	}
-	static void_type* get(void_type* ptr) noexcept
-	{
-		return static_cast<T*>(super::get(ptr));
-	}
-	static void_type* cast_up(void_type* ptr,
-	                          const std::type_info& ti
-	                          [[maybe_unused]]) noexcept
+	static void_type* get(void_type* ptr) noexcept { return static_cast<T*>(super::get(ptr)); }
+	static void_type* cast_up(void_type* ptr, const std::type_info& ti [[maybe_unused]]) noexcept
 	{
 		if (ti == typeid(T)) {
 			return get(ptr);
@@ -152,8 +140,7 @@ public:
 			if constexpr (std::is_same<To, const void>::value) {
 				return m_ptr;
 			} else {
-				return static_cast<To*>(
-				  m_cast(m_ptr, typeid(std::remove_const_t<To>)));
+				return static_cast<To*>(m_cast(m_ptr, typeid(std::remove_const_t<To>)));
 			}
 		}
 	}
@@ -165,9 +152,7 @@ protected:
 	{
 	}
 	static void_type* get(void_type* ptr) noexcept { return ptr; }
-	static void_type* cast_up(void_type*,
-	                          const std::type_info& ti
-	                          [[maybe_unused]]) noexcept
+	static void_type* cast_up(void_type*, const std::type_info& ti [[maybe_unused]]) noexcept
 	{
 		assert(ti != typeid(void_type));
 		return nullptr; // will never be called with type void
@@ -196,8 +181,7 @@ public:
 	  , m_cast(&cast_up)
 	{
 	}
-	explicit virtual_pointer(const virtual_pointer<const void>&) noexcept =
-	  default;
+	explicit virtual_pointer(const virtual_pointer<const void>&) noexcept = default;
 	virtual_pointer(virtual_pointer<const void>&&) noexcept = default;
 
 	const void* get() const noexcept { return m_ptr; }
@@ -208,8 +192,7 @@ public:
 	To* virtual_cast() const noexcept
 	{
 		if constexpr (!std::is_const<To>::value) {
-			static_assert(std::is_const<To>::value,
-			              "can't cast away qualifiers");
+			static_assert(std::is_const<To>::value, "can't cast away qualifiers");
 			return nullptr;
 		} else if constexpr (std::is_same<To, const void>::value) {
 			return m_ptr;
@@ -225,9 +208,7 @@ protected:
 	{
 	}
 	static void_type* get(void_type* ptr) noexcept { return ptr; }
-	static void_type* cast_up(void_type*,
-	                          const std::type_info& ti
-	                          [[maybe_unused]]) noexcept
+	static void_type* cast_up(void_type*, const std::type_info& ti [[maybe_unused]]) noexcept
 	{
 		assert(ti != typeid(void_type));
 		return nullptr; // will never be called with type void
@@ -262,8 +243,7 @@ template <typename P2, typename VP1, typename... VPs>
 bool
 operator>(const virtual_pointer<VP1, VPs...>& lhs, const P2* rhs) noexcept
 {
-	return std::greater<std::common_type_t<const VP1*, const P2*>>(lhs.get(),
-	                                                               rhs);
+	return std::greater<std::common_type_t<const VP1*, const P2*>>(lhs.get(), rhs);
 }
 template <typename P2, typename... VPs>
 bool

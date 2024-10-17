@@ -26,24 +26,20 @@ SOFTWARE.
 
 namespace inx::flow::data {
 
-GroupSignature::GroupSignature(std::string&& name,
-                               serialize&& base,
-                               const std::pmr::polymorphic_allocator<>& alloc)
+GroupSignature::GroupSignature(std::string&& name, serialize&& base, const std::pmr::polymorphic_allocator<>& alloc)
   : m_name(std::move(name))
   , m_base(std::move(base))
   , m_alloc(alloc)
 {
 }
 
-GroupTemplate::GroupTemplate(const std::pmr::polymorphic_allocator<>& var_alloc,
-                             signature&& signature)
+GroupTemplate::GroupTemplate(const std::pmr::polymorphic_allocator<>& var_alloc, signature&& signature)
   : m_signature(signature)
   , m_higherScope(nullptr)
   , m_vars(var_alloc)
 {
 }
-GroupTemplate::GroupTemplate(const std::pmr::polymorphic_allocator<>& var_alloc,
-                             GroupTemplate& higher)
+GroupTemplate::GroupTemplate(const std::pmr::polymorphic_allocator<>& var_alloc, GroupTemplate& higher)
   : m_signature(higher.m_signature)
   , m_higherScope(&higher)
   , m_vars(var_alloc)

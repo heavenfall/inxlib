@@ -57,11 +57,10 @@ main(int argc, char* argv[])
 {
 	inx::flow::Framework fw;
 	inx::flow::framework_default(fw);
-	using sig_type =
-	  inx::flow::data::SerializeWrap<vec_type,
-	                                 inx::flow::data::SerMode::Auto,
-	                                 &vector_load<vec_type::value_type>,
-	                                 &vector_save<vec_type::value_type>>;
+	using sig_type = inx::flow::data::SerializeWrap<vec_type,
+	                                                inx::flow::data::SerMode::Auto,
+	                                                &vector_load<vec_type::value_type>,
+	                                                &vector_save<vec_type::value_type>>;
 	fw.emplace_signature<sig_type>("vecdouble");
 	fw.emplace_scope("vec", "vecdouble");
 	auto cmd = fw.emplace_command("add").first;

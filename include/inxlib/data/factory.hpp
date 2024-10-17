@@ -37,10 +37,7 @@ struct FactoryPoolDelete
 {
 	using obj_type = std::array<T*, 512>;
 	using obj_list = std::forward_list<obj_type>;
-	static constexpr uint32 size() noexcept
-	{
-		return std::tuple_size<obj_type>::value;
-	}
+	static constexpr uint32 size() noexcept { return std::tuple_size<obj_type>::value; }
 	obj_list objects;
 	typename obj_list::iterator obj_it;
 	uint32 obj_i;
@@ -53,14 +50,8 @@ struct FactoryPoolDelete
 	{
 	}
 
-	static bool getDel(const T* obj) noexcept
-	{
-		return reinterpret_cast<const bool*>(obj)[-1];
-	}
-	static void setDel(T* obj, bool del) noexcept
-	{
-		reinterpret_cast<bool*>(obj)[-1] = del;
-	}
+	static bool getDel(const T* obj) noexcept { return reinterpret_cast<const bool*>(obj)[-1]; }
+	static void setDel(T* obj, bool del) noexcept { reinterpret_cast<bool*>(obj)[-1] = del; }
 
 	void push(T* obj)
 	{
@@ -84,16 +75,10 @@ template <typename T>
 class Factory
 {
 public:
-	static constexpr bool is_trivial() noexcept
-	{
-		return std::is_trivially_destructible_v<T>;
-	}
+	static constexpr bool is_trivial() noexcept { return std::is_trivially_destructible_v<T>; }
 	static constexpr size_t size() noexcept { return sizeof(T); }
 	static constexpr size_t align() noexcept { return alignof(T); }
-	static constexpr size_t size_del() noexcept
-	{
-		return is_trivial() ? size() : size() + align();
-	}
+	static constexpr size_t size_del() noexcept { return is_trivial() ? size() : size() + align(); }
 	using auto_delete = details::FactoryPoolDelete<T, is_trivial()>;
 	Factory() {}
 	Factory(std::pmr::memory_resource* upstream)
@@ -115,9 +100,7 @@ public:
 		if constexpr (is_trivial()) {
 			return m_pool.allocate(size_del(), align());
 		} else {
-			return static_cast<void*>(
-			  static_cast<std::byte*>(m_pool.allocate(size_del(), align())) +
-			  align());
+			return static_cast<void*>(static_cast<std::byte*>(m_pool.allocate(size_del(), align())) + align());
 		}
 	}
 	void deallocate(void* data)
@@ -125,10 +108,7 @@ public:
 		if constexpr (is_trivial()) {
 			m_pool.deallocate(data, size_del(), align());
 		} else {
-			m_pool.deallocate(
-			  static_cast<void*>(static_cast<std::byte*>(data) - align()),
-			  size_del(),
-			  align());
+			m_pool.deallocate(static_cast<void*>(static_cast<std::byte*>(data) - align()), size_del(), align());
 		}
 	}
 
@@ -153,8 +133,7 @@ public:
 			for (uint32 i = 0, ie = m_autoDelete.obj_size; i < ie;) {
 				++it;
 				assert(it != m_autoDelete.objects.end());
-				for (uint32 j = 0, je = std::min(ie - i, objsize); j < je;
-				     ++i, ++j) {
+				for (uint32 j = 0, je = std::min(ie - i, objsize); j < je; ++i, ++j) {
 					T* data = (*it)[j];
 					if (auto_delete::getDel(data)) {
 						auto_delete::setDel(data, false);
@@ -285,8 +264,7 @@ public:
 	template <typename... Args>
 	[[nodiscard]] T* construct(Args&&... args)
 	{
-		T* data = std::construct_at<T>(static_cast<T*>(allocate()),
-		                               std::forward<Args>(args)...);
+		T* data = std::construct_at<T>(static_cast<T*>(allocate()), std::forward<Args>(args)...);
 		return data;
 	}
 	void destruct(T* data)

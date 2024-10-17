@@ -75,8 +75,7 @@ inline constexpr T inf = std::numeric_limits<T>::max();
 template <typename T>
 inline constexpr T pi = static_cast<T>(3.1415926535897932384626433);
 template <typename T>
-inline constexpr T epsilon =
-  static_cast<T>(std::is_same_v<T, float> ? 1e-4 : 1e-8);
+inline constexpr T epsilon = static_cast<T>(std::is_same_v<T, float> ? 1e-4 : 1e-8);
 
 template <bool B, auto T, auto F>
 struct conditional_value;
@@ -132,8 +131,7 @@ template <typename T, size_t I>
 struct add_const_pointer
 {
 	static_assert(I <= count_pointer_v<T>, "I must fall within count_poiner");
-	using type =
-	  typename add_const_pointer_aux<T, count_pointer_v<T> - I>::type;
+	using type = typename add_const_pointer_aux<T, count_pointer_v<T> - I>::type;
 };
 template <typename T, size_t I>
 using add_const_pointer_t = typename add_const_pointer<T, I>::type;

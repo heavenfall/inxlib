@@ -6,9 +6,11 @@ using namespace std::string_view_literals;
 
 namespace inx::flow {
 
-TEST_CASE( "String variable parsing", "[var]") {
-	
-	SECTION( "VarName as name" ) {
+TEST_CASE("String variable parsing", "[var]")
+{
+
+	SECTION("VarName as name")
+	{
 		auto ps = "@name1@"sv;
 		auto p = util::parse_varname(ps);
 		CHECK(bool{p.first} == true);
@@ -64,7 +66,8 @@ TEST_CASE( "String variable parsing", "[var]") {
 		CHECK(p.second == ps.size());
 	}
 
-	SECTION( "VarName grouping test" ) {
+	SECTION("VarName grouping test")
+	{
 		auto ps = "name1"sv;
 		auto p = util::parse_varname(ps);
 		CHECK(bool{p.first} == true);
@@ -170,4 +173,4 @@ TEST_CASE( "String variable parsing", "[var]") {
 	}
 }
 
-}
+} // namespace inx::flow

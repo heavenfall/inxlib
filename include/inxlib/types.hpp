@@ -30,8 +30,7 @@ SOFTWARE.
 namespace inx {
 
 template <typename T>
-concept Plain =
-  !std::is_void_v<T> && !std::is_reference_v<T> && !std::is_volatile_v<T>;
+concept Plain = !std::is_void_v<T> && !std::is_reference_v<T> && !std::is_volatile_v<T>;
 template <typename T>
 concept ConstPlain = Plain<T> && std::is_const_v<T>;
 template <typename T>

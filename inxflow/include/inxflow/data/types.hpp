@@ -63,57 +63,37 @@ namespace concepts {
 
 template <typename T>
 concept ser_load_full =
-  requires(T& t, std::istream& stream, const std::filesystem::path& path) {
-	  t.load(path, stream);
-  };
+  requires(T& t, std::istream& stream, const std::filesystem::path& path) { t.load(path, stream); };
 template <typename T>
-concept ser_load_full_type =
-  requires(T& t,
-           std::istream& stream,
-           const std::filesystem::path& path,
-           StreamType type) { t.load(path, stream, type); };
+concept ser_load_full_type = requires(T& t, std::istream& stream, const std::filesystem::path& path, StreamType type) {
+	t.load(path, stream, type);
+};
 template <typename T>
-concept ser_load_stream =
-  requires(T& t, std::istream& stream) { t.load(stream); };
+concept ser_load_stream = requires(T& t, std::istream& stream) { t.load(stream); };
 template <typename T>
-concept ser_load_stream_type =
-  requires(T& t, std::istream& stream, StreamType type) {
-	  t.load(stream, type);
-  };
+concept ser_load_stream_type = requires(T& t, std::istream& stream, StreamType type) { t.load(stream, type); };
 template <typename T>
-concept ser_load_filename =
-  requires(T& t, const std::filesystem::path& path) { t.load(path); };
+concept ser_load_filename = requires(T& t, const std::filesystem::path& path) { t.load(path); };
 template <typename T>
 concept ser_load =
-  ser_load_full<T> || ser_load_full_type<T> || ser_load_stream<T> ||
-  ser_load_stream_type<T> || ser_load_filename<T>;
+  ser_load_full<T> || ser_load_full_type<T> || ser_load_stream<T> || ser_load_stream_type<T> || ser_load_filename<T>;
 
 template <typename T>
 concept ser_save_full =
-  requires(T& t, std::ostream& stream, const std::filesystem::path& path) {
-	  t.save(path, stream);
-  };
+  requires(T& t, std::ostream& stream, const std::filesystem::path& path) { t.save(path, stream); };
 template <typename T>
-concept ser_save_full_type =
-  requires(T& t,
-           std::ostream& stream,
-           const std::filesystem::path& path,
-           StreamType type) { t.save(path, stream, type); };
+concept ser_save_full_type = requires(T& t, std::ostream& stream, const std::filesystem::path& path, StreamType type) {
+	t.save(path, stream, type);
+};
 template <typename T>
-concept ser_save_stream =
-  requires(T& t, std::ostream& stream) { t.save(stream); };
+concept ser_save_stream = requires(T& t, std::ostream& stream) { t.save(stream); };
 template <typename T>
-concept ser_save_stream_type =
-  requires(T& t, std::ostream& stream, StreamType type) {
-	  t.save(stream, type);
-  };
+concept ser_save_stream_type = requires(T& t, std::ostream& stream, StreamType type) { t.save(stream, type); };
 template <typename T>
-concept ser_save_filename =
-  requires(T& t, const std::filesystem::path& path) { t.save(path); };
+concept ser_save_filename = requires(T& t, const std::filesystem::path& path) { t.save(path); };
 template <typename T>
 concept ser_save =
-  ser_save_full<T> || ser_save_full_type<T> || ser_save_stream<T> ||
-  ser_save_stream_type<T> || ser_save_filename<T>;
+  ser_save_full<T> || ser_save_full_type<T> || ser_save_stream<T> || ser_save_stream_type<T> || ser_save_filename<T>;
 
 } // namespace concepts
 

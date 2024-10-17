@@ -44,21 +44,14 @@ protected:
 		this->setp(m_buffer.data(), m_buffer.data() + m_buffer.size());
 		return c;
 	}
-	std::streamsize xsputn(const char*, std::streamsize n) override
-	{
-		return n;
-	}
+	std::streamsize xsputn(const char*, std::streamsize n) override { return n; }
 
 	int_type underflow() override { return Traits::eof(); }
 	int_type uflow() override { return Traits::eof(); }
-	std::streamsize xsgetn(char_type* s, std::streamsize count) override
-	{
-		return 0;
-	}
+	std::streamsize xsgetn(char_type* s, std::streamsize count) override { return 0; }
 
 private:
-	alignas(std::basic_streambuf<CharT, Traits>)
-	  std::array<CharT, sizeof(std::max_align_t) / sizeof(CharT)> m_buffer;
+	alignas(std::basic_streambuf<CharT, Traits>) std::array<CharT, sizeof(std::max_align_t) / sizeof(CharT)> m_buffer;
 };
 
 using null_buffer = basic_null_buffer<char>;
@@ -85,16 +78,13 @@ private:
 
 template <typename CharT, typename Traits = std::char_traits<CharT>>
 using basic_null_istream =
-  details::basic_null_stream<std::basic_istream<CharT, Traits>,
-                             basic_null_buffer<CharT, Traits>>;
+  details::basic_null_stream<std::basic_istream<CharT, Traits>, basic_null_buffer<CharT, Traits>>;
 template <typename CharT, typename Traits = std::char_traits<CharT>>
 using basic_null_ostream =
-  details::basic_null_stream<std::basic_ostream<CharT, Traits>,
-                             basic_null_buffer<CharT, Traits>>;
+  details::basic_null_stream<std::basic_ostream<CharT, Traits>, basic_null_buffer<CharT, Traits>>;
 template <typename CharT, typename Traits = std::char_traits<CharT>>
 using basic_null_iostream =
-  details::basic_null_stream<std::basic_iostream<CharT, Traits>,
-                             basic_null_buffer<CharT, Traits>>;
+  details::basic_null_stream<std::basic_iostream<CharT, Traits>, basic_null_buffer<CharT, Traits>>;
 
 using null_istream = basic_null_istream<char>;
 using null_wistream = basic_null_istream<wchar_t>;

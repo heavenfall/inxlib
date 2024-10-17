@@ -32,24 +32,18 @@ SOFTWARE.
 
 namespace inx::util {
 
-template <
-  typename T1,
-  typename T2,
-  typename = std::enable_if_t<std::is_integral_v<T1> && std::is_integral_v<T2>>>
+template <typename T1, typename T2, typename = std::enable_if_t<std::is_integral_v<T1> && std::is_integral_v<T2>>>
 auto
 div(T1 a, T2 b) noexcept
 {
 	assert(b != 0);
 	if constexpr (std::is_unsigned_v<T1> != std::is_unsigned_v<T2>) {
-		using ir =
-		  std::common_type_t<std::make_signed_t<T1>, std::make_signed_t<T2>>;
+		using ir = std::common_type_t<std::make_signed_t<T1>, std::make_signed_t<T2>>;
 		using rr = raise_integral_level_t<ir>;
 		if constexpr (std::is_unsigned_v<T1>) {
-			assert(static_cast<size_t>(a) <=
-			       static_cast<size_t>(std::numeric_limits<ssize_t>::max()));
+			assert(static_cast<size_t>(a) <= static_cast<size_t>(std::numeric_limits<ssize_t>::max()));
 		} else {
-			assert(static_cast<size_t>(b) <=
-			       static_cast<size_t>(std::numeric_limits<ssize_t>::max()));
+			assert(static_cast<size_t>(b) <= static_cast<size_t>(std::numeric_limits<ssize_t>::max()));
 		}
 		return static_cast<rr>(a) / static_cast<rr>(b);
 	} else {
@@ -77,11 +71,9 @@ auto div_ceil(T1 a, T2 b) noexcept
 }
 #endif
 
-template <
-  typename T1,
-  typename T2,
-  typename = std::enable_if_t<std::is_integral_v<T1> &&
-                              std::is_integral_v<T2> && std::is_signed_v<T1>>>
+template <typename T1,
+          typename T2,
+          typename = std::enable_if_t<std::is_integral_v<T1> && std::is_integral_v<T2> && std::is_signed_v<T1>>>
 T2
 div_modulo(T1& a, T2 b) noexcept
 {
@@ -101,8 +93,7 @@ template <typename F>
 constexpr F
 ipow_(F val, uint32 p)
 {
-	static_assert(std::is_floating_point_v<F>,
-	              "F must be a floating point number");
+	static_assert(std::is_floating_point_v<F>, "F must be a floating point number");
 	F res = 1.0;
 	for (uint32 i = 1u << clz_index(p); i != 0; i >>= 1) {
 		res *= res;

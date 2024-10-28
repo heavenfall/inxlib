@@ -293,6 +293,10 @@ int
 command_serialize(Framework& fw, command_args args);
 int
 command_deserialize(Framework& fw, command_args args);
+int
+command_define(Framework& fw, command_args args);
+int
+command_var(Framework& fw, command_args args);
 
 } // namespace inx::flow
 

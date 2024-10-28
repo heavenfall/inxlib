@@ -29,9 +29,9 @@ SOFTWARE.
 
 namespace inx::flow {
 
-class flow_error : public std::runtime_error
+class flow_error : public std::logic_error
 {
-	using runtime_error::runtime_error;
+	using logic_error::logic_error;
 };
 
 class var_group_missing : public flow_error
@@ -40,6 +40,11 @@ class var_group_missing : public flow_error
 };
 
 class var_name_missing : public flow_error
+{
+	using flow_error::flow_error;
+};
+
+class parse_error : public flow_error
 {
 	using flow_error::flow_error;
 };

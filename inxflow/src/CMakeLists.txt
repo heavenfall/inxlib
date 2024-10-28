@@ -4,5 +4,6 @@ target_sources(inxlib_flow PRIVATE
 	framework.cpp
 	data/group_template.cpp
 	data/serialize.cpp
+	util/params.cpp
 	util/string.cpp
 )

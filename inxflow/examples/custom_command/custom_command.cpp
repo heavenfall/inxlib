@@ -1,4 +1,5 @@
 #include <inxflow/framework.hpp>
+#include <iostream>
 #include <vector>
 
 using inx::flow::command_args;
@@ -45,8 +46,11 @@ add(Framework& fw, command_args args)
 	mod_val = std::stod(std::string(mod_val_str));
 
 	for (auto& i : vec) {
+		std::cout << i << " + " << mod_val << " = ";
 		i += mod_val;
+		std::cout << i << '\n';
 	}
+	std::cout << std::flush;
 
 	fw["vec.output"].as<vec_type>() = std::move(vec);
 	return 0;

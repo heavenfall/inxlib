@@ -25,6 +25,7 @@ SOFTWARE.
 #include <algorithm>
 #include <inxflow/data/string_serialize.hpp>
 #include <inxflow/framework.hpp>
+#include <inxflow/util/params.hpp>
 #include <inxlib/util/functions.hpp>
 
 namespace inx::flow {
@@ -317,7 +318,7 @@ Framework::parse_argument(std::string_view arg)
 					return std::nullopt;
 				}
 				try {
-					auto& print_var = at(var.first);
+					auto& print_var = at(var.first, "var"sv);
 					builder << print_var.as<var_string>().str();
 				} catch (std::exception&) {
 					std::cerr
@@ -471,6 +472,18 @@ framework_default(Framework& fw)
 		var_cmd->set_cmd(&command_deserialize);
 		fw.register_short_command('L', std::move(var_cmd), 2);
 	}
+	{
+		auto var_cmd = fw.emplace_command("inxflow:define"sv).first;
+		var_cmd->set_args_count(1);
+		var_cmd->set_cmd(&command_define);
+		fw.register_short_command('D', std::move(var_cmd), 1);
+	}
+	{
+		auto var_cmd = fw.emplace_command("inxflow:var"sv).first;
+		var_cmd->set_args_count(1);
+		var_cmd->set_cmd(&command_var);
+		fw.register_short_command('V', std::move(var_cmd), 1);
+	}
 }
 
 int
@@ -536,6 +549,71 @@ command_deserialize(Framework& fw, command_args args)
 		std::cerr << "Failed to deserialise" << std::endl;
 		return 2;
 	}
+	return 0;
+}
+
+int
+command_define(Framework& fw, command_args args)
+{
+	if (args.size() != 1)
+		return 1;
+
+	auto def = args[0];
+	auto defp = def.find('=');
+	auto name = def.substr(0, defp);
+
+	serialize p;
+	try {
+		p = fw.get(name, "var"sv, vget_create | vget_scope | vget_group);
+	} catch (const std::exception& e) {
+		std::cerr << "Failed to create variable: " << args[0] << std::endl
+		          << e.what() << std::endl;
+		return 1;
+	}
+
+	// store string
+	auto& s = p->as<var_string>().str();
+	if (defp != std::string_view::npos) {
+		s = def.substr(defp + 1);
+		s.shrink_to_fit();
+	} else {
+		s.clear();
+		s.shrink_to_fit();
+	}
+	return 0;
+}
+int
+command_var(Framework& fw, command_args args)
+{
+	if (args.size() != 1)
+		return 1;
+
+	auto def = args[0];
+	inx::flow::util::params vars;
+	try {
+		vars.assign(def, false);
+	} catch (const std::exception& e) {
+		std::cerr << "Failed to parse variable params: " << def << std::endl
+		          << e.what() << std::endl;
+		return 1;
+	}
+
+	for (auto& [name, value] : vars.dict()) {
+		if (name.empty()) {
+			std::cerr << "Empty variable name not allowed." << std::endl;
+			return 2;
+		}
+		serialize p;
+		try {
+			p = fw.get(name, "var"sv, vget_create | vget_scope | vget_group);
+			p->as<var_string>().str() = value.single().as_string();
+		} catch (const std::exception& e) {
+			std::cerr << "Failed to create variable: " << args[0] << std::endl
+			          << e.what() << std::endl;
+			return 1;
+		}
+	}
+
 	return 0;
 }
 

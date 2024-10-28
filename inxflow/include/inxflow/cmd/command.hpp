@@ -62,8 +62,7 @@ public:
 			return;
 		m_args_min = m_args_max = args_exact;
 	}
-	void set_args_range(int args_min,
-	                    int args_max = std::numeric_limits<int>::max()) noexcept
+	void set_args_range(int args_min, int args_max = std::numeric_limits<int>::max()) noexcept
 	{
 		if (args_min < 0 || args_max < args_min) {
 			return; // TODO: figure out user error system

@@ -63,11 +63,9 @@ using var_file = data::StringSerialize;
 enum VarGet
 {
 	vget_get = 0,
-	vget_scope =
-	  1 << 0, /// do not chain variable, get at correct scope global/local
+	vget_scope = 1 << 0,  /// do not chain variable, get at correct scope global/local
 	vget_create = 1 << 1, /// if var does not exists, create it
-	vget_group =
-	  1 << 2, /// make default_group the required group, throws if invalidated
+	vget_group = 1 << 2,  /// make default_group the required group, throws if invalidated
 };
 
 class Framework
@@ -95,10 +93,8 @@ public:
 	{
 		auto is_running = m_exec_run.test_and_set();
 		if (is_running)
-			throw std::logic_error(
-			  "Framework::set_args_main called when m_exec_run is locked.");
-		inx::util::destruct_adaptor is_running_lock(
-		  [&r = m_exec_run]() noexcept { r.clear(); });
+			throw std::logic_error("Framework::set_args_main called when m_exec_run is locked.");
+		inx::util::destruct_adaptor is_running_lock([&r = m_exec_run]() noexcept { r.clear(); });
 		if (argc < 1)
 			throw std::out_of_range("argc");
 		m_arguments.assign(argv + 1, argv + argc);
@@ -108,10 +104,8 @@ public:
 	{
 		auto is_running = m_exec_run.test_and_set();
 		if (is_running)
-			throw std::logic_error(
-			  "Framework::set_args_range called when m_exec_run is locked.");
-		inx::util::destruct_adaptor is_running_lock(
-		  [&r = m_exec_run]() noexcept { r.clear(); });
+			throw std::logic_error("Framework::set_args_range called when m_exec_run is locked.");
+		inx::util::destruct_adaptor is_running_lock([&r = m_exec_run]() noexcept { r.clear(); });
 		m_arguments.assign(args.begin(), args.end());
 	}
 	template <typename HelpFn>
@@ -133,33 +127,25 @@ public:
 
 	/// @brief A memory_resource that is never freed, not thread safe
 	/// @return monotonic_buffer_resource
-	std::pmr::memory_resource& get_immutable_resource() noexcept
-	{
-		return m_immRes;
-	}
+	std::pmr::memory_resource& get_immutable_resource() noexcept { return m_immRes; }
 	/// @brief A memory_resource that is never freed, thread safe
 	/// @return synchronized_pool_resource
-	std::pmr::memory_resource& get_mutable_resource() noexcept
-	{
-		return m_mutRes;
-	}
+	std::pmr::memory_resource& get_mutable_resource() noexcept { return m_mutRes; }
 
 	// program variables
 
 	template <data::concepts::serializable T, typename... Args>
-	std::pair<const signature*, bool> emplace_signature(std::string_view name,
-	                                                    Args&&... args)
+	std::pair<const signature*, bool> emplace_signature(std::string_view name, Args&&... args)
 	{
 		if (auto it = m_signatures.find(name); it != m_signatures.end())
 			return {&it->second, false};
-		auto base_obj = std::allocate_shared<T>(
-		  std::pmr::polymorphic_allocator<>(&get_mutable_resource()),
-		  std::forward<Args>(args)...);
-		signature sig = std::allocate_shared<signature::element_type>(
-		  std::pmr::polymorphic_allocator<>(&get_immutable_resource()),
-		  std::string(name),
-		  std::move(base_obj),
-		  &get_mutable_resource());
+		auto base_obj = std::allocate_shared<T>(std::pmr::polymorphic_allocator<>(&get_mutable_resource()),
+		                                        std::forward<Args>(args)...);
+		signature sig =
+		  std::allocate_shared<signature::element_type>(std::pmr::polymorphic_allocator<>(&get_immutable_resource()),
+		                                                std::string(name),
+		                                                std::move(base_obj),
+		                                                &get_mutable_resource());
 		return push_signature(std::move(sig));
 	}
 	std::pair<const signature*, bool> push_signature(signature&& sig);
@@ -185,9 +171,7 @@ public:
 	 * exists, command does not exist or arguments does not fit within command
 	 * arguments
 	 */
-	bool register_short_command(char c,
-	                            std::string_view command,
-	                            int arguments);
+	bool register_short_command(char c, std::string_view command, int arguments);
 	bool register_short_command(char c, command&& command, int arguments);
 
 	/**
@@ -198,8 +182,7 @@ public:
 	 * @return true on successful registration, false if name is invalid or
 	 * taken, or command does not exist
 	 */
-	bool register_general_command(std::string_view name,
-	                              std::string_view command);
+	bool register_general_command(std::string_view name, std::string_view command);
 	bool register_general_command(std::string_view name, command&& command);
 
 	/**
@@ -219,20 +202,16 @@ public:
 	 * If no group exists and default_group is specified, use that group,
 	 * Requires group to exists. Will create variable name if not exists.
 	 */
-	data::Serialize& var(util::VarName l_var,
-	                     std::string_view default_group = std::string_view());
-	data::Serialize& var(std::string_view l_var,
-	                     std::string_view default_group = std::string_view());
+	data::Serialize& var(util::VarName l_var, std::string_view default_group = std::string_view());
+	data::Serialize& var(std::string_view l_var, std::string_view default_group = std::string_view());
 
 	/**
 	 * Returns varable l_var. If local scope, try local first, then try global.
 	 * If no group exists and default_group is specified, use that group,
 	 * Requires group to exists. Will not create variable name.
 	 */
-	data::Serialize& at(util::VarName l_var,
-	                    std::string_view default_group = std::string_view());
-	data::Serialize& at(std::string_view l_var,
-	                    std::string_view default_group = std::string_view());
+	data::Serialize& at(util::VarName l_var, std::string_view default_group = std::string_view());
+	data::Serialize& at(std::string_view l_var, std::string_view default_group = std::string_view());
 
 	/**
 	 * Returns varable l_var. If local scope, try local first, then try global.
@@ -243,15 +222,10 @@ public:
 	 * set). vget_scope will explicitly use varable at local/global scope
 	 * specified.
 	 */
-	serialize get(util::VarName l_var,
-	              std::string_view default_group = std::string_view(),
-	              int param = vget_get);
-	serialize get(std::string_view l_var,
-	              std::string_view default_group = std::string_view(),
-	              int param = vget_get);
+	serialize get(util::VarName l_var, std::string_view default_group = std::string_view(), int param = vget_get);
+	serialize get(std::string_view l_var, std::string_view default_group = std::string_view(), int param = vget_get);
 
-	VarScope& var_group(std::string_view l_var,
-	                    std::string_view default_group = std::string_view());
+	VarScope& var_group(std::string_view l_var, std::string_view default_group = std::string_view());
 
 protected:
 	int exec_command(CommandReg& reg, cmd::command_args);

@@ -40,8 +40,7 @@ public:
 	{
 	}
 	StringSerialize(std::string_view str,
-	                const std::pmr::polymorphic_allocator<char>& alloc =
-	                  std::pmr::polymorphic_allocator<char>())
+	                const std::pmr::polymorphic_allocator<char>& alloc = std::pmr::polymorphic_allocator<char>())
 	  : m_data(str, alloc)
 	{
 	}

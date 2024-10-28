@@ -36,13 +36,9 @@ namespace inx::data {
 namespace details {
 
 template <typename ValueType, size_t BlockPower>
-struct BlockArrayIterator
-  : inx::util::RandomIteratorWrapper<BlockArrayIterator<ValueType, BlockPower>,
-                                     ValueType>
+struct BlockArrayIterator : inx::util::RandomIteratorWrapper<BlockArrayIterator<ValueType, BlockPower>, ValueType>
 {
-	using super = inx::util::RandomIteratorWrapper<
-	  BlockArrayIterator<ValueType, BlockPower>,
-	  ValueType>;
+	using super = inx::util::RandomIteratorWrapper<BlockArrayIterator<ValueType, BlockPower>, ValueType>;
 	ValueType* const* access_;
 	BlockArrayIterator() noexcept
 	  : access_{}
@@ -52,15 +48,13 @@ struct BlockArrayIterator
 	  : access_(access)
 	{
 	}
-	BlockArrayIterator(typename super::difference_type pos,
-	                   ValueType* const* access) noexcept
+	BlockArrayIterator(typename super::difference_type pos, ValueType* const* access) noexcept
 	  : super(pos)
 	  , access_(access)
 	{
 	}
 
-	typename super::value_type& operator[](
-	  typename super::difference_type i) const noexcept
+	typename super::value_type& operator[](typename super::difference_type i) const noexcept
 	{
 		return access_[i >> BlockPower][i & ((1u << BlockPower) - 1)];
 	}
@@ -70,9 +64,7 @@ struct BlockArrayIterator
 
 // Tollerance is how many levels it will stay within, i.e. 0 will always
 // reallocate is needed levels is less, 1 will keep with +-1 before reallocate
-template <typename ValueType,
-          size_t BlockPower,
-          typename Allocator = std::pmr::polymorphic_allocator<ValueType>>
+template <typename ValueType, size_t BlockPower, typename Allocator = std::pmr::polymorphic_allocator<ValueType>>
 class BlockArray
 {
 public:
@@ -87,10 +79,7 @@ public:
 	using const_pointer = const value_type*;
 
 	static consteval size_t block_count() noexcept { return (1 << BlockPower); }
-	static consteval size_t block_size() noexcept
-	{
-		return sizeof(ValueType) * block_count();
-	}
+	static consteval size_t block_size() noexcept { return sizeof(ValueType) * block_count(); }
 
 private:
 	struct Data
@@ -119,17 +108,12 @@ private:
 		}
 		~Data() { reset(); }
 
-		static constexpr std::pair<uint32, uint32> split_index(
-		  uint32 size) noexcept
+		static constexpr std::pair<uint32, uint32> split_index(uint32 size) noexcept
 		{
-			return {static_cast<uint32>(size >> BlockPower),
-			        static_cast<uint32>(size & ((1u << BlockPower) - 1))};
+			return {static_cast<uint32>(size >> BlockPower), static_cast<uint32>(size & ((1u << BlockPower) - 1))};
 		}
 
-		[[nodiscard]] ValueType* allocate_block()
-		{
-			return allocator.allocate(block_count());
-		}
+		[[nodiscard]] ValueType* allocate_block() { return allocator.allocate(block_count()); }
 		void deallocate_block(ValueType* block)
 		{
 			assert(block != nullptr);
@@ -180,8 +164,7 @@ private:
 		void reset()
 		{
 			clear();
-			for (auto it = access, ite = access + access_size; it != ite;
-			     ++it) {
+			for (auto it = access, ite = access + access_size; it != ite; ++it) {
 				if (*it == nullptr)
 					break;
 				deallocate_block(*it);
@@ -223,8 +206,7 @@ private:
 			auto id = split_index(data_size++);
 			if (!access_at) [[unlikely]]
 				update_access(id.first);
-			assert(access_at != nullptr &&
-			       data_size <= (access_size << BlockPower));
+			assert(access_at != nullptr && data_size <= (access_size << BlockPower));
 			ValueType* ret = (*access_at) + id.second;
 			if (id.second == block_count() - 1) [[unlikely]]
 				access_at = nullptr;
@@ -240,8 +222,7 @@ private:
 			if (!access) [[likely]] {
 				access_size = std::max(std::bit_ceil(blocks), min_access_size);
 				access = allocate_access(access_size);
-				std::uninitialized_fill_n(
-				  access + blocks, access_size - blocks, nullptr);
+				std::uninitialized_fill_n(access + blocks, access_size - blocks, nullptr);
 				// access[0] =
 				// allocate.allocate_object<ValueType>(block_count()); access_at
 				// = access;
@@ -250,8 +231,7 @@ private:
 					uint32 new_size = std::bit_ceil(blocks);
 					ValueType** new_access = allocate_access(new_size);
 					std::uninitialized_copy_n(access, access_size, new_access);
-					std::uninitialized_fill_n(
-					  access + access_size, new_access - access_size, nullptr);
+					std::uninitialized_fill_n(access + access_size, new_access - access_size, nullptr);
 					deallocate_access(access, access_size);
 					access = new_access;
 					access_size = new_size;
@@ -277,8 +257,7 @@ public:
 	// std::ranges::transform_view<std::ranges::iota_view<uint32,uint32>,
 	// IteratorMap_<const value_type>>;
 	using iterator = details::BlockArrayIterator<value_type, BlockPower>;
-	using const_iterator =
-	  details::BlockArrayIterator<const value_type, BlockPower>;
+	using const_iterator = details::BlockArrayIterator<const value_type, BlockPower>;
 	using reverse_iterator = std::reverse_iterator<iterator>;
 	using const_reverse_iterator = std::reverse_iterator<const_iterator>;
 
@@ -290,10 +269,7 @@ public:
 	}
 
 	void reserve(size_t res) { m_data.reserve(res); }
-	size_type capacity() const noexcept
-	{
-		return static_cast<size_type>(m_data.access_size) << BlockPower;
-	}
+	size_type capacity() const noexcept { return static_cast<size_type>(m_data.access_size) << BlockPower; }
 	void clear() { m_data.clear(); }
 	void reset() { m_data.reset(); }
 
@@ -335,15 +311,13 @@ public:
 	value_type& operator[](size_type pos) noexcept
 	{
 		auto id = Data::split_index(pos);
-		assert(id.first < m_data.access_size &&
-		       m_data.access[id.first] != nullptr);
+		assert(id.first < m_data.access_size && m_data.access[id.first] != nullptr);
 		return m_data.access[id.first][id.second];
 	}
 	const value_type& operator[](size_type pos) const noexcept
 	{
 		auto id = Data::split_index(pos);
-		assert(id.first < m_data.access_size &&
-		       m_data.access[id.first] != nullptr);
+		assert(id.first < m_data.access_size && m_data.access[id.first] != nullptr);
 		return m_data.access[id.first][id.second];
 	}
 	value_type& at(size_type pos)
@@ -388,25 +362,15 @@ public:
 	// const_view_type(std::ranges::iota_view<uint32,uint32>(static_cast<uint32>(0),
 	// m_data.data_size), IteratorMap_<const value_type>{ const_cast<const
 	// value_type*const*>(m_data.access) }); }
-	iterator begin() noexcept
-	{
-		return iterator(0, const_cast<value_type* const*>(m_data.access));
-	}
+	iterator begin() noexcept { return iterator(0, const_cast<value_type* const*>(m_data.access)); }
 	const_iterator begin() const noexcept
 	{
-		return const_iterator(
-		  0, const_cast<const value_type* const*>(m_data.access));
+		return const_iterator(0, const_cast<const value_type* const*>(m_data.access));
 	}
-	iterator end() noexcept
-	{
-		return iterator(m_data.data_size,
-		                const_cast<value_type* const*>(m_data.access));
-	}
+	iterator end() noexcept { return iterator(m_data.data_size, const_cast<value_type* const*>(m_data.access)); }
 	const_iterator end() const noexcept
 	{
-		return const_iterator(
-		  m_data.data_size,
-		  const_cast<const value_type* const*>(m_data.access));
+		return const_iterator(m_data.data_size, const_cast<const value_type* const*>(m_data.access));
 	}
 	// reverse
 	reverse_iterator rbegin() noexcept { return end(); }

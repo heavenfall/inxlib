@@ -42,20 +42,14 @@ struct mary_tree_node
 	using self = mary_tree_node<M>;
 	using node_type = self;
 
-	bool is_leaf() const noexcept
-	{
-		return Helper_leaf<>(std::make_index_sequence<M>()) == 0;
-	}
+	bool is_leaf() const noexcept { return Helper_leaf<>(std::make_index_sequence<M>()) == 0; }
 	template <size_t... I>
 	intptr_t Helper_leaf(std::index_sequence<I...>) const noexcept
 	{
 		return (reinterpret_cast<intptr_t>(m_nData.children[I]) | ...);
 	}
 
-	size_t degree() const noexcept
-	{
-		return Helper_deg(std::make_index_sequence<M>());
-	}
+	size_t degree() const noexcept { return Helper_deg(std::make_index_sequence<M>()); }
 	template <size_t... I>
 	void* Helper_deg(std::index_sequence<I...>) const noexcept
 	{
@@ -66,25 +60,18 @@ struct mary_tree_node
 
 	bool has_child(const node_type& child) const noexcept
 	{
-		return std::apply(
-		  [c = &child](auto*... cld) { return ((cld == c) || ...); },
-		  m_nData.children);
+		return std::apply([c = &child](auto*... cld) { return ((cld == c) || ...); }, m_nData.children);
 	}
 
 	size_t child_index(const node_type& child) const noexcept
 	{
-		return std::find(
-		         m_nData.children.cbegin(), m_nData.children.cend(), &child) -
-		       m_nData.children.cbegin();
+		return std::find(m_nData.children.cbegin(), m_nData.children.cend(), &child) - m_nData.children.cbegin();
 	}
 
 	bool children_connected() const noexcept
 	{
-		return std::apply(
-		  [t = this](auto*... cld) {
-			  return ((cld == nullptr || cld->m_nData.parent == t) && ...);
-		  },
-		  m_nData.children);
+		return std::apply([t = this](auto*... cld) { return ((cld == nullptr || cld->m_nData.parent == t) && ...); },
+		                  m_nData.children);
 	}
 
 	node_type* connect_child(node_type& child, size_t i) noexcept
@@ -106,10 +93,7 @@ struct mary_tree_node
 		}
 		return std::exchange(m_nData.children[i], child);
 	}
-	node_type* make_root() noexcept
-	{
-		return std::exchange(m_nData.parent, nullptr);
-	}
+	node_type* make_root() noexcept { return std::exchange(m_nData.parent, nullptr); }
 
 	node_type* parent() noexcept { return m_nData.parent; }
 	const node_type* parent() const noexcept { return m_nData.parent; }

@@ -85,24 +85,12 @@ struct param_values
 			throw std::bad_variant_access();
 		}
 	}
-	std::string_view as_string(int i = 0) const
-	{
-		return std::get<std::string_view>(at(i));
-	}
+	std::string_view as_string(int i = 0) const { return std::get<std::string_view>(at(i)); }
 	std::string to_string(int i = 0) const { return to_str(at(i)); }
 
-	bool is_int(int i = 0) const
-	{
-		return std::holds_alternative<int64>(at(i));
-	}
-	bool is_float(int i = 0) const
-	{
-		return std::holds_alternative<double>(at(i));
-	}
-	bool is_string(int i = 0) const
-	{
-		return std::holds_alternative<std::string_view>(at(i));
-	}
+	bool is_int(int i = 0) const { return std::holds_alternative<int64>(at(i)); }
+	bool is_float(int i = 0) const { return std::holds_alternative<double>(at(i)); }
+	bool is_string(int i = 0) const { return std::holds_alternative<std::string_view>(at(i)); }
 
 	bool empty() const noexcept { return data.empty(); }
 	size_t size() const noexcept { return data.size(); }
@@ -133,10 +121,7 @@ public:
 	void assign(std::string_view params, bool parse_list = true);
 	void clear();
 
-	const param_values& operator[](std::string_view d) const
-	{
-		return m_dict.at(d);
-	}
+	const param_values& operator[](std::string_view d) const { return m_dict.at(d); }
 	const param_values* try_get(std::string_view d) const
 	{
 		if (auto it = m_dict.find(d); it != m_dict.end()) {

@@ -47,10 +47,8 @@ struct functor_ptr
 	functor_ptr<Ftype>& operator=(type* ptr) noexcept { m_ptr = ptr; }
 
 	template <typename... Args>
-	std::enable_if_t<std::is_invocable_v<type, Args&&...>,
-	                 std::invoke_result_t<type, Args&&...>>
-	operator()(Args&&... args) const
-	  noexcept(std::is_nothrow_invocable_v<type, Args&&...>)
+	std::enable_if_t<std::is_invocable_v<type, Args&&...>, std::invoke_result_t<type, Args&&...>> operator()(
+	  Args&&... args) const noexcept(std::is_nothrow_invocable_v<type, Args&&...>)
 	{
 		return std::invoke(*m_ptr, std::forward<Args>(args)...);
 	}
@@ -65,9 +63,7 @@ public:
 	template <typename T>
 	any_ptr(T* ptr) noexcept
 	  : unique_ptr(static_cast<void*>(ptr),
-	               functor_ptr<void(void*)>([](void* p) noexcept {
-		               std::destroy_at<T>(static_cast<T*>(p));
-	               }))
+	               functor_ptr<void(void*)>([](void* p) noexcept { std::destroy_at<T>(static_cast<T*>(p)); }))
 	{
 	}
 	using unique_ptr<void, functor_ptr<void(void*)>>::operator=;
@@ -85,10 +81,9 @@ public:
 		if (ptr == nullptr) {
 			unique_ptr::reset();
 		} else {
-			(*this) = unique_ptr(static_cast<void*>(ptr),
-			                     functor_ptr<void(void*)>([](void* p) noexcept {
-				                     std::destroy_at<T>(static_cast<T*>(p));
-			                     }));
+			(*this) =
+			  unique_ptr(static_cast<void*>(ptr),
+			             functor_ptr<void(void*)>([](void* p) noexcept { std::destroy_at<T>(static_cast<T*>(p)); }));
 		}
 	}
 };
@@ -111,10 +106,8 @@ struct functor
 	using type = decltype(F);
 
 	template <typename... Args>
-	std::enable_if_t<std::is_invocable_v<type, Args&&...>,
-	                 std::invoke_result_t<type, Args&&...>>
-	operator()(Args&&... args) const
-	  noexcept(std::is_nothrow_invocable_v<type, Args&&...>)
+	std::enable_if_t<std::is_invocable_v<type, Args&&...>, std::invoke_result_t<type, Args&&...>> operator()(
+	  Args&&... args) const noexcept(std::is_nothrow_invocable_v<type, Args&&...>)
 	{
 		return std::invoke(F, std::forward<Args>(args)...);
 	}
@@ -133,10 +126,8 @@ struct owned_functor : D
 	  : owned(own)
 	{
 	}
-	template <typename DT,
-	          typename = std::enable_if_t<std::is_constructible_v<D, DT&&>>>
-	owned_functor(DT&& d, bool own = false) noexcept(
-	  std::is_nothrow_constructible_v<D, DT&&>)
+	template <typename DT, typename = std::enable_if_t<std::is_constructible_v<D, DT&&>>>
+	owned_functor(DT&& d, bool own = false) noexcept(std::is_nothrow_constructible_v<D, DT&&>)
 	  : D(std::forward<DT>(d))
 	  , owned(own)
 	{
@@ -148,8 +139,7 @@ struct owned_functor : D
 	owned_functor<D>& operator=(owned_functor<D>&&) = default;
 
 	template <typename... Args>
-	void operator()(Args&&... args) noexcept(
-	  noexcept(std::declval<D>()(std::forward<Args>(args)...)))
+	void operator()(Args&&... args) noexcept(noexcept(std::declval<D>()(std::forward<Args>(args)...)))
 	{
 		if (owned)
 			D::operator()(std::forward<Args>(args)...);
@@ -166,8 +156,7 @@ struct assignment_adaptor
 	std::remove_reference_t<Fn> func;
 
 	assignment_adaptor(T& o, Fn&& fn) noexcept(
-	  std::is_nothrow_constructible_v<decltype(func),
-	                                  decltype(std::forward<Fn>(fn))>)
+	  std::is_nothrow_constructible_v<decltype(func), decltype(std::forward<Fn>(fn))>)
 	  : obj(&o)
 	  , func(std::forward<Fn>(fn))
 	{
@@ -175,9 +164,7 @@ struct assignment_adaptor
 
 	template <typename V>
 	assignment_adaptor<T, Fn>& operator=(const V&& value) noexcept(
-	  std::is_nothrow_invocable_v<decltype(func),
-	                              decltype(*obj),
-	                              decltype(std::forward<const V>(value))>)
+	  std::is_nothrow_invocable_v<decltype(func), decltype(*obj), decltype(std::forward<const V>(value))>)
 	{
 		std::invoke(func, *obj, std::forward<const V>(value));
 		return *this;
@@ -189,16 +176,14 @@ struct assignment_adaptor<void, Fn>
 	std::remove_reference_t<Fn> func;
 
 	assignment_adaptor(Fn&& fn) noexcept(
-	  std::is_nothrow_constructible_v<decltype(func),
-	                                  decltype(std::forward<Fn>(fn))>)
+	  std::is_nothrow_constructible_v<decltype(func), decltype(std::forward<Fn>(fn))>)
 	  : func(std::forward<Fn>(fn))
 	{
 	}
 
 	template <typename V>
 	assignment_adaptor<void, Fn>& operator=(const V&& value) noexcept(
-	  std::is_nothrow_invocable_v<decltype(func),
-	                              decltype(std::forward<const V>(value))>)
+	  std::is_nothrow_invocable_v<decltype(func), decltype(std::forward<const V>(value))>)
 	{
 		std::invoke(func, std::forward<const V>(value));
 		return *this;
@@ -215,9 +200,7 @@ struct destruct_adaptor
 {
 	std::remove_reference_t<Fn> func;
 
-	destruct_adaptor(Fn&& fn) noexcept(
-	  std::is_nothrow_constructible_v<decltype(func),
-	                                  decltype(std::forward<Fn>(fn))>)
+	destruct_adaptor(Fn&& fn) noexcept(std::is_nothrow_constructible_v<decltype(func), decltype(std::forward<Fn>(fn))>)
 	  : func(std::forward<Fn>(fn))
 	{
 	}
@@ -236,16 +219,14 @@ protected:
 	std::remove_reference_t<Fn> func;
 
 public:
-	destruct_object_adaptor() noexcept(
-	  noexcept(std::is_nothrow_constructible_v<decltype(func)>))
+	destruct_object_adaptor() noexcept(noexcept(std::is_nothrow_constructible_v<decltype(func)>))
 	  : obj(nullptr)
 	  , func{}
 	{
 	}
 	template <typename FnImp>
-	destruct_object_adaptor(T* o, FnImp&& fn) noexcept(noexcept(
-	  std::is_nothrow_constructible_v<decltype(func),
-	                                  decltype(std::forward<FnImp>(fn))>))
+	destruct_object_adaptor(T* o, FnImp&& fn) noexcept(
+	  noexcept(std::is_nothrow_constructible_v<decltype(func), decltype(std::forward<FnImp>(fn))>))
 	  : obj(o)
 	  , func(std::forward<FnImp>(fn))
 	{
@@ -265,10 +246,8 @@ public:
 			func(obj);
 	}
 
-	destruct_object_adaptor<T, Fn>& operator=(
-	  const destruct_object_adaptor<T, Fn>&) = delete;
-	destruct_object_adaptor<T, Fn>&
-	operator=(destruct_object_adaptor<T, Fn>&& other) noexcept(
+	destruct_object_adaptor<T, Fn>& operator=(const destruct_object_adaptor<T, Fn>&) = delete;
+	destruct_object_adaptor<T, Fn>& operator=(destruct_object_adaptor<T, Fn>&& other) noexcept(
 	  noexcept(std::is_nothrow_move_assignable_v<decltype(func)>))
 	{
 		if (obj)
@@ -285,8 +264,7 @@ public:
 		obj = o;
 	}
 	template <typename FnImp>
-	void assign(T* o, FnImp&& fn) noexcept(
-	  noexcept(std::is_nothrow_assignable_v<decltype(func), FnImp&&>))
+	void assign(T* o, FnImp&& fn) noexcept(noexcept(std::is_nothrow_assignable_v<decltype(func), FnImp&&>))
 	{
 		if (obj)
 			func(obj);

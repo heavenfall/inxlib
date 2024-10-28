@@ -54,10 +54,8 @@ struct RandomIteratorWrapper
 	difference_type pos_;
 	auto operator<=>(const RandomIteratorWrapper&) const noexcept = default;
 	template <typename Iter2, typename ValueType2>
-	    requires std::same_as<std::remove_cv_t<ValueType>,
-	                          std::remove_cv_t<ValueType2>>
-	auto operator<=>(
-	  const RandomIteratorWrapper<Iter2, ValueType2>& o) const noexcept
+	    requires std::same_as<std::remove_cv_t<ValueType>, std::remove_cv_t<ValueType2>>
+	auto operator<=>(const RandomIteratorWrapper<Iter2, ValueType2>& o) const noexcept
 	{
 		return pos_ <=> o.pos_;
 	}
@@ -74,10 +72,8 @@ struct RandomIteratorWrapper
 	RandomIteratorWrapper(const RandomIteratorWrapper&) noexcept = default;
 	~RandomIteratorWrapper() noexcept = default;
 
-	RandomIteratorWrapper& operator=(RandomIteratorWrapper&&) noexcept =
-	  default;
-	RandomIteratorWrapper& operator=(const RandomIteratorWrapper&) noexcept =
-	  default;
+	RandomIteratorWrapper& operator=(RandomIteratorWrapper&&) noexcept = default;
+	RandomIteratorWrapper& operator=(const RandomIteratorWrapper&) noexcept = default;
 
 	// adjust index
 	Iter& operator++() noexcept
@@ -104,14 +100,8 @@ struct RandomIteratorWrapper
 	}
 
 	// dereference
-	reference operator*() const noexcept
-	{
-		return static_cast<const Iter&>(*this)[pos_];
-	}
-	pointer operator->() const noexcept
-	{
-		return &static_cast<const Iter&>(this)[pos_];
-	}
+	reference operator*() const noexcept { return static_cast<const Iter&>(*this)[pos_]; }
+	pointer operator->() const noexcept { return &static_cast<const Iter&>(this)[pos_]; }
 };
 
 // +
@@ -124,8 +114,7 @@ operator+=(RandomIteratorWrapper<Iter, ValueType>& it, ptrdiff_t n) noexcept
 }
 template <typename Iter, typename ValueType>
 Iter
-operator+(const RandomIteratorWrapper<Iter, ValueType>& it,
-          ptrdiff_t n) noexcept
+operator+(const RandomIteratorWrapper<Iter, ValueType>& it, ptrdiff_t n) noexcept
 {
 	Iter res = static_cast<const Iter&>(it);
 	res.pos_ += n;
@@ -133,8 +122,7 @@ operator+(const RandomIteratorWrapper<Iter, ValueType>& it,
 }
 template <typename Iter, typename ValueType>
 Iter
-operator+(ptrdiff_t n,
-          const RandomIteratorWrapper<Iter, ValueType>& it) noexcept
+operator+(ptrdiff_t n, const RandomIteratorWrapper<Iter, ValueType>& it) noexcept
 {
 	return it + n;
 }
@@ -148,8 +136,7 @@ operator-=(RandomIteratorWrapper<Iter, ValueType>& it, ptrdiff_t n) noexcept
 }
 template <typename Iter, typename ValueType>
 Iter
-operator-(const RandomIteratorWrapper<Iter, ValueType>& it,
-          ptrdiff_t n) noexcept
+operator-(const RandomIteratorWrapper<Iter, ValueType>& it, ptrdiff_t n) noexcept
 {
 	Iter res = static_cast<const Iter&>(it);
 	res.pos_ -= n;
@@ -157,8 +144,7 @@ operator-(const RandomIteratorWrapper<Iter, ValueType>& it,
 }
 template <typename Iter, typename ValueType>
 ptrdiff_t
-operator-(const RandomIteratorWrapper<Iter, ValueType>& it,
-          const RandomIteratorWrapper<Iter, ValueType>& it2) noexcept
+operator-(const RandomIteratorWrapper<Iter, ValueType>& it, const RandomIteratorWrapper<Iter, ValueType>& it2) noexcept
 {
 	return it2.pos_ - it.pos_;
 }

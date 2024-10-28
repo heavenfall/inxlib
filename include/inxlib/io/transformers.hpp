@@ -43,27 +43,21 @@ float_is_integer(T x)
 }
 
 template <typename Int, typename T>
-std::enable_if_t<std::is_integral_v<std::decay_t<Int>> &&
-                   std::is_floating_point_v<std::decay_t<T>>,
-                 bool>
+std::enable_if_t<std::is_integral_v<std::decay_t<Int>> && std::is_floating_point_v<std::decay_t<T>>, bool>
 float_fits_integer(T x)
 {
-	if constexpr (std::numeric_limits<Int>::digits10 >
-	              std::numeric_limits<T>::digits10) {
+	if constexpr (std::numeric_limits<Int>::digits10 > std::numeric_limits<T>::digits10) {
 		return float_is_integer(x);
 	} else {
 		return float_is_integer(x) &&
-		       std::abs(x) <
-		         std::pow(static_cast<T>(10),
-		                  static_cast<int>(std::numeric_limits<Int>::digits10));
+		       std::abs(x) < std::pow(static_cast<T>(10), static_cast<int>(std::numeric_limits<Int>::digits10));
 	}
 }
 
 template <typename T>
 struct accurate_number
 {
-	static_assert(std::is_same_v<std::decay_t<T>, T> &&
-	                (std::is_integral_v<T> || std::is_floating_point_v<T>),
+	static_assert(std::is_same_v<std::decay_t<T>, T> && (std::is_integral_v<T> || std::is_floating_point_v<T>),
 	              "T must be fully decayed and a number");
 	constexpr accurate_number(T val) noexcept
 	  : m_val(val)
@@ -84,8 +78,7 @@ operator<<(std::ostream& out, const accurate_number<T>& num)
 		out << num.m_val;
 	} else {
 		double nabs = std::abs(static_cast<double>(num.m_val));
-		constexpr size_t doublerep =
-		  std::numeric_limits<double>::max_digits10 - 3;
+		constexpr size_t doublerep = std::numeric_limits<double>::max_digits10 - 3;
 		if (float_fits_integer<ssize_t>(nabs)) {
 			out << std::fixed << static_cast<ssize_t>(num.m_val);
 		} else if (nabs >= 10e10 || nabs <= 10e-6) {

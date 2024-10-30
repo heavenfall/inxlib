@@ -26,12 +26,12 @@ SOFTWARE.
 #define INXLIB_DATA_REDBLACK_TREE_HPP
 
 #include <inxlib/inx.hpp>
+
 #include "binary_tree.hpp"
 
-namespace inx::data
-{
+namespace inx::data {
 
-template <typename Node, typename Tag = void> 
+template <typename Node, typename Tag = void>
 class redblack_tree;
 class redblack_tree_base;
 struct redblack_tree_node;
@@ -69,9 +69,15 @@ struct redblack_tree_tag : redblack_tree_node
 	using tag_node = self;
 
 	// mary_tree wrapper functions
-	tag_node* connect_child(tag_node& child, size_t i) noexcept { return static_cast<tag_node*>(super::connect_child(child, i)); }
+	tag_node* connect_child(tag_node& child, size_t i) noexcept
+	{
+		return static_cast<tag_node*>(super::connect_child(child, i));
+	}
 	tag_node* connect_none(size_t i) noexcept { return static_cast<tag_node*>(super::connect_none(i)); }
-	tag_node* connect_child_auto(tag_node* child, size_t i) noexcept { return static_cast<tag_node*>(super::connect_child_auto(child, i)); }
+	tag_node* connect_child_auto(tag_node* child, size_t i) noexcept
+	{
+		return static_cast<tag_node*>(super::connect_child_auto(child, i));
+	}
 	tag_node* make_root() noexcept { return static_cast<tag_node*>(super::make_root()); }
 
 	tag_node* parent() noexcept { return static_cast<tag_node*>(super::parent()); }
@@ -93,10 +99,16 @@ struct redblack_tree_tag : redblack_tree_node
 	const tag_node* single() const noexcept { return static_cast<const tag_node*>(super::single()); }
 
 	tag_node* find_inorder_id(size_t id) noexcept { return static_cast<tag_node*>(super::find_inorder_id(id)); }
-	const tag_node* find_inorder_id(size_t id) const noexcept { return static_cast<const tag_node*>(super::find_inorder_id(id)); }
+	const tag_node* find_inorder_id(size_t id) const noexcept
+	{
+		return static_cast<const tag_node*>(super::find_inorder_id(id));
+	}
 
 	tag_node& trace_inorder_id(size_t id) noexcept { return static_cast<tag_node&>(super::trace_inorder_id(id)); }
-	const tag_node& trace_inorder_id(size_t id) const noexcept { return static_cast<const tag_node&>(super::trace_inorder_id(id)); }
+	const tag_node& trace_inorder_id(size_t id) const noexcept
+	{
+		return static_cast<const tag_node&>(super::trace_inorder_id(id));
+	}
 };
 
 class redblack_tree_base : public binary_tree_base
@@ -106,15 +118,9 @@ public:
 	using super = binary_tree_base;
 	using value_type = redblack_tree_node;
 
-	void insert_root(value_type& node) noexcept
-	{
-		insertRootNode(node);
-	}
+	void insert_root(value_type& node) noexcept { insertRootNode(node); }
 
-	void insert_leaf_node(value_type& leaf, size_t i, value_type& ins) noexcept
-	{
-		insertUnderLeafNode(leaf, i, ins);
-	}
+	void insert_leaf_node(value_type& leaf, size_t i, value_type& ins) noexcept { insertUnderLeafNode(leaf, i, ins); }
 
 	void insert_before(value_type& before, value_type& ins)
 	{
@@ -134,10 +140,7 @@ public:
 		}
 	}
 
-	void erase(value_type& node) noexcept
-	{
-		eraseNode(node);
-	}
+	void erase(value_type& node) noexcept { eraseNode(node); }
 
 	void clear() noexcept
 	{
@@ -145,14 +148,8 @@ public:
 		this->m_size = 0;
 	}
 
-	static bool is_node_black(const value_type* node) noexcept
-	{
-		return node == nullptr ? true : node->is_black();
-	}
-	static bool is_node_red(const value_type* node) noexcept
-	{
-		return node == nullptr ? false : node->is_red();
-	}
+	static bool is_node_black(const value_type* node) noexcept { return node == nullptr ? true : node->is_black(); }
+	static bool is_node_red(const value_type* node) noexcept { return node == nullptr ? false : node->is_red(); }
 
 protected:
 	void swap_node(value_type& node1, value_type& node2) noexcept
@@ -216,21 +213,23 @@ protected:
 				break;
 			} else {
 				auto gp = static_cast<value_type*>(p->parent());
-				assert(gp != nullptr); // only root parent can be nullptr, but root must be black so parent cannot be root
-				size_t pid = gp->get_child_id(*p); // the parent children id of grand parent
-				auto u = static_cast<value_type*>(gp->child(pid^1)); // the uncle node
-				if (is_node_red(u)) { // both parent and uncle are red
+				assert(gp != nullptr);                                 // only root parent can be nullptr, but root
+				                                                       // must be black so parent cannot be root
+				size_t pid = gp->get_child_id(*p);                     // the parent children id of grand parent
+				auto u = static_cast<value_type*>(gp->child(pid ^ 1)); // the uncle node
+				if (is_node_red(u)) {                                  // both parent and uncle are red
 					p->m_rbData.red = u->m_rbData.red = false;
 					gp->m_rbData.red = true;
 					node = gp;
 					// break; // the only case we do not break
 				} else { // parent is red and uncle is black
 					size_t nid = p->get_child_id(*node);
-					if (nid != pid) { // if rotating grand parent will result in invalid tree, do inital rotate
+					if (nid != pid) { // if rotating grand parent will result
+						              // in invalid tree, do inital rotate
 						gp->connect_child(p->rotate_id(pid), pid);
 						p = node;
 					}
-					this->rotate_id(*gp, pid^1);
+					this->rotate_id(*gp, pid ^ 1);
 					p->m_rbData.red = false;
 					gp->m_rbData.red = true;
 					break;
@@ -243,39 +242,45 @@ protected:
 	{
 		m_size -= 1;
 		if (node.is_deg2()) { // ensure node has at most one child
-			swap_node(node, static_cast<value_type&>(node.trace_inorder_id(1))); // swap with in-order pred, which must have at most 1 child
+			swap_node(node,
+			          static_cast<value_type&>(node.trace_inorder_id(1))); // swap with in-order pred, which must
+			                                                               // have at most 1 child
 		}
 		assert(!node.is_deg2());
 		auto c = static_cast<value_type*>(node.single());
-		auto p =  static_cast<value_type*>(node.parent());
+		auto p = static_cast<value_type*>(node.parent());
 		if (p == nullptr) { // node to remove is root
 			assert(m_root == &node && node.is_black());
 			assert(!node.is_leaf() || m_size == 0);
 			assert(!node.is_deg1() || (m_size == 1 && c->is_leaf() && c->is_red()));
 			// make child the new root
 			m_root = c;
-			if (c != nullptr) { // if no child, then root was only element in tree, otherwise ensure new root is black
+			if (c != nullptr) { // if no child, then root was only element in
+				                // tree, otherwise ensure new root is black
 				c->make_root();
 				c->m_rbData.red = false;
 			}
-			assert(m_root == nullptr ? m_size == 0 : m_size > 0); // ensure that removing root did not break anything
-			return; // special case, end here
+			assert(m_root == nullptr ? m_size == 0 : m_size > 0); // ensure that removing root
+			                                                      // did not break anything
+			return;                                               // special case, end here
 		}
 		size_t nid = p->get_child_id(node);
-		if (c == nullptr) { // node is leaf
-			if (node.is_red()) { // node is a red leaf, can just delete
+		if (c == nullptr) {           // node is leaf
+			if (node.is_red()) {      // node is a red leaf, can just delete
 				p->connect_none(nid); // remove node
 				return;
 			}
 			// otherwise, more complicated delete required
-		} else { // node has 1 child
-			if (node.is_black() != c->is_black()) { // red-black or black-red, replace child with parent, make it black
+		} else {                                    // node has 1 child
+			if (node.is_black() != c->is_black()) { // red-black or black-red, replace child with
+				                                    // parent, make it black
 				p->connect_child(*c, nid);
 				c->m_rbData.red = false;
 				return;
 			}
 		}
-		assert(node.is_leaf()); // double black of degree 1 can only occur with a leaf
+		assert(node.is_leaf()); // double black of degree 1 can only occur with
+		                        // a leaf
 		// since node is leaf, just delete it for now, keep track of parent
 		p->connect_none(nid);
 		// now rebalance the tree
@@ -284,13 +289,14 @@ protected:
 
 	void eraseNodeNormalise(value_type* P, size_t side) noexcept
 	{
-		// P is inbalanced, where the number of blacks on side is 1 less than on the other
+		// P is inbalanced, where the number of blacks on side is 1 less than on
+		// the other
 		while (true) {
 			// case 1 handled in case 3
 			assert(P != nullptr);
-			//if (P == nullptr) // N is root
+			// if (P == nullptr) // N is root
 			//	return; // done
-			auto S = static_cast<value_type*>(P->child(side^1));
+			auto S = static_cast<value_type*>(P->child(side ^ 1));
 			assert(S != nullptr); // S cannot be a leaf
 			// case 2
 			if (S->is_red()) {
@@ -298,16 +304,18 @@ protected:
 				rotate_id(*P, side);
 				P->m_rbData.red = true;
 				S->m_rbData.red = false;
-				S = static_cast<value_type*>(P->child(side^1)); // update S to new sibling
+				S = static_cast<value_type*>(P->child(side ^ 1)); // update S to new sibling
 			}
 			// case 3&4
 			assert(S->is_black());
-			if ( is_node_black( static_cast<value_type*>(S->left()) ) && is_node_black( static_cast<value_type*>(S->right()) ) ) {
+			if (is_node_black(static_cast<value_type*>(S->left())) &&
+			    is_node_black(static_cast<value_type*>(S->right()))) {
 				// case 3
 				if (P->is_black()) {
 					S->m_rbData.red = true;
 					if (auto gp = static_cast<value_type*>(P->parent()); gp == nullptr) {
-						break; // gp is root, thus next iteration will also be root
+						break; // gp is root, thus next iteration will also be
+						       // root
 					} else {
 						side = gp->get_child_id(*P);
 						P = gp;
@@ -322,14 +330,14 @@ protected:
 				assert(S->is_red()); // S is red here, thus case 5&6 cannot occur
 			} else {
 				if (auto* Sl = static_cast<value_type*>(S->child(side)); is_node_red(Sl)) { // case 5
-					rotate_id(*S, side^1);
+					rotate_id(*S, side ^ 1);
 					assert(Sl->parent() == P);
 					S->m_rbData.red = true;
 					Sl->m_rbData.red = false;
 					S = Sl;
-					assert(is_node_red(static_cast<value_type*>(S->child(side^1))));
+					assert(is_node_red(static_cast<value_type*>(S->child(side ^ 1))));
 				}
-				if (auto* Sr = static_cast<value_type*>(S->child(side^1)); is_node_red(Sr)) { // case 6
+				if (auto* Sr = static_cast<value_type*>(S->child(side ^ 1)); is_node_red(Sr)) { // case 6
 					rotate_id(*P, side);
 					assert(P->parent() == S);
 					S->m_rbData.red = P->m_rbData.red;
@@ -348,7 +356,8 @@ class redblack_tree_iterator
 public:
 	using self = redblack_tree_iterator<Tree, Node>;
 	using tree_type = Tree;
-	static_assert(std::is_same_v<typename Tree::value_type, std::remove_cv_t<Node>>, "Node must match Tree::value_type");
+	static_assert(std::is_same_v<typename Tree::value_type, std::remove_cv_t<Node>>,
+	              "Node must match Tree::value_type");
 	using value_type = Node;
 	using tag = typename tree_type::tag;
 	using node_tag = redblack_tree_tag<tag>;
@@ -359,19 +368,39 @@ public:
 	using const_pointer = const value_type*;
 	using iterator_category = std::bidirectional_iterator_tag;
 
-	redblack_tree_iterator() noexcept : m_tree(nullptr), m_node(nullptr) { }
-	redblack_tree_iterator(tree_type& tree, value_type& node) noexcept : m_tree(&tree), m_node(&node) { }
-	redblack_tree_iterator(tree_type& tree, value_type* node) noexcept : m_tree(&tree), m_node(node) { }
+	redblack_tree_iterator() noexcept
+	  : m_tree(nullptr)
+	  , m_node(nullptr)
+	{
+	}
+	redblack_tree_iterator(tree_type& tree, value_type& node) noexcept
+	  : m_tree(&tree)
+	  , m_node(&node)
+	{
+	}
+	redblack_tree_iterator(tree_type& tree, value_type* node) noexcept
+	  : m_tree(&tree)
+	  , m_node(node)
+	{
+	}
 	redblack_tree_iterator(const self&) noexcept = default;
 	redblack_tree_iterator(self&&) noexcept = default;
 
 	~redblack_tree_iterator() noexcept = default;
-	
+
 	self& operator=(const self&) noexcept = default;
 	self& operator=(self&&) noexcept = default;
 
-	bool operator==(const self& rhs) const noexcept { assert(m_tree != nullptr && m_tree == rhs.m_tree); return m_node == rhs.m_node; }
-	bool operator!=(const self& rhs) const noexcept { assert(m_tree != nullptr && m_tree == rhs.m_tree); return m_node != rhs.m_node; }
+	bool operator==(const self& rhs) const noexcept
+	{
+		assert(m_tree != nullptr && m_tree == rhs.m_tree);
+		return m_node == rhs.m_node;
+	}
+	bool operator!=(const self& rhs) const noexcept
+	{
+		assert(m_tree != nullptr && m_tree == rhs.m_tree);
+		return m_node != rhs.m_node;
+	}
 	bool operator==(std::nullptr_t) const noexcept { return m_node == nullptr; }
 	bool operator!=(std::nullptr_t) const noexcept { return m_node != nullptr; }
 
@@ -435,13 +464,22 @@ public:
 
 	// mary_tree interface
 	value_type& root() noexcept { return static_cast<value_type&>(static_cast<node_tag&>(super::root())); }
-	const value_type& root() const noexcept { return static_cast<const value_type&>(static_cast<const node_tag&>(super::root())); }
+	const value_type& root() const noexcept
+	{
+		return static_cast<const value_type&>(static_cast<const node_tag&>(super::root()));
+	}
 
 	// binary_tree interface
 	value_type& front() noexcept { return static_cast<value_type&>(static_cast<node_tag&>(super::front())); }
-	const value_type& front() const noexcept { return static_cast<const value_type&>(static_cast<const node_tag&>(super::front())); }
+	const value_type& front() const noexcept
+	{
+		return static_cast<const value_type&>(static_cast<const node_tag&>(super::front()));
+	}
 	value_type& back() noexcept { return static_cast<value_type&>(static_cast<node_tag&>(super::back())); }
-	const value_type& back() const noexcept { return static_cast<const value_type&>(static_cast<const node_tag&>(super::back())); }
+	const value_type& back() const noexcept
+	{
+		return static_cast<const value_type&>(static_cast<const node_tag&>(super::back()));
+	}
 
 	// redblack_tree interface and iterator features
 	template <typename Key, typename LessThan = std::less<void>>
@@ -578,10 +616,7 @@ public:
 		return iterator(*this, ins);
 	}
 
-	iterator insert(iterator it, Node& ins)
-	{
-		return insert_before(it, ins);
-	}
+	iterator insert(iterator it, Node& ins) { return insert_before(it, ins); }
 
 	Node& erase(Node& node) noexcept
 	{
@@ -596,22 +631,13 @@ public:
 		return node;
 	}
 
-	iterator begin() noexcept 
-	{
-		return iterator(*this, this->m_root != nullptr ? &this->front() : nullptr);
-	}
+	iterator begin() noexcept { return iterator(*this, this->m_root != nullptr ? &this->front() : nullptr); }
 	const_iterator begin() const noexcept
 	{
 		return const_iterator(*this, this->m_root != nullptr ? &this->front() : nullptr);
 	}
-	iterator end() noexcept 
-	{
-		return iterator(*this, nullptr);
-	}
-	const_iterator end() const noexcept
-	{
-		return const_iterator(*this, nullptr);
-	}
+	iterator end() noexcept { return iterator(*this, nullptr); }
+	const_iterator end() const noexcept { return const_iterator(*this, nullptr); }
 	const_iterator cbegin() const noexcept { return begin(); }
 	const_iterator cend() const noexcept { return end(); }
 	reverse_iterator rbegin() noexcept { return reverse_iterator(end()); }
@@ -622,6 +648,6 @@ public:
 	const_reverse_iterator crend() const noexcept { return rend(); }
 };
 
-} // namespace inx::alg
+} // namespace inx::data
 
 #endif // INXLIB_DATA_REDBLACK_TREE_HPP

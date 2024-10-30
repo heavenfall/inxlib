@@ -26,64 +26,110 @@ SOFTWARE.
 #define INXLIB_UTIL_NUMERIC_TYPES_HPP
 
 #include <inxlib/inx.hpp>
+
 #include "bits.hpp"
 
-namespace inx::util
-{
+namespace inx::util {
 
-template <typename T> struct raise_integral_level;
-template <> struct raise_integral_level<int8> { using type = int16; };
-template <> struct raise_integral_level<int16> { using type = int32; };
-template <> struct raise_integral_level<int32> { using type = int64; };
-template <> struct raise_integral_level<int64> { using type = int64; };
-template <> struct raise_integral_level<uint8> { using type = uint16; };
-template <> struct raise_integral_level<uint16> { using type = uint32; };
-template <> struct raise_integral_level<uint32> { using type = uint64; };
-template <> struct raise_integral_level<uint64> { using type = uint64; };
+template <typename T>
+struct raise_integral_level;
+template <>
+struct raise_integral_level<int8>
+{
+	using type = int16;
+};
+template <>
+struct raise_integral_level<int16>
+{
+	using type = int32;
+};
+template <>
+struct raise_integral_level<int32>
+{
+	using type = int64;
+};
+template <>
+struct raise_integral_level<int64>
+{
+	using type = int64;
+};
+template <>
+struct raise_integral_level<uint8>
+{
+	using type = uint16;
+};
+template <>
+struct raise_integral_level<uint16>
+{
+	using type = uint32;
+};
+template <>
+struct raise_integral_level<uint32>
+{
+	using type = uint64;
+};
+template <>
+struct raise_integral_level<uint64>
+{
+	using type = uint64;
+};
 template <typename T>
 using raise_integral_level_t = typename raise_integral_level<T>::type;
 
 template <typename T>
 struct raise_numeric_level : raise_integral_level<T>
-{ };
+{};
 template <>
-struct raise_numeric_level<float> { using type = float; };
+struct raise_numeric_level<float>
+{
+	using type = float;
+};
 template <>
-struct raise_numeric_level<double> { using type = double; };
+struct raise_numeric_level<double>
+{
+	using type = double;
+};
 template <>
-struct raise_numeric_level<long double> { using type = long double; };
+struct raise_numeric_level<long double>
+{
+	using type = long double;
+};
 template <typename T>
 using raise_numeric_level_t = typename raise_numeric_level<T>::type;
 
 template <typename T>
-std::enable_if_t<std::is_integral_v<T>, bool> is_zero(T x) noexcept
+std::enable_if_t<std::is_integral_v<T>, bool>
+is_zero(T x) noexcept
 {
 	return x == 0;
 }
 template <typename T>
-std::enable_if_t<std::is_floating_point_v<T>, bool> is_zero(T x) noexcept
+std::enable_if_t<std::is_floating_point_v<T>, bool>
+is_zero(T x) noexcept
 {
 	return std::abs(x) < epsilon<T>;
 }
 template <typename T, typename... Ts>
-std::enable_if_t<std:: conjunction_v<std::is_same<T, Ts>...>, bool> is_all_zero(T x, Ts... xs) noexcept
+std::enable_if_t<std::conjunction_v<std::is_same<T, Ts>...>, bool>
+is_all_zero(T x, Ts... xs) noexcept
 {
 	if constexpr (std::is_integral_v<T>) {
-		return ( (x | ... | xs) == 0 );
+		return ((x | ... | xs) == 0);
 	} else {
 		return (is_zero(x) && ... && is_zero(xs));
 	}
 }
 template <typename T, typename... Ts>
-std::enable_if_t<std::conjunction_v<std::is_same<T, Ts>...>, bool> is_any_zero(T x, Ts... xs) noexcept
+std::enable_if_t<std::conjunction_v<std::is_same<T, Ts>...>, bool>
+is_any_zero(T x, Ts... xs) noexcept
 {
 	if constexpr (std::is_integral_v<T>) {
-		return ( (x & ... & xs) == 0 );
+		return ((x & ... & xs) == 0);
 	} else {
 		return (is_zero(x) || ... || is_zero(xs));
 	}
 }
 
-} // namespace inx
+} // namespace inx::util
 
 #endif // INXLIB_UTIL_NUMERIC_TYPES_HPP

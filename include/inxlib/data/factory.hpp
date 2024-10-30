@@ -25,15 +25,13 @@ SOFTWARE.
 #ifndef INXLIB_DATA_FACTORY_HPP
 #define INXLIB_DATA_FACTORY_HPP
 
+#include <forward_list>
 #include <inxlib/inx.hpp>
 #include <memory_resource>
-#include <forward_list>
 
-namespace inx::data
-{
+namespace inx::data {
 
-namespace details
-{
+namespace details {
 template <typename T, bool IsTrivial>
 struct FactoryPoolDelete
 {
@@ -45,17 +43,15 @@ struct FactoryPoolDelete
 	uint32 obj_i;
 	uint32 obj_size;
 
-	FactoryPoolDelete() : obj_it(objects.before_begin()), obj_i(size()), obj_size(0)
-	{ }
+	FactoryPoolDelete()
+	  : obj_it(objects.before_begin())
+	  , obj_i(size())
+	  , obj_size(0)
+	{
+	}
 
-	static bool getDel(const T* obj) noexcept
-	{
-		return reinterpret_cast<const bool*>(obj)[-1];
-	}
-	static void setDel(T* obj, bool del) noexcept
-	{
-		reinterpret_cast<bool*>(obj)[-1] = del;
-	}
+	static bool getDel(const T* obj) noexcept { return reinterpret_cast<const bool*>(obj)[-1]; }
+	static void setDel(T* obj, bool del) noexcept { reinterpret_cast<bool*>(obj)[-1] = del; }
 
 	void push(T* obj)
 	{
@@ -72,8 +68,8 @@ struct FactoryPoolDelete
 };
 template <typename T>
 struct FactoryPoolDelete<T, true>
-{ };
-}
+{};
+} // namespace details
 
 template <typename T>
 class Factory
@@ -84,21 +80,27 @@ public:
 	static constexpr size_t align() noexcept { return alignof(T); }
 	static constexpr size_t size_del() noexcept { return is_trivial() ? size() : size() + align(); }
 	using auto_delete = details::FactoryPoolDelete<T, is_trivial()>;
-	Factory() { }
-	Factory(std::pmr::memory_resource* upstream) : m_pool(upstream) { }
-	Factory(std::size_t initial_size) : m_pool(initial_size * size()) { }
-	Factory(std::size_t initial_size, std::pmr::memory_resource* upstream) : m_pool(initial_size * size_del(), upstream) { }
-	~Factory()
+	Factory() {}
+	Factory(std::pmr::memory_resource* upstream)
+	  : m_pool(upstream)
 	{
-		release();
 	}
+	Factory(std::size_t initial_size)
+	  : m_pool(initial_size * size())
+	{
+	}
+	Factory(std::size_t initial_size, std::pmr::memory_resource* upstream)
+	  : m_pool(initial_size * size_del(), upstream)
+	{
+	}
+	~Factory() { release(); }
 
 	[[nodiscard]] void* allocate()
 	{
 		if constexpr (is_trivial()) {
 			return m_pool.allocate(size_del(), align());
 		} else {
-			return static_cast<void*>( static_cast<std::byte*>(m_pool.allocate(size_del(), align())) + align() );
+			return static_cast<void*>(static_cast<std::byte*>(m_pool.allocate(size_del(), align())) + align());
 		}
 	}
 	void deallocate(void* data)
@@ -106,7 +108,7 @@ public:
 		if constexpr (is_trivial()) {
 			m_pool.deallocate(data, size_del(), align());
 		} else {
-			m_pool.deallocate( static_cast<void*>(static_cast<std::byte*>(data) - align()), size_del(), align() );
+			m_pool.deallocate(static_cast<void*>(static_cast<std::byte*>(data) - align()), size_del(), align());
 		}
 	}
 
@@ -128,10 +130,10 @@ public:
 		if constexpr (!is_trivial()) {
 			constexpr uint32 objsize = auto_delete::size();
 			auto it = m_autoDelete.objects.before_begin();
-			for (uint32 i = 0, ie = m_autoDelete.obj_size; i < ie; ) {
+			for (uint32 i = 0, ie = m_autoDelete.obj_size; i < ie;) {
 				++it;
 				assert(it != m_autoDelete.objects.end());
-				for (uint32 j = 0, je = std::min(ie-i, objsize); j < je; ++i, ++j) {
+				for (uint32 j = 0, je = std::min(ie - i, objsize); j < je; ++i, ++j) {
 					T* data = (*it)[j];
 					if (auto_delete::getDel(data)) {
 						auto_delete::setDel(data, false);
@@ -176,10 +178,7 @@ public:
 	using super = Factory<T>;
 
 	using super::super;
-	~ReuseFactory()
-	{
-		release();
-	}
+	~ReuseFactory() { release(); }
 
 	[[nodiscard]] void* allocate()
 	{
@@ -260,10 +259,7 @@ public:
 			return m;
 		}
 	}
-	void deallocate(void* data)
-	{
-		m_reuse.push_back(data);
-	}
+	void deallocate(void* data) { m_reuse.push_back(data); }
 
 	template <typename... Args>
 	[[nodiscard]] T* construct(Args&&... args)
@@ -301,6 +297,6 @@ protected:
 	std::vector<void*> m_reuse;
 };
 
-} // namespace inx
+} // namespace inx::data
 
 #endif // INXLIB_DATA_FACTORY_HPP

@@ -3,8 +3,7 @@
 
 #include <inxlib/inx.hpp>
 
-namespace inx::util
-{
+namespace inx::util {
 
 template <typename... Ts>
 class virtual_pointer;
@@ -30,7 +29,7 @@ struct virtual_pointer_next<T1>
 template <typename... Ts>
 using virtual_pointer_next_t = typename virtual_pointer_next<Ts...>::type;
 
-}
+} // namespace details
 
 template <typename T, typename... Ts>
 class virtual_pointer<T, Ts...> : public details::virtual_pointer_next_t<T, Ts...>
@@ -39,12 +38,16 @@ protected:
 	using super = typename details::virtual_pointer_next<T, Ts...>::type;
 	using void_type = typename super::void_type;
 	using vfun_type = typename super::vfun_type;
+
 public:
-	virtual_pointer(T* ptr) noexcept : super(ptr, &cast_up) { }
+	virtual_pointer(T* ptr) noexcept
+	  : super(ptr, &cast_up)
+	{
+	}
 	virtual_pointer(const virtual_pointer<T, Ts...>&) noexcept = default;
 
 	T* get() const noexcept { return static_cast<T*>(get(this->m_ptr)); }
-\
+
 	T* operator->() const noexcept { return get(); }
 	T& operator*() const noexcept { return static_cast<T&>(*get()); }
 
@@ -81,9 +84,12 @@ public:
 			}
 		}
 	}
-	
+
 protected:
-	virtual_pointer(T* l_ptr, vfun_type* l_cast) noexcept : super(l_ptr, l_cast) { }
+	virtual_pointer(T* l_ptr, vfun_type* l_cast) noexcept
+	  : super(l_ptr, l_cast)
+	{
+	}
 	static void_type* get(void_type* ptr) noexcept { return static_cast<T*>(super::get(ptr)); }
 	static void_type* cast_up(void_type* ptr, const std::type_info& ti [[maybe_unused]]) noexcept
 	{
@@ -100,11 +106,20 @@ class virtual_pointer<void>
 {
 protected:
 	using void_type = void;
-	using vfun_type = void_type* (void_type*, const std::type_info&) noexcept;
+	using vfun_type = void_type*(void_type*, const std::type_info&) noexcept;
+
 public:
 	virtual_pointer() noexcept = delete;
-	virtual_pointer(std::nullptr_t) noexcept : m_ptr(nullptr), m_cast(&cast_up) { }
-	virtual_pointer(void* ptr) noexcept : m_ptr(ptr), m_cast(&cast_up) { }
+	virtual_pointer(std::nullptr_t) noexcept
+	  : m_ptr(nullptr)
+	  , m_cast(&cast_up)
+	{
+	}
+	virtual_pointer(void* ptr) noexcept
+	  : m_ptr(ptr)
+	  , m_cast(&cast_up)
+	{
+	}
 	explicit virtual_pointer(const virtual_pointer<void>&) noexcept = default;
 	virtual_pointer(virtual_pointer<void>&&) noexcept = default;
 
@@ -131,7 +146,11 @@ public:
 	}
 
 protected:
-	virtual_pointer(void_type* l_ptr, vfun_type* l_cast) noexcept : m_ptr(l_ptr), m_cast(l_cast) { }
+	virtual_pointer(void_type* l_ptr, vfun_type* l_cast) noexcept
+	  : m_ptr(l_ptr)
+	  , m_cast(l_cast)
+	{
+	}
 	static void_type* get(void_type* ptr) noexcept { return ptr; }
 	static void_type* cast_up(void_type*, const std::type_info& ti [[maybe_unused]]) noexcept
 	{
@@ -148,11 +167,20 @@ class virtual_pointer<const void>
 {
 protected:
 	using void_type = const void;
-	using vfun_type = void_type* (void_type*, const std::type_info&) noexcept;
+	using vfun_type = void_type*(void_type*, const std::type_info&) noexcept;
+
 public:
 	virtual_pointer() noexcept = delete;
-	virtual_pointer(std::nullptr_t) noexcept : m_ptr(nullptr), m_cast(&cast_up) { }
-	virtual_pointer(const void* ptr) noexcept : m_ptr(ptr), m_cast(&cast_up) { }
+	virtual_pointer(std::nullptr_t) noexcept
+	  : m_ptr(nullptr)
+	  , m_cast(&cast_up)
+	{
+	}
+	virtual_pointer(const void* ptr) noexcept
+	  : m_ptr(ptr)
+	  , m_cast(&cast_up)
+	{
+	}
 	explicit virtual_pointer(const virtual_pointer<const void>&) noexcept = default;
 	virtual_pointer(virtual_pointer<const void>&&) noexcept = default;
 
@@ -174,7 +202,11 @@ public:
 	}
 
 protected:
-	virtual_pointer(void_type* l_ptr, vfun_type* l_cast) noexcept : m_ptr(l_ptr), m_cast(l_cast) { }
+	virtual_pointer(void_type* l_ptr, vfun_type* l_cast) noexcept
+	  : m_ptr(l_ptr)
+	  , m_cast(l_cast)
+	{
+	}
 	static void_type* get(void_type* ptr) noexcept { return ptr; }
 	static void_type* cast_up(void_type*, const std::type_info& ti [[maybe_unused]]) noexcept
 	{
@@ -190,36 +222,42 @@ template <typename... Ts>
 using virtual_pointer_const = virtual_pointer<std::add_const_t<Ts>...>;
 
 template <typename P2, typename... VPs>
-bool operator==(const virtual_pointer<VPs...>& lhs, const P2* rhs) noexcept
+bool
+operator==(const virtual_pointer<VPs...>& lhs, const P2* rhs) noexcept
 {
 	return lhs.get() == rhs;
 }
 template <typename P2, typename... VPs>
-bool operator!=(const virtual_pointer<VPs...>& lhs, const P2* rhs) noexcept
+bool
+operator!=(const virtual_pointer<VPs...>& lhs, const P2* rhs) noexcept
 {
 	return lhs.get() != rhs;
 }
 template <typename P2, typename VP1, typename... VPs>
-bool operator<(const virtual_pointer<VP1, VPs...>& lhs, const P2* rhs) noexcept
+bool
+operator<(const virtual_pointer<VP1, VPs...>& lhs, const P2* rhs) noexcept
 {
 	return std::less<std::common_type_t<const VP1*, const P2*>>(lhs.get(), rhs);
 }
 template <typename P2, typename VP1, typename... VPs>
-bool operator>(const virtual_pointer<VP1, VPs...>& lhs, const P2* rhs) noexcept
+bool
+operator>(const virtual_pointer<VP1, VPs...>& lhs, const P2* rhs) noexcept
 {
 	return std::greater<std::common_type_t<const VP1*, const P2*>>(lhs.get(), rhs);
 }
 template <typename P2, typename... VPs>
-bool operator<=(const virtual_pointer<VPs...>& lhs, const P2* rhs) noexcept
+bool
+operator<=(const virtual_pointer<VPs...>& lhs, const P2* rhs) noexcept
 {
 	return !(lhs > rhs);
 }
 template <typename P2, typename... VPs>
-bool operator>=(const virtual_pointer<VPs...>& lhs, const P2* rhs) noexcept
+bool
+operator>=(const virtual_pointer<VPs...>& lhs, const P2* rhs) noexcept
 {
 	return !(lhs < rhs);
 }
 
-}
+} // namespace inx::util
 
 #endif // INXLIB_UTIL_VIRTUAL_POINTER_HPP

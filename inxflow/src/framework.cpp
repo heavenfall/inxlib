@@ -591,7 +591,7 @@ command_var(Framework& fw, command_args args)
 	auto def = args[0];
 	inx::flow::util::params vars;
 	try {
-		vars.assign(def, false);
+		vars.assign(def);
 	} catch (const std::exception& e) {
 		std::cerr << "Failed to parse variable params: " << def << std::endl
 		          << e.what() << std::endl;
@@ -606,7 +606,7 @@ command_var(Framework& fw, command_args args)
 		serialize p;
 		try {
 			p = fw.get(name, "var"sv, vget_create | vget_scope | vget_group);
-			p->as<var_string>().str() = value.single().as_string();
+			p->as<var_string>().str() = value.str();
 		} catch (const std::exception& e) {
 			std::cerr << "Failed to create variable: " << args[0] << std::endl
 			          << e.what() << std::endl;

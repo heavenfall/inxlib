@@ -59,14 +59,12 @@ struct param_values
 		}
 	};
 	using list_type = std::span<const value_store>;
+	std::string_view full_str;
 	list_type data;
+
+	std::string_view str() const noexcept { return full_str; }
 	value_type operator[](int i) const noexcept { return data[i].value(); }
-	value_type at(int i = 0) const
-	{
-		if (static_cast<size_t>(i) >= data.size())
-			throw std::out_of_range("i");
-		return data[i].value();
-	}
+	value_type at(int i = 0) const { return at_store(i).value(); }
 	value_store at_store(int i = 0) const
 	{
 		if (static_cast<size_t>(i) >= data.size())
@@ -118,7 +116,7 @@ public:
 
 	using value_type = param_values::value_store;
 
-	void assign(std::string_view params, bool parse_list = true);
+	void assign(std::string_view params);
 	void clear();
 
 	const param_values& operator[](std::string_view d) const { return m_dict.at(d); }
@@ -133,7 +131,7 @@ public:
 	const auto& dict() const noexcept { return m_dict; }
 
 protected:
-	void setup(std::string_view param, bool parse_list = true);
+	void setup(std::string_view param);
 	void reclaim();
 
 	std::string_view copy_str_(std::string_view s);

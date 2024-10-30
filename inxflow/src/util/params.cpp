@@ -68,9 +68,9 @@ params::params() {}
 // }
 
 void
-params::assign(std::string_view params, bool parse_list)
+params::assign(std::string_view params)
 {
-	setup(params, parse_list);
+	setup(params);
 }
 void
 params::clear()
@@ -79,7 +79,7 @@ params::clear()
 }
 
 void
-params::setup(std::string_view param, bool parse_list)
+params::setup(std::string_view param)
 {
 	using sv = std::string_view;
 	if (!m_parsed_param.empty() || !m_dict.empty()) {
@@ -143,27 +143,37 @@ params::setup(std::string_view param, bool parse_list)
 			continue;
 		values.clear();
 		param.remove_prefix(pos);
-		if (parse_list) {
-			// repeat, seperating each : into element in list
-			while (!param.empty()) {
-				param_val.clear();
-				pos = delimit_string(param_val, param, ':', false);
-				param.remove_prefix(pos == sv::npos ? param.size() : pos + 1);
-				values.push_back(value_str_(param_val));
+		// repeat, seperating each : into element in list
+		param_val.clear();
+		while (!param.empty()) {
+			value_type v;
+			// store string length into i, later will convert to string
+			v.v.i = param_val.size();
+			pos = delimit_string(param_val, param, ':', false);
+			v.length = param_val.size() - v.v.i;
+			values.push_back(v);
+			if (pos != sv::npos) {
+				param.remove_prefix(pos + 1);
+				param_val.push_back(':');
+			} else {
+				param = sv();
 			}
-		} else {
-			// no list
-			param_val.clear();
-			pos = delimit_string(param_val, param, '\0', false);
-			values.push_back(value_str_(param_val));
 		}
+		// store values into result
+		sv s = (V->second.full_str = copy_str_(param_val));
 		if (!values.empty()) {
+			assert(!s.empty());
+			// setup values to real value
 			auto size = values.size();
+			for (auto& v : values) {
+				// convert value_type to expected owned value type
+				sv value_str(s.data() + v.v.i, v.length);
+				v = param_values::from_str(value_str);
+			}
 			value_type* ptr = static_cast<value_type*>(m_buffer.allocate(
 			  size * sizeof(value_type), alignof(value_type)));
 			std::uninitialized_copy_n(values.data(), size, ptr);
-			V->second.data =
-			  param_values::list_type(const_cast<const value_type*>(ptr), size);
+			V->second.data = param_values::list_type(const_cast<const value_type*>(ptr), size);
 		}
 	}
 }

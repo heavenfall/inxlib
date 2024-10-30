@@ -22,14 +22,14 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#ifndef INXLIB_DATA_SLICE_ARRAY_HPP
-#define INXLIB_DATA_SLICE_ARRAY_HPP
+#ifndef INXLIB_MEMORY_SLICE_ARRAY_HPP
+#define INXLIB_MEMORY_SLICE_ARRAY_HPP
 
 #include <inxlib/inx.hpp>
 
 #include "slice_factory.hpp"
 
-namespace inx::data {
+namespace inx::memory {
 
 namespace details {
 
@@ -262,4 +262,4 @@ using SliceArray = details::SliceArray<ValueType, Tollerance>;
 
 } // namespace inx::data
 
-#endif // INXLIB_DATA_SLICE_ARRAY_HPP
+#endif // INXLIB_MEMORY_SLICE_ARRAY_HPP

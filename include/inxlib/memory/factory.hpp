@@ -22,14 +22,14 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#ifndef INXLIB_DATA_FACTORY_HPP
-#define INXLIB_DATA_FACTORY_HPP
+#ifndef INXLIB_MEMORY_FACTORY_HPP
+#define INXLIB_MEMORY_FACTORY_HPP
 
 #include <forward_list>
 #include <inxlib/inx.hpp>
 #include <memory_resource>
 
-namespace inx::data {
+namespace inx::memory {
 
 namespace details {
 template <typename T, bool IsTrivial>
@@ -299,4 +299,4 @@ protected:
 
 } // namespace inx::data
 
-#endif // INXLIB_DATA_FACTORY_HPP
+#endif // INXLIB_MEMORY_FACTORY_HPP

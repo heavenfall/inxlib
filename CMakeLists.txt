@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.13)
 # CMP0076
 
 project(INXlib
-	VERSION 0.1.0
+	VERSION 0.5.0
 	LANGUAGES CXX C)
 
 set(CMAKE_CXX_STANDARD 20)

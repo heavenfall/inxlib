@@ -34,8 +34,7 @@ namespace {
 using namespace std::string_view_literals;
 }
 
-VarScope::VarScope(signature&& l_sig,
-                   const std::pmr::polymorphic_allocator<>& alloc)
+VarScope::VarScope(signature&& l_sig, const std::pmr::polymorphic_allocator<>& alloc)
   : sig(std::move(l_sig))
   , global(alloc, signature(sig))
   , local(global)
@@ -50,8 +49,7 @@ Framework::is_short_command_name(char c)
 bool
 Framework::is_short_command_name(std::string_view name)
 {
-	return name.size() >= 2 && name.starts_with('-') &&
-	       is_short_command_name(name[1]);
+	return name.size() >= 2 && name.starts_with('-') && is_short_command_name(name[1]);
 }
 
 bool
@@ -61,9 +59,8 @@ Framework::is_general_command_name(std::string_view name)
 		return false;
 	if (name[0] == '+' || name[0] == '-') // must not start with +-
 		return false;
-	if (std::ranges::any_of(name, [](unsigned char c) noexcept {
-		    return c == '@' || std::iscntrl(c) || std::isspace(c);
-	    })) {
+	if (std::ranges::any_of(name,
+	                        [](unsigned char c) noexcept { return c == '@' || std::iscntrl(c) || std::isspace(c); })) {
 		return false;
 	}
 	return true;
@@ -82,10 +79,8 @@ Framework::exec()
 {
 	auto is_running = m_exec_run.test_and_set();
 	if (is_running)
-		throw std::logic_error(
-		  "Framework::exec called when m_exec_run is locked.");
-	inx::util::destruct_adaptor is_running_lock(
-	  [&r = m_exec_run]() noexcept { r.clear(); });
+		throw std::logic_error("Framework::exec called when m_exec_run is locked.");
+	inx::util::destruct_adaptor is_running_lock([&r = m_exec_run]() noexcept { r.clear(); });
 	if (m_arguments.size() == 0)
 		return 0;
 	if (m_arguments.size() == 1 && m_arguments[0] == "--help") {
@@ -109,8 +104,7 @@ Framework::exec()
 			if (auto it = m_general_cmd.find(arg); it != m_general_cmd.end()) {
 				cmd = &it->second;
 			} else {
-				std::cerr << "Invalid general command: \"" << arg << "\""
-				          << std::endl;
+				std::cerr << "Invalid general command: \"" << arg << "\"" << std::endl;
 				return -2;
 			}
 			break;
@@ -120,8 +114,7 @@ Framework::exec()
 			if (auto it = m_short_cmd.find(arg[1]); it != m_short_cmd.end()) {
 				cmd = &it->second;
 			} else {
-				std::cerr << "Invalid short command: \"" << arg << "\""
-				          << std::endl;
+				std::cerr << "Invalid short command: \"" << arg << "\"" << std::endl;
 				return -2;
 			}
 			break;
@@ -145,9 +138,7 @@ Framework::exec()
 					return -3;
 				arg_parsed.push_back(*a);
 			}
-			for (; arg_count != cmd->args_count_override &&
-			       arg_i < m_arguments.size();
-			     ++arg_i) {
+			for (; arg_count != cmd->args_count_override && arg_i < m_arguments.size(); ++arg_i) {
 				arg_count++;
 				std::string_view arg = m_arguments[arg_i];
 				if (arg == "+"sv || arg == "++"sv) {
@@ -181,17 +172,14 @@ Framework::print_help()
 std::pair<const signature*, bool>
 Framework::push_signature(signature&& sig)
 {
-	auto it = m_signatures.try_emplace(*m_strings.insert(sig->m_name).first,
-	                                   std::move(sig));
+	auto it = m_signatures.try_emplace(*m_strings.insert(sig->m_name).first, std::move(sig));
 	return {&it.first->second, it.second};
 }
 
 void
 Framework::emplace_scope(std::string_view name, signature&& sig)
 {
-	m_variables.try_emplace(*m_strings.insert(std::string(name)).first,
-	                        std::move(sig),
-	                        &get_mutable_resource());
+	m_variables.try_emplace(*m_strings.insert(std::string(name)).first, std::move(sig), &get_mutable_resource());
 }
 void
 Framework::emplace_scope(std::string_view name, std::string_view sig_name)
@@ -202,23 +190,19 @@ Framework::emplace_scope(std::string_view name, std::string_view sig_name)
 std::pair<command, bool>
 Framework::emplace_command(std::string_view command)
 {
-	auto it =
-	  m_commands.try_emplace(*m_strings.insert(std::string(command)).first);
+	auto it = m_commands.try_emplace(*m_strings.insert(std::string(command)).first);
 	if (it.second) {
-		it.first->second = std::allocate_shared<cmd::Command>(
-		  std::pmr::polymorphic_allocator<>(&get_immutable_resource()));
+		it.first->second =
+		  std::allocate_shared<cmd::Command>(std::pmr::polymorphic_allocator<>(&get_immutable_resource()));
 	}
 	return {it.first->second, it.second};
 }
 
 bool
-Framework::register_short_command(char c,
-                                  std::string_view command,
-                                  int arguments)
+Framework::register_short_command(char c, std::string_view command, int arguments)
 {
 	if (auto cmd = m_commands.find(command); cmd != m_commands.end()) {
-		return register_short_command(
-		  c, cmd->second->shared_from_this(), arguments);
+		return register_short_command(c, cmd->second->shared_from_this(), arguments);
 	}
 	return false;
 }
@@ -229,8 +213,7 @@ Framework::register_short_command(char c, command&& command, int arguments)
 		return false;
 	if (!is_short_command_name(c))
 		return false;
-	if (arguments < 0 || arguments < command->get_args_min() ||
-	    arguments > command->get_args_max())
+	if (arguments < 0 || arguments < command->get_args_min() || arguments > command->get_args_max())
 		return false;
 	CommandReg reg{std::move(command), arguments};
 	auto e = m_short_cmd.try_emplace(c, std::move(reg));
@@ -238,8 +221,7 @@ Framework::register_short_command(char c, command&& command, int arguments)
 }
 
 bool
-Framework::register_general_command(std::string_view name,
-                                    std::string_view command)
+Framework::register_general_command(std::string_view name, std::string_view command)
 {
 	if (auto cmd = m_commands.find(command); cmd != m_commands.end()) {
 		return register_general_command(name, cmd->second->shared_from_this());
@@ -254,8 +236,7 @@ Framework::register_general_command(std::string_view name, command&& command)
 	if (!is_general_command_name(name))
 		return false;
 	CommandReg reg{std::move(command), -1};
-	auto e = m_general_cmd.try_emplace(
-	  *m_strings.insert(std::string(name)).first, std::move(reg));
+	auto e = m_general_cmd.try_emplace(*m_strings.insert(std::string(name)).first, std::move(reg));
 	return e.second;
 }
 
@@ -268,8 +249,7 @@ Framework::exec_command(CommandReg& reg, cmd::command_args args)
 }
 
 auto
-Framework::parse_ctrl(std::string_view arg)
-  -> std::pair<std::string_view, TokenCtrl>
+Framework::parse_ctrl(std::string_view arg) -> std::pair<std::string_view, TokenCtrl>
 {
 	if (arg.empty())
 		return {{}, TokenCtrl::Invalid};
@@ -278,8 +258,7 @@ Framework::parse_ctrl(std::string_view arg)
 	if (arg == "++"sv)
 		return {{}, TokenCtrl::GlobalSep};
 	if (is_short_command_name(arg))
-		return {arg.substr(1, 1),
-		        arg.size() > 2 ? TokenCtrl::ShortArg : TokenCtrl::Short};
+		return {arg.substr(1, 1), arg.size() > 2 ? TokenCtrl::ShortArg : TokenCtrl::Short};
 	if (is_general_command_name(arg))
 		return {arg, TokenCtrl::General};
 	return {{}, TokenCtrl::Invalid};
@@ -304,26 +283,21 @@ Framework::parse_argument(std::string_view arg)
 		} else {
 			auto var = util::parse_varname(arg);
 			if (!var.first) {
-				std::cerr << "invalid parse of string at "
-				          << arg.substr(0, std::max(arg.size(), size_t{20}))
+				std::cerr << "invalid parse of string at " << arg.substr(0, std::max(arg.size(), size_t{20}))
 				          << std::endl;
 				return std::nullopt;
 			}
 			if (var.first.op() == util::VarOp::Print) {
 				// print var
-				if (auto group = var.first.group();
-				    !(group.empty() || group == "var"sv)) {
-					std::cerr << "print operator must be of group var"
-					          << std::endl;
+				if (auto group = var.first.group(); !(group.empty() || group == "var"sv)) {
+					std::cerr << "print operator must be of group var" << std::endl;
 					return std::nullopt;
 				}
 				try {
 					auto& print_var = at(var.first, "var"sv);
 					builder << print_var.as<var_string>().str();
 				} catch (std::exception&) {
-					std::cerr
-					  << "invalid print var: " << arg.substr(0, var.second)
-					  << std::endl;
+					std::cerr << "invalid print var: " << arg.substr(0, var.second) << std::endl;
 					return std::nullopt;
 				}
 			} else {
@@ -409,8 +383,7 @@ Framework::get(util::VarName l_var, std::string_view default_group, int param)
 	if (!l_var)
 		throw std::runtime_error("invalid variable");
 	if ((param & vget_group)) {
-		if (default_group.empty() ||
-		    !(l_var.group().empty() || l_var.group() == default_group))
+		if (default_group.empty() || !(l_var.group().empty() || l_var.group() == default_group))
 			throw std::runtime_error(std::string(l_var.group()));
 	}
 	auto& group = var_group(l_var.group(), default_group);
@@ -441,9 +414,7 @@ Framework::get(util::VarName l_var, std::string_view default_group, int param)
 #endif
 }
 serialize
-Framework::get(std::string_view l_var,
-               std::string_view default_group,
-               int param)
+Framework::get(std::string_view l_var, std::string_view default_group, int param)
 {
 	return get(util::match_varname(l_var, false), default_group, param);
 }
@@ -451,12 +422,10 @@ Framework::get(std::string_view l_var,
 void
 framework_default(Framework& fw)
 {
-	auto* var_sig =
-	  fw.emplace_signature<data::SerializeWrap<var_string>>("var"sv).first;
+	auto* var_sig = fw.emplace_signature<data::SerializeWrap<var_string>>("var"sv).first;
 	assert(var_sig != nullptr);
 	fw.emplace_scope("var"sv, signature(*var_sig));
-	var_sig =
-	  fw.emplace_signature<data::SerializeWrap<var_file>>("file"sv).first;
+	var_sig = fw.emplace_signature<data::SerializeWrap<var_file>>("file"sv).first;
 	assert(var_sig != nullptr);
 	fw.emplace_scope("file"sv, signature(*var_sig));
 
@@ -497,8 +466,7 @@ command_serialize(Framework& fw, command_args args)
 	try {
 		p = fw.get(args[0], "file"sv, vget_scope);
 	} catch (const std::exception& e) {
-		std::cerr << "Failed to retrive variable: " << args[0] << std::endl
-		          << e.what() << std::endl;
+		std::cerr << "Failed to retrive variable: " << args[0] << std::endl << e.what() << std::endl;
 		return 1;
 	}
 	try {
@@ -510,8 +478,7 @@ command_serialize(Framework& fw, command_args args)
 		else
 			p->save(path);
 	} catch (const std::exception& e) {
-		std::cerr << "Failed to serialise" << std::endl
-		          << e.what() << std::endl;
+		std::cerr << "Failed to serialise" << std::endl << e.what() << std::endl;
 		return 2;
 	} catch (...) {
 		std::cerr << "Failed to serialise" << std::endl;
@@ -529,8 +496,7 @@ command_deserialize(Framework& fw, command_args args)
 	try {
 		p = fw.get(args[0], "file"sv, vget_create | vget_scope);
 	} catch (const std::exception& e) {
-		std::cerr << "Failed to create variable: " << args[0] << std::endl
-		          << e.what() << std::endl;
+		std::cerr << "Failed to create variable: " << args[0] << std::endl << e.what() << std::endl;
 		return 1;
 	}
 	try {
@@ -542,8 +508,7 @@ command_deserialize(Framework& fw, command_args args)
 		else
 			p->load(path);
 	} catch (const std::exception& e) {
-		std::cerr << "Failed to deserialise" << std::endl
-		          << e.what() << std::endl;
+		std::cerr << "Failed to deserialise" << std::endl << e.what() << std::endl;
 		return 2;
 	} catch (...) {
 		std::cerr << "Failed to deserialise" << std::endl;
@@ -566,8 +531,7 @@ command_define(Framework& fw, command_args args)
 	try {
 		p = fw.get(name, "var"sv, vget_create | vget_scope | vget_group);
 	} catch (const std::exception& e) {
-		std::cerr << "Failed to create variable: " << args[0] << std::endl
-		          << e.what() << std::endl;
+		std::cerr << "Failed to create variable: " << args[0] << std::endl << e.what() << std::endl;
 		return 1;
 	}
 
@@ -593,8 +557,7 @@ command_var(Framework& fw, command_args args)
 	try {
 		vars.assign(def);
 	} catch (const std::exception& e) {
-		std::cerr << "Failed to parse variable params: " << def << std::endl
-		          << e.what() << std::endl;
+		std::cerr << "Failed to parse variable params: " << def << std::endl << e.what() << std::endl;
 		return 1;
 	}
 
@@ -608,8 +571,7 @@ command_var(Framework& fw, command_args args)
 			p = fw.get(name, "var"sv, vget_create | vget_scope | vget_group);
 			p->as<var_string>().str() = value.str();
 		} catch (const std::exception& e) {
-			std::cerr << "Failed to create variable: " << args[0] << std::endl
-			          << e.what() << std::endl;
+			std::cerr << "Failed to create variable: " << args[0] << std::endl << e.what() << std::endl;
 			return 1;
 		}
 	}

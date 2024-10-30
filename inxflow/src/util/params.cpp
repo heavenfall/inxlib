@@ -33,11 +33,9 @@ param_values::from_str(std::string_view v) -> value_store
 {
 	auto vend = v.data() + v.size();
 	value_store value;
-	if (auto r = std::from_chars(v.data(), vend, value.v.i);
-	    r.ec == std::errc{} && r.ptr == vend) {
+	if (auto r = std::from_chars(v.data(), vend, value.v.i); r.ec == std::errc{} && r.ptr == vend) {
 		value.length = -1;
-	} else if (r = std::from_chars(v.data(), vend, value.v.f);
-	           r.ec == std::errc{} && r.ptr == vend) {
+	} else if (r = std::from_chars(v.data(), vend, value.v.f); r.ec == std::errc{} && r.ptr == vend) {
 		value.length = -2;
 	} else {
 		value.length = v.size();
@@ -53,10 +51,7 @@ param_values::to_str(value_type v)
 	{
 		std::string operator()(int64 x) const { return std::to_string(x); }
 		std::string operator()(double x) const { return std::to_string(x); }
-		std::string operator()(std::string_view x) const
-		{
-			return std::string(x);
-		}
+		std::string operator()(std::string_view x) const { return std::string(x); }
 	};
 	return std::visit<std::string>(Visitor(), v);
 }
@@ -93,16 +88,14 @@ params::setup(std::string_view param)
 	std::string param_row;
 	std::string param_val;
 	std::string param_sub;
-	auto delimit_string =
-	  [](std::string& push, std::string_view at, char c, bool keep) -> size_t {
+	auto delimit_string = [](std::string& push, std::string_view at, char c, bool keep) -> size_t {
 		size_t pos = 0;
 		do {
 			if (at[pos] == c)
 				return pos;
 			if (at[pos] == '\\') {
 				if (++pos >= at.size())
-					throw parse_error(
-					  "params \'\\\' not followed by any character");
+					throw parse_error("params \'\\\' not followed by any character");
 				switch (char x = at[pos]; x) {
 				case '\\':
 				case ':':
@@ -112,8 +105,7 @@ params::setup(std::string_view param)
 					push.push_back(x);
 					break;
 				default:
-					throw parse_error(
-					  "params \'\\\' followed by invalid delimit");
+					throw parse_error("params \'\\\' followed by invalid delimit");
 				}
 			} else {
 				push.push_back(at[pos]);
@@ -135,8 +127,7 @@ params::setup(std::string_view param)
 		else
 			pos = 0;
 		if (m_dict.find(value) != m_dict.end())
-			throw parse_error(std::string("duplicate key detected: ") +
-			                  std::string(value));
+			throw parse_error(std::string("duplicate key detected: ") + std::string(value));
 		auto&& [V, ins] = m_dict.try_emplace(copy_str_(value));
 		assert(ins);
 		if (!ins)
@@ -170,8 +161,8 @@ params::setup(std::string_view param)
 				sv value_str(s.data() + v.v.i, v.length);
 				v = param_values::from_str(value_str);
 			}
-			value_type* ptr = static_cast<value_type*>(m_buffer.allocate(
-			  size * sizeof(value_type), alignof(value_type)));
+			value_type* ptr =
+			  static_cast<value_type*>(m_buffer.allocate(size * sizeof(value_type), alignof(value_type)));
 			std::uninitialized_copy_n(values.data(), size, ptr);
 			V->second.data = param_values::list_type(const_cast<const value_type*>(ptr), size);
 		}

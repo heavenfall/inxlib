@@ -22,14 +22,14 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#ifndef INXLIB_DATA_SLICE_FACTORY_HPP
-#define INXLIB_DATA_SLICE_FACTORY_HPP
+#ifndef INXLIB_MEMORY_SLICE_FACTORY_HPP
+#define INXLIB_MEMORY_SLICE_FACTORY_HPP
 
 #include <inxlib/inx.hpp>
 #include <inxlib/util/bits.hpp>
 #include <memory_resource>
 
-namespace inx::data {
+namespace inx::memory {
 
 namespace details {
 
@@ -268,4 +268,4 @@ using SliceFactoryN = SliceFactory<ValueType, N * sizeof(ValueType), SlabMinLeve
 
 } // namespace inx::data
 
-#endif // INXLIB_DATA_SLICE_FACTORY_HPP
+#endif // INXLIB_MEMORY_SLICE_FACTORY_HPP

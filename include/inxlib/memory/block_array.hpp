@@ -22,8 +22,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#ifndef INXLIB_DATA_BLOCK_ARRAY_HPP
-#define INXLIB_DATA_BLOCK_ARRAY_HPP
+#ifndef INXLIB_MEMORY_BLOCK_ARRAY_HPP
+#define INXLIB_MEMORY_BLOCK_ARRAY_HPP
 
 #include <bit>
 #include <inxlib/inx.hpp>
@@ -31,7 +31,7 @@ SOFTWARE.
 #include <memory_resource>
 #include <ranges>
 
-namespace inx::data {
+namespace inx::memory {
 
 namespace details {
 
@@ -381,4 +381,4 @@ public:
 
 } // namespace inx::data
 
-#endif // INXLIB_DATA_BLOCK_ARRAY_HPP
+#endif // INXLIB_MEMORY_BLOCK_ARRAY_HPP

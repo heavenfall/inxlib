@@ -25,7 +25,10 @@ include/inxflow/data/group_template.hpp
 include/inxflow/data/serialize.hpp
 include/inxflow/data/string_serialize.hpp
 include/inxflow/data/types.hpp
+include/inxflow/exceptions.hpp
 include/inxflow/framework.hpp
+include/inxflow/types.hpp
+include/inxflow/util/params.hpp
 include/inxflow/util/string.hpp
 )
 

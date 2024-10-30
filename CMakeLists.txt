@@ -26,16 +26,18 @@ target_include_directories(inxlib_lib INTERFACE
 	$<INSTALL_INTERFACE:include>
 )
 target_sources(inxlib_lib PUBLIC include/inxlib/inx.hpp
-# find include/inxlib/{data,io,util} -type f | sort
+# find include/inxlib/*/ -type f | sort
 include/inxlib/data/binary_tree.hpp
 include/inxlib/data/bit_table.hpp
-include/inxlib/data/block_array.hpp
-include/inxlib/data/factory.hpp
 include/inxlib/data/mary_tree.hpp
 include/inxlib/data/redblack_tree.hpp
-include/inxlib/data/slice_array.hpp
-include/inxlib/data/slice_factory.hpp
+include/inxlib/io/null.hpp
 include/inxlib/io/transformers.hpp
+include/inxlib/memory/block_array.hpp
+include/inxlib/memory/factory.hpp
+include/inxlib/memory/object.hpp
+include/inxlib/memory/slice_array.hpp
+include/inxlib/memory/slice_factory.hpp
 include/inxlib/util/bits.hpp
 include/inxlib/util/functions.hpp
 include/inxlib/util/iterator.hpp

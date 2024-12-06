@@ -27,7 +27,6 @@ SOFTWARE.
 
 #include <cmath>
 #include <inxlib/inx.hpp>
-#include <inxlib/util/math.hpp>
 #include <iomanip>
 #include <limits>
 #include <ostream>

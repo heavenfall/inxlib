@@ -27,6 +27,7 @@ SOFTWARE.
 
 #include <bit>
 #include <inxlib/inx.hpp>
+#include <concepts>
 
 namespace inx::util {
 
@@ -614,56 +615,59 @@ struct bit_nshift_mask_c : std::integral_constant<decltype(Value), bit_nshift_ma
 template <size_t From, size_t To, size_t Count, auto Value>
 inline constexpr decltype(Value) bit_nshift_mask_v = bit_nshift_mask_c<From, To, Count, Value>::value;
 
-#if defined(__GNUC__) || defined(__clang__)
-
-template <typename T, typename = std::enable_if_t<std::is_integral_v<T>>>
+template <std::integral T>
 constexpr int
 clz(T val) noexcept
 {
-	assert(val > 0);
-	if constexpr (sizeof(T) <= 4) {
-		return __builtin_clz(static_cast<unsigned int>(val));
-	} else {
-		return __builtin_clzll(static_cast<unsigned long long>(val));
-	}
+	assert(val != 0);
+	[[assume(val != 0)]];
+	return std::countl_zero(static_cast<std::make_unsigned_t<T>(val));
 }
 
-template <typename T, typename = std::enable_if_t<std::is_integral_v<T>>>
+template <std::integral T>
 constexpr int
 ctz(T val) noexcept
 {
-	assert(val > 0);
-	if constexpr (sizeof(T) <= 4) {
-		return __builtin_ctz(static_cast<unsigned int>(val));
-	} else {
-		return __builtin_ctzll(static_cast<unsigned long long>(val));
-	}
+	assert(val != 0);
+	[[assume(val != 0)]];
+	return std::countr_zero(static_cast<std::make_unsigned_t<T>(val));
 }
 
-template <typename T, typename = std::enable_if_t<std::is_integral_v<T>>>
+template <std::integral T>
 constexpr int
 popcount(T val) noexcept
 {
-	if constexpr (sizeof(T) <= 4) {
-		return __builtin_popcount(static_cast<unsigned int>(val));
-	} else {
-		return __builtin_popcountll(static_cast<unsigned long long>(val));
-	}
+	return std::popcount(val);
 }
 
-template <typename T, typename = std::enable_if_t<std::is_integral_v<T>>>
+template <std::integral T>
 constexpr int
 clz_index(T val) noexcept
 {
-	assert(val > 0);
-	if constexpr (sizeof(T) <= 4) {
-		return (sizeof(uint32) * byte_size - 1) - __builtin_clz(static_cast<unsigned int>(val));
-	} else {
-		return (sizeof(uint64) * byte_size - 1) - __builtin_clzll(static_cast<unsigned long long>(val));
-	}
+	assert(val != 0);
+	[[assume(val != 0)]];
+	return (sizeof(T) * byte_size - 1) - std::countl_zero(static_cast<std::make_unsigned_t<T>(val));
 }
 
-#endif
+template <std::integral T>
+constexpr bool
+is_log2(T val) noexcept
+{
+	return val != 0 && popcount(val) == 1;
+}
+template <std::integral T>
+constexpr int
+log2_exact(T val) noexcept
+{
+	assert(popcount(val) == 1);
+	return ctz(val);
+}
+template <std::integral T>
+constexpr int
+log2_floor(T val) noexcept
+{
+	return clz_index(val);
+}
 
 } // namespace inx::util
 

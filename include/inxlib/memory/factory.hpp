@@ -297,6 +297,6 @@ protected:
 	std::vector<void*> m_reuse;
 };
 
-} // namespace inx::data
+} // namespace inx::memory
 
-#endif // INXLIB_MEMORY_FACTORY_HPP
+#endif // INXLIB_MEMORY_FACTORY_ARRAY_HPP

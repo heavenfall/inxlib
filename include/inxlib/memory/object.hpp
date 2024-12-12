@@ -26,11 +26,37 @@ SOFTWARE.
 #define INXLIB_MEMORY_OBJECT_HPP
 
 #include <inxlib/inx.hpp>
+#include <inxlib/numeric/bits.hpp>
 
 namespace inx::memory {
 
 template <typename T>
 using object_bytes = alignas(T) std::array<std::byte, sizeof(T)>;
+template <size_t Size, size_t Align>
+using object_bytes_size = alignas(Align) std::array<std::byte, Size>;
+
+constexpr size_t pad_alignment(size_t size, size_t align)
+{
+	assert(numeric::is_log2(align));
+	[[assume(numeric::popcount(align) == 1)]];
+	return size + ( (align - (size & (align-1))) & ~align );
+}
+template <typename AlignTo, typename AlignFrom = void>
+constexpr size_t pad_type_alignment(size_t size)
+{
+	if constexpr (std::same_as<AlignFrom, void>) {
+		return pad_alignment(size, alignof(AlignTo));
+	} else if constexpr (alignof(AlignTo) == alignof(AlignFrom)) {
+		assert(size == pad_alignment(size, alingof(AlignFrom)));
+		return size;
+	} else {
+		return pad_alignment(size, alignof(AlignTo));
+	}
+}
+
+#define INXLIB_VAR_STRUCT(type,member) (::inx::memory::pad_type_alignment<type>(offsetof(type, member)))
+#define INXLIB_VAR_STRUCT_SIZE(type,member,size) (::inx::memory::pad_type_alignment<type, decltype(type::member)>(offsetof(type, member[size])))
+#define INXLIB_VAR_STRUCT_TYPE(type,member,member_type) (::inx::memory::pad_type_alignment<type, member_type>(offsetof(type, member)))
 
 } // namespace inx::memory
 

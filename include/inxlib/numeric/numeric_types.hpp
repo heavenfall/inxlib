@@ -138,4 +138,4 @@ using namespace numeric_types_;
 
 } // namespace inx::numeric
 
-#endif // INXLIB_UTIL_NUMERIC_TYPES_HPP
+#endif // INXLIB_NUMERIC_NUMERIC_TYPES_HPP

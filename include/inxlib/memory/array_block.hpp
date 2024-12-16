@@ -59,19 +59,31 @@ struct factory_dynamic { };
  * BlockPower is the amount of elements of Type to store in each block to the power of 2.
  * BlockPower of 0 can be specified at runtime.
  */
-template <typename Type = factory_dynamic, size_t BlockPower = 0>
+template <typename Type = factory_dynamic, size_t ElementPower = 0>
 	requires (std::is_trivially_destructible_v<Type>)
 class ArrayBlockFactory
 {
+	static_assert(BlockPower <= 30, "array block must not exceed 2^30.");
+	static_assert(std::is_same_v<Type, factory_dynamic> || sizeof(Type) < std::numeric_limits<uint16>::max(), "Type size must fit in uint16_t.")
+	struct BlockParam {
+		uint32 block_bytes;
+		uint16 type_size;
+		uint8 type_align;
+		uint8 element_power;
+	};
 	template <typename = void>
 	struct DataType
 	{
+		using value_type = Type;
 		static constexpr size_t Size = sizeof(Type);
 		static constexpr size_t Align = alignof(Type);
-		static constexpr 
 		using block_type = details::ArrayFactoryBlock<Size, Align>;
 		std::pmr::memory_resource* res;
 		
+		constexpr BlockParam params() const noexcept
+		{
+			return BlockParam{INXLIB_VAR_STRUCT_SIZE(block_type,element,1<<Align)}
+		}
 	};
 public:
 	using value_type = Type;

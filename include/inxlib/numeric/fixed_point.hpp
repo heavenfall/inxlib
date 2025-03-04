@@ -27,6 +27,7 @@ SOFTWARE.
 
 #include <inxlib/inx.hpp>
 #include <inxlib/util/bits.hpp>
+#include "int128.hpp"
 
 namespace inx::numeric
 {
@@ -81,6 +82,7 @@ struct binary_fixed_point
 	using deduce = binary_fixed_width_deduce<Digits>;
 	using value_type = typename deduce::type;
 	static_assert(Digits <= deduce::digits, "Digits must not exceed max integer size.");
+	static_assert(Fraction < deduce::digits, "Fraction must be less than integer size.");
 
 	consteval static size_t digits() noexcept { return deduce::digits; }
 	consteval static size_t logical_digits() noexcept { return Digits; }
@@ -128,6 +130,31 @@ using common_binary_fixed_point = binary_fixed_point<
 	std::max(A::logical_digits(), B::logical_digits()) + ( std::max(A::frac(), B::frac()) - std::min(A::frac(), B::frac()) ),
 	std::max(A::frac(), B::frac()) >;
 
+template <BinaryFixedPoint A, BinaryFixedPoint B>
+using common_binary_fixed_point = binary_fixed_point<
+	std::max(A::logical_digits(), B::logical_digits()) + ( std::max(A::frac(), B::frac()) - std::min(A::frac(), B::frac()) ),
+	std::max(A::frac(), B::frac()) >;
+
+namespace details {
+
+template <BinaryFixedPoint A, BinaryFixedPoint B>
+struct multiply_binary_fixed_point
+{
+	using type = binary_fixed_point<A::logical_digits() + B::logical_digits(), A::frac() + B::frac()>;
+	constexpr static bool fits_int = true;
+};
+template <BinaryFixedPoint A, BinaryFixedPoint B>
+	requires (A::logical_digits() + B::logical_digits() > 64)
+struct multiply_binary_fixed_point<A, B>
+{
+	constexpr static size_t frac_total = A::frac() + B::frac();
+	constexpr static size_t frac_max = std::max(A::frac(), B::frac());
+	using type = binary_fixed_point<A::logical_digits() + B::logical_digits(), A::frac() + B::frac()>;
+	constexpr static bool fits_int = false;
+};
+
+}
+
 /**
  * @return plus operator of type common_binary_fixed_point<A,B>
  */
@@ -170,6 +197,46 @@ A& operator-=(A& a, B b) noexcept
 	return a;
 }
 
+/**
+ * @return plus operator of type common_binary_fixed_point<A,B>
+ */
+template <BinaryFixedPoint A, BinaryFixedPoint B>
+auto operator*(A a, B b) noexcept
+{
+	using multi = multiply_binary_fixed_point<A, B>;
+	if constexpr (multi::fits_int) {
+		int64_t res = static_cast<int64_t>(a.value) * static_cast<int64_t>(b.value);
+		return multi::type(static_cast<multi::type::value_type>(res));
+	} else {
+#ifdef INX_INT128
+		int128 res = static_cast<int128>(a.value) * b.value;
+		res >>= A::frac() + B::frac() - multi::type::frac();
+		return multi::type(static_cast<multi::type::value_type>(res));
+#else
+		assert(false);
+		return multi::type{};
+#endif
+	}
+}
+template <BinaryFixedPoint A, BinaryFixedPoint B>
+A& operator*=(A& a, B b) noexcept
+{
+	using multi = multiply_binary_fixed_point<A, B>;
+	if constexpr (multi::fits_int) {
+		int64_t res = static_cast<int64_t>(a.value) * static_cast<int64_t>(b.value);
+		a.value = static_cast<A::value_type>( res >> B::frac() );
+	} else {
+#ifdef INX_INT128
+		int128 res = static_cast<int128>(a.value) * b.value;
+		a.value = static_cast<A::value_type>( res >> B::frac() );
+#else
+		assert(false);
+		a.value = 0;
+#endif
+	}
+	return *this;
+
+}
 
 } // namespace inx::numeric
 

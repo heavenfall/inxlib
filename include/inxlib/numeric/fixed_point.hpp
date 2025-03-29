@@ -235,7 +235,99 @@ A& operator*=(A& a, B b) noexcept
 #endif
 	}
 	return *this;
+}
 
+template <BinaryFixedPoint A>
+A operator>>(A a, uint32_t b) noexcept
+{
+	assert(b < sizeof(A::value_type) * CHAR_BIT);
+	return A(static_cast<A::value_type>(a.value >> b));
+}
+template <BinaryFixedPoint A>
+A& operator>>=(A& a, uint32_t b) noexcept
+{
+	assert(b < sizeof(A::value_type) * CHAR_BIT);
+	A.value >>= b;
+	return a;
+}
+template <BinaryFixedPoint A>
+A operator<<(A a, uint32_t b) noexcept
+{
+	assert(b < sizeof(A::value_type) * CHAR_BIT);
+	return A(static_cast<A::value_type>(a.value << b));
+}
+template <BinaryFixedPoint A>
+A& operator<<=(A& a, uint32_t b) noexcept
+{
+	assert(b < sizeof(A::value_type) * CHAR_BIT);
+	A.value <<= b;
+	return a;
+}
+
+template <BinaryFixedPoint A>
+A operator|(A a, A b) noexcept
+{
+	return A( static_cast<A::value_type>(a.value | b.value) );
+}
+template <BinaryFixedPoint A>
+A& operator|=(A& a, A b) noexcept
+{
+	a.value |= b.value;
+	return a;
+}
+template <BinaryFixedPoint A>
+A operator&(A a, A b) noexcept
+{
+	return A( static_cast<A::value_type>(a.value & b.value) );
+}
+template <BinaryFixedPoint A>
+A& operator&=(A& a, A b) noexcept
+{
+	a.value &= b.value;
+	return a;
+}
+template <BinaryFixedPoint A>
+A operator^(A a, A b) noexcept
+{
+	return A( static_cast<A::value_type>(a.value ^ b.value) );
+}
+template <BinaryFixedPoint A>
+A& operator^=(A& a, A b) noexcept
+{
+	a.value ^= b.value;
+	return a;
+}
+
+template <BinaryFixedPoint A>
+std::strong_ordering operator<=>(A a, A b) noexcept
+{
+	return a.value <=> b.value;
+}
+template <BinaryFixedPoint A, BinaryFixedPoint B>
+	requires (!std::same_as<A,B>)
+std::strong_ordering operator<=>(A a, B b) noexcept
+{
+	using common = common_binary_fixed_point<A, B>;
+	if constexpr (A::frac() == B::frac() || common::logical_digits() <= 64) {
+		return static_cast<common>(a) <=> static_cast<common>(b);
+	} else {
+		// overflow, handle
+#ifdef INX_INT128
+		int128 a128 = static_cast<int128>(a.value);
+		int128 b128 = static_cast<int128>(b.value);
+		// align
+		if constexpr (A::frac() > B::frac()) {
+			b128 <<= (A::frac() - B::frac());
+		} else {
+			a128 <<= (B::frac() - A::frac());
+		}
+		return a128 <=> b128;
+#else
+		// handle
+		assert(false);
+		return static_cast<common>(a) <=> static_cast<common>(b);
+#endif
+	}
 }
 
 } // namespace inx::numeric

@@ -92,10 +92,10 @@ struct binary_fixed_point
 	value_type value;
 	
 	binary_fixed_point() noexcept = default;
-	explicit binary_fixed_point(value_type v) noexcept : value{v}
+	constexpr explicit binary_fixed_point(value_type v) noexcept : value{v}
 	{ }
-	binary_fixed_point(binary_fixed_point v) noexcept = default;
-	binary_fixed_point(binary_fixed_point&& v) noexcept = default;
+	constexpr binary_fixed_point(binary_fixed_point v) noexcept = default;
+	constexpr binary_fixed_point(binary_fixed_point&& v) noexcept = default;
 	template <std::floating_point FP>
 	explicit binary_fixed_point(FP val) noexcept :
 		value(static_cast<FP>(val) * (1 << Fraction))
@@ -108,12 +108,12 @@ struct binary_fixed_point
 		return static_cast<FP>(value) / (1 << Fraction);
 	}
 	template <std::integral Int>
-	explicit operator Int() const noexcept
+	constexpr explicit operator Int() const noexcept
 	{
 		return static_cast<int>(value >> Fraction);
 	}
 	template <size_t OD, size_t OF>
-	explicit(OD < Digits) operator binary_fixed_point<OD, OF>() const noexcept
+	constexpr explicit(OD < Digits) operator binary_fixed_point<OD, OF>() const noexcept
 	{
 		using to_type = binary_fixed_point<OD, OF>;
 		using bit_type = std::conditional_t<(Digits >= OD), value_type, typename to_type::value_type>;
@@ -135,8 +135,6 @@ using common_binary_fixed_point = binary_fixed_point<
 	std::max(A::logical_digits(), B::logical_digits()) + ( std::max(A::frac(), B::frac()) - std::min(A::frac(), B::frac()) ),
 	std::max(A::frac(), B::frac()) >;
 
-namespace details {
-
 template <BinaryFixedPoint A, BinaryFixedPoint B>
 struct multiply_binary_fixed_point
 {
@@ -153,13 +151,11 @@ struct multiply_binary_fixed_point<A, B>
 	constexpr static bool fits_int = false;
 };
 
-}
-
 /**
  * @return plus operator of type common_binary_fixed_point<A,B>
  */
 template <BinaryFixedPoint A, BinaryFixedPoint B>
-auto operator+(A a, B b) noexcept
+constexpr auto operator+(A a, B b) noexcept
 {
 	if (std::same_as<A, B>) {
 		return A(a.value + b.value);
@@ -170,7 +166,7 @@ auto operator+(A a, B b) noexcept
 	}
 }
 template <BinaryFixedPoint A, BinaryFixedPoint B>
-A& operator+=(A& a, B b) noexcept
+constexpr A& operator+=(A& a, B b) noexcept
 {
 	a.value += static_cast<A>(b).value;
 	return a;
@@ -180,7 +176,7 @@ A& operator+=(A& a, B b) noexcept
  * @return plus operator of type common_binary_fixed_point<A,B>
  */
 template <BinaryFixedPoint A, BinaryFixedPoint B>
-auto operator-(A a, B b) noexcept
+constexpr auto operator-(A a, B b) noexcept
 {
 	if (std::same_as<A, B>) {
 		return A(a.value - b.value);
@@ -191,7 +187,7 @@ auto operator-(A a, B b) noexcept
 	}
 }
 template <BinaryFixedPoint A, BinaryFixedPoint B>
-A& operator-=(A& a, B b) noexcept
+constexpr A& operator-=(A& a, B b) noexcept
 {
 	a.value -= static_cast<A>(b).value;
 	return a;
@@ -201,7 +197,7 @@ A& operator-=(A& a, B b) noexcept
  * @return plus operator of type common_binary_fixed_point<A,B>
  */
 template <BinaryFixedPoint A, BinaryFixedPoint B>
-auto operator*(A a, B b) noexcept
+constexpr auto operator*(A a, B b) noexcept
 {
 	using multi = multiply_binary_fixed_point<A, B>;
 	if constexpr (multi::fits_int) {
@@ -219,7 +215,7 @@ auto operator*(A a, B b) noexcept
 	}
 }
 template <BinaryFixedPoint A, BinaryFixedPoint B>
-A& operator*=(A& a, B b) noexcept
+constexpr A& operator*=(A& a, B b) noexcept
 {
 	using multi = multiply_binary_fixed_point<A, B>;
 	if constexpr (multi::fits_int) {
@@ -238,26 +234,26 @@ A& operator*=(A& a, B b) noexcept
 }
 
 template <BinaryFixedPoint A>
-A operator>>(A a, uint32_t b) noexcept
+constexpr A operator>>(A a, uint32_t b) noexcept
 {
 	assert(b < sizeof(A::value_type) * CHAR_BIT);
 	return A(static_cast<A::value_type>(a.value >> b));
 }
 template <BinaryFixedPoint A>
-A& operator>>=(A& a, uint32_t b) noexcept
+constexpr A& operator>>=(A& a, uint32_t b) noexcept
 {
 	assert(b < sizeof(A::value_type) * CHAR_BIT);
 	A.value >>= b;
 	return a;
 }
 template <BinaryFixedPoint A>
-A operator<<(A a, uint32_t b) noexcept
+constexpr A operator<<(A a, uint32_t b) noexcept
 {
 	assert(b < sizeof(A::value_type) * CHAR_BIT);
 	return A(static_cast<A::value_type>(a.value << b));
 }
 template <BinaryFixedPoint A>
-A& operator<<=(A& a, uint32_t b) noexcept
+constexpr A& operator<<=(A& a, uint32_t b) noexcept
 {
 	assert(b < sizeof(A::value_type) * CHAR_BIT);
 	A.value <<= b;
@@ -265,47 +261,47 @@ A& operator<<=(A& a, uint32_t b) noexcept
 }
 
 template <BinaryFixedPoint A>
-A operator|(A a, A b) noexcept
+constexpr A operator|(A a, A b) noexcept
 {
 	return A( static_cast<A::value_type>(a.value | b.value) );
 }
 template <BinaryFixedPoint A>
-A& operator|=(A& a, A b) noexcept
+constexpr A& operator|=(A& a, A b) noexcept
 {
 	a.value |= b.value;
 	return a;
 }
 template <BinaryFixedPoint A>
-A operator&(A a, A b) noexcept
+constexpr A operator&(A a, A b) noexcept
 {
 	return A( static_cast<A::value_type>(a.value & b.value) );
 }
 template <BinaryFixedPoint A>
-A& operator&=(A& a, A b) noexcept
+constexpr A& operator&=(A& a, A b) noexcept
 {
 	a.value &= b.value;
 	return a;
 }
 template <BinaryFixedPoint A>
-A operator^(A a, A b) noexcept
+constexpr A operator^(A a, A b) noexcept
 {
 	return A( static_cast<A::value_type>(a.value ^ b.value) );
 }
 template <BinaryFixedPoint A>
-A& operator^=(A& a, A b) noexcept
+constexpr A& operator^=(A& a, A b) noexcept
 {
 	a.value ^= b.value;
 	return a;
 }
 
 template <BinaryFixedPoint A>
-std::strong_ordering operator<=>(A a, A b) noexcept
+constexpr std::strong_ordering operator<=>(A a, A b) noexcept
 {
 	return a.value <=> b.value;
 }
 template <BinaryFixedPoint A, BinaryFixedPoint B>
 	requires (!std::same_as<A,B>)
-std::strong_ordering operator<=>(A a, B b) noexcept
+constexpr std::strong_ordering operator<=>(A a, B b) noexcept
 {
 	using common = common_binary_fixed_point<A, B>;
 	if constexpr (A::frac() == B::frac() || common::logical_digits() <= 64) {

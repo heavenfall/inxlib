@@ -67,7 +67,8 @@ constexpr int128& operator+=(int128& lhs, int128 rhs) noexcept
 }
 
 int128& operator>>=(size_t v);
-#endif
+#else
+using int128 = int64_t;
 #endif
 
 } // namespace inx::numeric

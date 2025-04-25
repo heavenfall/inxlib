@@ -622,8 +622,8 @@ constexpr int
 clz(T val) noexcept
 {
 	assert(val != 0);
-	[[assume(val != 0)]];
-	return std::countl_zero(static_cast<std::make_unsigned_t<T>(val));
+	// [[assume(val != 0)]];
+	return std::countl_zero(static_cast<std::make_unsigned_t<T>>(val));
 }
 
 template <std::integral T>
@@ -631,8 +631,8 @@ constexpr int
 ctz(T val) noexcept
 {
 	assert(val != 0);
-	[[assume(val != 0)]];
-	return std::countr_zero(static_cast<std::make_unsigned_t<T>(val));
+	// [[assume(val != 0)]];
+	return std::countr_zero(static_cast<std::make_unsigned_t<T>>(val));
 }
 
 template <std::integral T>
@@ -647,8 +647,8 @@ constexpr int
 clz_index(T val) noexcept
 {
 	assert(val != 0);
-	[[assume(val != 0)]];
-	return (sizeof(T) * byte_size - 1) - std::countl_zero(static_cast<std::make_unsigned_t<T>(val));
+	// [[assume(val != 0)]];
+	return (sizeof(T) * byte_size - 1) - std::countl_zero(static_cast<std::make_unsigned_t<T>>(val));
 }
 
 template <std::integral T>

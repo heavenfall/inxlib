@@ -26,7 +26,7 @@ SOFTWARE.
 #define INXLIB_MEMORY_SLICE_ARRAY_HPP
 
 #include <inxlib/inx.hpp>
-
+#include <inxlib/numeric/bits.hpp>
 #include "slice_factory.hpp"
 
 namespace inx::memory {
@@ -73,7 +73,7 @@ public:
 	            const value_type& value,
 	            details::SliceFactoryImpl<slice_size(), SlabSize, SlabMinLevel>& factory)
 	{
-		size_t level = (count & ~1ull) != 0 ? util::clz_index(count - 1) + 1 : 0;
+		size_t level = (count & ~1ull) != 0 ? numeric::clz_index(count - 1) + 1 : 0;
 		clear_();
 		resize_(level, factory);
 		assert(m_data.level < 32 && count <= (1u << m_data.level));
@@ -84,7 +84,7 @@ public:
 	void assign(It it, It ite, details::SliceFactoryImpl<slice_size(), SlabSize, SlabMinLevel>& factory)
 	{
 		size_t count = std::distance(it, ite);
-		size_t level = (count & ~1ull) != 0 ? util::clz_index(count - 1) + 1 : 0;
+		size_t level = (count & ~1ull) != 0 ? numeric::clz_index(count - 1) + 1 : 0;
 		clear_();
 		resize_(level, factory);
 		assert(m_data.level < 32 && count <= (1u << m_data.level));
@@ -97,7 +97,7 @@ public:
 	                 const value_type& value,
 	                 details::SliceFactoryImpl<slice_size(), SlabSize, SlabMinLevel>& factory)
 	{
-		size_t level = (count & ~1ull) != 0 ? util::clz_index(count - 1) + 1 : 0;
+		size_t level = (count & ~1ull) != 0 ? numeric::clz_index(count - 1) + 1 : 0;
 		resize_init_(level, factory);
 		assert(m_data.level < 32 && count <= (1u << m_data.level));
 		m_data.back = m_data.front + count;
@@ -107,7 +107,7 @@ public:
 	void assign_init(It it, It ite, details::SliceFactoryImpl<slice_size(), SlabSize, SlabMinLevel>& factory)
 	{
 		size_t count = std::distance(it, ite);
-		size_t level = (count & ~1ull) != 0 ? util::clz_index(count - 1) + 1 : 0;
+		size_t level = (count & ~1ull) != 0 ? numeric::clz_index(count - 1) + 1 : 0;
 		resize_init_(level, factory);
 		assert(m_data.level < 32 && count <= (1u << m_data.level));
 		m_data.back = m_data.front + count;
@@ -119,7 +119,7 @@ public:
 	            const value_type& value,
 	            details::SliceFactoryImpl<slice_size(), SlabSize, SlabMinLevel>& factory)
 	{
-		size_t level = (count & ~1ull) != 0 ? util::clz_index(count - 1) + 1 : 0;
+		size_t level = (count & ~1ull) != 0 ? numeric::clz_index(count - 1) + 1 : 0;
 		value_type* new_data = try_alloc_(level, factory);
 		size_t s = size();
 		if (!new_data) { // large enough to hold new data, keep

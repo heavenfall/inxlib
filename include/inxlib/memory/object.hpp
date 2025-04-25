@@ -31,14 +31,14 @@ SOFTWARE.
 namespace inx::memory {
 
 template <typename T>
-using object_bytes = alignas(T) std::array<std::byte, sizeof(T)>;
+using object_bytes alignas(T) = std::array<std::byte, sizeof(T)>;
 template <size_t Size, size_t Align>
-using object_bytes_size = alignas(Align) std::array<std::byte, Size>;
+using object_bytes_size alignas(Align) = std::array<std::byte, Size>;
 
 constexpr size_t pad_alignment(size_t size, size_t align)
 {
 	assert(numeric::is_log2(align));
-	[[assume(numeric::popcount(align) == 1)]];
+	// [[assume(numeric::popcount(align) == 1)]];
 	return size + ( (align - (size & (align-1))) & ~align );
 }
 template <typename AlignTo, typename AlignFrom = void>
@@ -47,7 +47,7 @@ constexpr size_t pad_type_alignment(size_t size)
 	if constexpr (std::same_as<AlignFrom, void>) {
 		return pad_alignment(size, alignof(AlignTo));
 	} else if constexpr (alignof(AlignTo) == alignof(AlignFrom)) {
-		assert(size == pad_alignment(size, alingof(AlignFrom)));
+		assert(size == pad_alignment(size, alignof(AlignFrom)));
 		return size;
 	} else {
 		return pad_alignment(size, alignof(AlignTo));

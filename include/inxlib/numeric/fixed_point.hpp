@@ -26,7 +26,7 @@ SOFTWARE.
 #define INXLIB_NUMERIC_FIXED_POINT_HPP
 
 #include <inxlib/inx.hpp>
-#include <inxlib/util/bits.hpp>
+#include "bits.hpp"
 #include "int128.hpp"
 
 namespace inx::numeric
@@ -36,8 +36,8 @@ template <size_t Digits>
 struct binary_fixed_width_deduce
 {
 	using type = std::int64_t;
-	constexpr size_t digits = 64;
-	constexpr bool overflow = true;
+	static constexpr size_t digits = 64;
+	static constexpr bool overflow = true;
 };
 // fit into i64
 template <size_t Digits>
@@ -45,8 +45,8 @@ requires (32 > Digits && Digits <= 64)
 struct binary_fixed_width_deduce<Digits>
 {
 	using type = std::int64_t;
-	constexpr size_t digits = Digits;
-	constexpr bool overflow = false;
+	static constexpr size_t digits = Digits;
+	static constexpr bool overflow = false;
 };
 // fit into i32
 template <size_t Digits>
@@ -54,8 +54,8 @@ requires (16 > Digits && Digits <= 32)
 struct binary_fixed_width_deduce<Digits>
 {
 	using type = std::int32_t;
-	constexpr size_t digits = Digits;
-	constexpr bool overflow = false;
+	static constexpr size_t digits = Digits;
+	static constexpr bool overflow = false;
 };
 // fit into i16
 template <size_t Digits>
@@ -63,8 +63,8 @@ requires (8 > Digits && Digits <= 16)
 struct binary_fixed_width_deduce<Digits>
 {
 	using type = std::int16_t;
-	constexpr size_t digits = Digits;
-	constexpr bool overflow = false;
+	static constexpr size_t digits = Digits;
+	static constexpr bool overflow = false;
 };
 // fit into i8
 template <size_t Digits>
@@ -72,8 +72,8 @@ requires (Digits <= 8)
 struct binary_fixed_width_deduce<Digits>
 {
 	using type = std::int8_t;
-	constexpr size_t digits = Digits;
-	constexpr bool overflow = false;
+	static constexpr size_t digits = Digits;
+	static constexpr bool overflow = false;
 };
 
 template <size_t Digits, size_t Fraction>
@@ -94,7 +94,7 @@ struct binary_fixed_point
 	binary_fixed_point() noexcept = default;
 	constexpr explicit binary_fixed_point(value_type v) noexcept : value{v}
 	{ }
-	constexpr binary_fixed_point(binary_fixed_point v) noexcept = default;
+	constexpr binary_fixed_point(const binary_fixed_point& v) noexcept = default;
 	constexpr binary_fixed_point(binary_fixed_point&& v) noexcept = default;
 	template <std::floating_point FP>
 	explicit binary_fixed_point(FP val) noexcept :
@@ -118,7 +118,7 @@ struct binary_fixed_point
 		using to_type = binary_fixed_point<OD, OF>;
 		using bit_type = std::conditional_t<(Digits >= OD), value_type, typename to_type::value_type>;
 		return to_type(static_cast<typename to_type::value_type>(
-			inx::util::bit_shift(static_cast<bit_type>(value), OF - Fraction)));
+			bit_shift(static_cast<bit_type>(value), OF - Fraction)));
 	}
 };
 
@@ -230,7 +230,7 @@ constexpr A& operator*=(A& a, B b) noexcept
 		a.value = 0;
 #endif
 	}
-	return *this;
+	return a;
 }
 
 template <BinaryFixedPoint A>
@@ -243,7 +243,7 @@ template <BinaryFixedPoint A>
 constexpr A& operator>>=(A& a, uint32_t b) noexcept
 {
 	assert(b < sizeof(A::value_type) * CHAR_BIT);
-	A.value >>= b;
+	a.value >>= b;
 	return a;
 }
 template <BinaryFixedPoint A>
@@ -256,7 +256,7 @@ template <BinaryFixedPoint A>
 constexpr A& operator<<=(A& a, uint32_t b) noexcept
 {
 	assert(b < sizeof(A::value_type) * CHAR_BIT);
-	A.value <<= b;
+	a.value <<= b;
 	return a;
 }
 

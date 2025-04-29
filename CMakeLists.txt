@@ -33,10 +33,11 @@ include/inxlib/data/mary_tree.hpp
 include/inxlib/data/redblack_tree.hpp
 include/inxlib/io/null.hpp
 include/inxlib/io/transformers.hpp
-include/inxlib/memory/array_block.hpp
 include/inxlib/memory/block_array.hpp
 include/inxlib/memory/factory.hpp
+include/inxlib/memory/malloc_factory.hpp
 include/inxlib/memory/object.hpp
+include/inxlib/memory/single_factory.hpp
 include/inxlib/memory/slice_array.hpp
 include/inxlib/memory/slice_factory.hpp
 include/inxlib/numeric/bits.hpp

@@ -8,10 +8,12 @@ inxlib/data/mary_tree.hpp
 inxlib/data/redblack_tree.hpp
 inxlib/io/null.hpp
 inxlib/io/transformers.hpp
-inxlib/memory/array_block.hpp
 inxlib/memory/block_array.hpp
+inxlib/memory/factory_chain.hpp
 inxlib/memory/factory.hpp
+inxlib/memory/malloc_factory.hpp
 inxlib/memory/object.hpp
+inxlib/memory/single_factory.hpp
 inxlib/memory/slice_array.hpp
 inxlib/memory/slice_factory.hpp
 inxlib/numeric/bits.hpp
@@ -26,6 +28,7 @@ inxlib/util/math.hpp
 inxlib/util/numeric_types.hpp
 inxlib/util/virtual_pointer.hpp
 inxlib/util/xoshiro256.hpp
+
 )
 
 list(TRANSFORM COMPILE_HEADERS

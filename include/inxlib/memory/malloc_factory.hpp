@@ -27,7 +27,6 @@ SOFTWARE.
 
 #include <inxlib/inx.hpp>
 #include "factory.hpp"
-#include <inxlib/numeric/bits.hpp>
 #include <cstdlib>
 #include <cstddef>
 

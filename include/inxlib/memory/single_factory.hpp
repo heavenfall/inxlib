@@ -26,7 +26,6 @@ SOFTWARE.
 #define INXLIB_MEMORY_SINGLE_FACTORY_HPP
 
 #include <inxlib/inx.hpp>
-#include <inxlib/numeric/bits.hpp>
 #include <cstdlib>
 #include <cstddef>
 
@@ -42,7 +41,7 @@ public:
 	using typename base_factory::pointer;
 
 	constexpr size_type alignment() noexcept { return BaseFactory::alignment(); }
-	consteval size_type element_size() noexcept { return BaseFactory::element_size() * Elems; }
+	constexpr size_type element_size() noexcept { return BaseFactory::element_size() * Elems; }
 
 	pointer create(size_type elems)
 	{

@@ -26,34 +26,33 @@ SOFTWARE.
 #define INXLIB_MEMORY_SINGLE_FACTORY_HPP
 
 #include <inxlib/inx.hpp>
-#include <cstdlib>
-#include <cstddef>
+#include "factory.hpp"
 
 namespace inx::memory {
 
-template <typename BaseFactory, size_t Elems, size_t Alignment = alignof(max_align_t)>
-class single_factory : private BaseFactory
+template <ArrayFactory Upstream, size_t Elems, size_t Alignment = alignof(max_align_t)>
+class single_factory : private Upstream
 {
 public:
-	using base_factory = BaseFactory;
-	using typename base_factory::value_type;
-	using typename base_factory::size_type;
-	using typename base_factory::pointer;
+	using upstream_factory = Upstream;
+	using typename Upstream::value_type;
+	using typename Upstream::size_type;
+	using typename Upstream::pointer;
 
-	constexpr size_type alignment() noexcept { return BaseFactory::alignment(); }
-	constexpr size_type element_size() noexcept { return BaseFactory::element_size() * Elems; }
+	constexpr size_type alignment() noexcept { return Upstream::alignment(); }
+	constexpr size_type element_size() noexcept { return Upstream::element_size() * Elems; }
 
 	pointer create(size_type elems)
 	{
-		return BaseFactory::allocate(element_size());
+		return Upstream::allocate(element_size());
 	}
 	void destroy(pointer ptr)
 	{
-		return BaseFactory::deallocate(ptr, element_size());
+		Upstream::deallocate(ptr, element_size());
 	}
 
-	base_factory& base() noexcept { return static_cast<base_factory&>(*this); }
-	const base_factory& base() const noexcept { return static_cast<const base_factory&>(*this); }
+	upstream_factory& upstream() noexcept { return static_cast<upstream_factory&>(*this); }
+	const upstream_factory& upstream() const noexcept { return static_cast<const upstream_factory&>(*this); }
 };
 
 } // namespace inx::memory

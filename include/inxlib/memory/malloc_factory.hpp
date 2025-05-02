@@ -29,6 +29,7 @@ SOFTWARE.
 #include "factory.hpp"
 #include <cstdlib>
 #include <cstddef>
+#include <memory_resource>
 
 namespace inx::memory {
 
@@ -38,6 +39,13 @@ public:
 	using value_type = std::byte;
 	using pointer = value_type*;
 	using size_type = size_t;
+
+	constexpr malloc_factory() noexcept = default;
+	malloc_factory(const malloc_factory&) = delete;
+	malloc_factory operator=(const malloc_factory&) = delete;
+
+	constexpr void setup() noexcept
+	{ }
 
 	static consteval size_type alignment() noexcept { return alignof(max_align_t); }
 	static consteval size_type element_size() noexcept { return 1; }
@@ -58,17 +66,19 @@ public:
 
 static_assert(ArrayFactory<malloc_factory>, "malloc_factory must be a valid Factory");
 
-template <typename BaseFactory>
-	requires ByteFactory<BaseFactory>
-class reclaim_factory : private BaseFactory
+template <ByteFactory Upstream>
+class reclaim_factory : private Upstream
 {
 public:
-	using base_factory = BaseFactory;
-	using typename base_factory::value_type;
-	using typename base_factory::size_type;
-	using typename base_factory::pointer;
-	using base_factory::alignment;
-	using base_factory::element_size;
+	using upstream_factory = Upstream;
+	using typename Upstream::value_type;
+	using typename Upstream::size_type;
+	using typename Upstream::pointer;
+
+	using Upstream::alignment;
+	using Upstream::element_size;
+	using Upstream::Upstream;
+	using Upstream::setup;
 
 private:
 	struct alignas(max_align_t) pointer_meta_size
@@ -87,7 +97,7 @@ private:
 		// 	next = m.next;
 		// }
 	};
-	static constexpr bool store_size = !ElemFreeFactory<base_factory>;
+	static constexpr bool store_size = !ElemFreeFactory<upstream_factory>;
 	using store_meta = std::conditional_t<store_size, pointer_meta_size, pointer_meta>;
 
 public:
@@ -97,7 +107,7 @@ public:
 	}
 	pointer allocate(size_type elems)
 	{
-		auto* ptr = reinterpret_cast<pointer>( reinterpret_cast<pointer*>(base_factory::allocate(elems + 2*sizeof(pointer*))) + 2 );
+		auto* ptr = reinterpret_cast<pointer>( reinterpret_cast<pointer*>(upstream_factory::allocate(elems + 2*sizeof(pointer*))) + 2 );
 		pointer next = std::exchange(m_linkStart, ptr);
 		link_next(ptr) = next;
 		if (next != nullptr) [[likely]] {
@@ -144,8 +154,8 @@ public:
 		release();
 	}
 
-	base_factory& base() noexcept { return static_cast<base_factory&>(*this); }
-	const base_factory& base() const noexcept { return static_cast<const base_factory&>(*this); }
+	upstream_factory& upstream() noexcept { return static_cast<upstream_factory&>(*this); }
+	const upstream_factory& upstream() const noexcept { return static_cast<const upstream_factory&>(*this); }
 
 protected:
 	static store_meta& link_meta(pointer mem) noexcept
@@ -155,16 +165,16 @@ protected:
 	pointer allocate_(size_type elems)
 	{
 		elems += sizeof(store_meta);
-		pointer ptr = base_factory::allocate(elems);
+		pointer ptr = upstream_factory::allocate(elems);
 		reinterpret_cast<store_meta*>(ptr).size = elems;
 		return ptr + sizeof(store_meta);
 	}
 	void free_(pointer ptr, size_type elems[[maybe_unused]])
 	{
 		if constexpr (store_size) {
-			base_factory::deallocate(ptr - sizeof(store_meta), elems);
+			upstream_factory::deallocate(ptr - sizeof(store_meta), elems);
 		} else {
-			base_factory::deallocate(ptr - sizeof(store_meta));
+			upstream_factory::deallocate(ptr - sizeof(store_meta));
 		}
 	}
 

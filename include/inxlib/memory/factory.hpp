@@ -35,6 +35,11 @@ namespace details {
 template <typename Fact>
 concept Factory_base = requires (Fact f)
 {
+	// not movable or copyable
+	std::default_initializable<Fact>;
+	!std::movable<Fact>;
+	!std::copyable<Fact>;
+
 	// required types
 	typename Fact::value_type;
 	typename Fact::pointer;
@@ -43,6 +48,7 @@ concept Factory_base = requires (Fact f)
 	// required functions, can be static or member
 	{ f.alignment() } noexcept -> std::same_as<typename Fact::size_type>;
 	{ f.element_size() } noexcept -> std::same_as<typename Fact::size_type>;
+	{ f.setup() };
 };
 
 /**
@@ -73,6 +79,31 @@ concept SingleFactory_base = details::Factory_base<Fact> && requires (Fact f)
 
 } // namespace details
 
+class void_factory
+{
+public:
+	using value_type = std::byte;
+	using pointer = value_type*;
+	using size_type = size_t;
+
+	constexpr void_factory() noexcept = default;
+	void_factory(const void_factory&) = delete;
+	void_factory operator=(const void_factory&) = delete;
+
+	constexpr void setup() noexcept
+	{ }
+
+	static consteval size_type alignment() noexcept { return alignof(max_align_t); }
+	static consteval size_type element_size() noexcept { return 1; }
+
+	constexpr pointer allocate(size_type)
+	{ }
+	constexpr void deallocate(pointer)
+	{ }
+	constexpr void deallocate(pointer, size_type)
+	{ }
+};
+
 /**
  * Class is a array factory.  Provides allocation of array's.
  */
@@ -101,6 +132,11 @@ concept ByteFactory = ArrayFactory<Fact> && requires (Fact f)
 	requires f.alignment() == alignof(max_align_t);
 	requires f.element_size() == 1;
 };
+
+template <typename Fact>
+concept VoidFactory = std::same_as<Fact, void_factory>;
+
+static_assert(ByteFactory<void_factory> && VoidFactory<void_factory>, "void_factory must be a valid ByteFactory");
 
 /**
  * Class is a factory.  Designed to provide flexible memory generation.

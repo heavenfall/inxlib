@@ -43,8 +43,10 @@ struct factory_pointer<Fact>
 	using typename factory_type::pointer;
 	using typename factory_type::size_type;
 
-	constexpr size_type alignment() noexcept { return m_factoryBase->alignment(); }
-	constexpr size_type element_size() noexcept { return m_factoryBase->element_size(); }
+	static constexpr size_type alignment() noexcept requires requires { Fact::alignment(); } { return Fact::alignment(); }
+	constexpr size_type alignment() noexcept requires (!requires { Fact::alignment(); }) { return m_factoryBase->alignment(); }
+	static constexpr size_type element_size() noexcept requires requires { Fact::element_size(); } { return Fact::element_size(); }
+	constexpr size_type element_size() noexcept requires (!requires { Fact::element_size(); }) { return m_factoryBase->element_size(); }
 
 	pointer allocate(size_type elems)
 	{
@@ -69,8 +71,10 @@ struct factory_pointer<Fact>
 	using typename factory_type::pointer;
 	using typename factory_type::size_type;
 
-	constexpr size_type alignment() noexcept { return m_factoryBase->alignment(); }
-	constexpr size_type element_size() noexcept { return m_factoryBase->element_size(); }
+	static constexpr size_type alignment() noexcept requires requires { Fact::alignment(); } { return Fact::alignment(); }
+	constexpr size_type alignment() noexcept requires (!requires { Fact::alignment(); }) { return m_factoryBase->alignment(); }
+	static constexpr size_type element_size() noexcept requires requires { Fact::element_size(); } { return Fact::element_size(); }
+	constexpr size_type element_size() noexcept requires (!requires { Fact::element_size(); }) { return m_factoryBase->element_size(); }
 
 	pointer create()
 	{

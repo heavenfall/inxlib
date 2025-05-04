@@ -30,10 +30,11 @@ SOFTWARE.
 
 namespace inx::memory {
 
-template <typename T>
-using object_bytes alignas(T) = std::array<std::byte, sizeof(T)>;
 template <size_t Size, size_t Align>
-using object_bytes_size alignas(Align) = std::array<std::byte, Size>;
+struct alignas(Align) object_bytes_size : std::array<std::byte, Size>
+{ };
+template <typename T>
+using object_bytes = object_bytes_size<sizeof(T), alignof(T)>;
 
 constexpr size_t pad_alignment(size_t size, size_t align)
 {

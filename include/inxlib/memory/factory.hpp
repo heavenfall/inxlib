@@ -97,7 +97,7 @@ public:
 	static consteval size_type element_size() noexcept { return 1; }
 
 	constexpr pointer allocate(size_type)
-	{ }
+	{ return {}; }
 	constexpr void deallocate(pointer)
 	{ }
 	constexpr void deallocate(pointer, size_type)
@@ -129,8 +129,8 @@ template <typename Fact>
 concept ByteFactory = ArrayFactory<Fact> && requires (Fact f)
 {
 	requires std::same_as<typename Fact::value_type, std::byte>;
-	requires f.alignment() == alignof(max_align_t);
-	requires f.element_size() == 1;
+	requires Fact::alignment() == alignof(max_align_t);
+	requires Fact::element_size() == 1;
 };
 
 template <typename Fact>

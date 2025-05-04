@@ -166,7 +166,7 @@ protected:
 	{
 		elems += sizeof(store_meta);
 		pointer ptr = upstream_factory::allocate(elems);
-		reinterpret_cast<store_meta*>(ptr).size = elems;
+		reinterpret_cast<store_meta*>(ptr)->size = elems;
 		return ptr + sizeof(store_meta);
 	}
 	void free_(pointer ptr, size_type elems[[maybe_unused]])

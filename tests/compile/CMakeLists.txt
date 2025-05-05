@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.13)
 
-# find include/inxlib/*/ -type f | sed 's|include/||' |  sort
+# find include/inxlib/*/ -type f | sed 's|include/||' | sort
 set(COMPILE_HEADERS
 inxlib/data/binary_tree.hpp
 inxlib/data/bit_table.hpp
@@ -8,9 +8,10 @@ inxlib/data/mary_tree.hpp
 inxlib/data/redblack_tree.hpp
 inxlib/io/null.hpp
 inxlib/io/transformers.hpp
+inxlib/memory/area_factory.hpp
 inxlib/memory/block_array.hpp
-inxlib/memory/factory_chain.hpp
 inxlib/memory/factory.hpp
+inxlib/memory/factory_chain.hpp
 inxlib/memory/malloc_factory.hpp
 inxlib/memory/object.hpp
 inxlib/memory/single_factory.hpp
@@ -28,7 +29,6 @@ inxlib/util/math.hpp
 inxlib/util/numeric_types.hpp
 inxlib/util/virtual_pointer.hpp
 inxlib/util/xoshiro256.hpp
-
 )
 
 list(TRANSFORM COMPILE_HEADERS

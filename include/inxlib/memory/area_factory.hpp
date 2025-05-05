@@ -26,36 +26,45 @@ SOFTWARE.
 #define INXLIB_MEMORY_BUMP_FACTORY_HPP
 
 #include <inxlib/inx.hpp>
+#include <inxlib/numeric/bits.hpp>
 #include "factory.hpp"
 #include "object.hpp"
 
 namespace inx::memory {
 
 template <size_t Size, size_t Align>
-struct area_memory alingas(max_align_t)
+struct alignas(max_align_t) area_memory
 {
+	static_assert(Size != 0, "Size must be greater than 0.");
+	static_assert(inx::numeric::popcount(Align) == 1 && Align < alignof(max_align_t), "Align must be a valid alignment.");
 	union {
 		uint64_t u64[2];
 		int64_t i64[2];
 		void* p64[2];
 	};
-	object_bytes_size<Size, Align> data[1];
+	alignas(max_align_t) object_bytes_size<Size, Align> data[1];
 
-	constexpr static size() noexcept { return Size; }
-	constexpr static align() noexcept { return Align; }
+	consteval static size_t size() noexcept { return Size; }
+	consteval static size_t align() noexcept { return Align; }
 
-	constexpr static size_header() noexcept
+	constexpr static size_t size_header() noexcept
 	{
-		return offsetoff(area_memory, data);
+		return offsetof(area_memory, data);
 	}
-	constexpr static size_n(size_t elems) noexcept
+	constexpr static size_t size_n(size_t elems) noexcept
 	{
-		return pad_alignment(offsetoff(area_memory, data[elems]), alingof(max_align_t));
+		return pad_alignment(size_header() + elems * Size, alignof(max_align_t));
 	}
 };
 template <typename T>
 using area_memory_type = area_memory<sizeof(T), alignof(T)>;
 using area_memory_bytes = area_memory_type<std::byte>;
+
+struct area_factory_params
+{
+	size_t count; ///< amount to set element to, 0 = default
+	bool use_size = false; ///< if true: element_size(count), else: element_count(count)
+};
 
 /**
  * Factory that generates area blocks for area-based factories.
@@ -71,7 +80,7 @@ public:
 	using size_type = size_t;
 
 	static consteval size_type alignment() noexcept { return alignof(max_align_t); }
-	static consteval size_type element_size() noexcept { return area_memory::size_n(AreaCount); }
+	static consteval size_type element_size() noexcept { return Area::size_n(AreaCount); }
 	static consteval size_type element_count() noexcept { return AreaCount; }
 
 	pointer create()
@@ -102,7 +111,19 @@ public:
 	{ }
 	constexpr area_factory(size_type elem_size) noexcept
 	{
-		element_size(count);
+		element_size(elem_size);
+	}
+
+	template <typename... T>
+	void setup(area_factory_params params, T&&... args)
+	{
+		Upstream::setup(std::forward<T>(args)...);
+		if (params.count != 0) {
+			if (params.use_size)
+				element_size(params.count);
+			else
+				element_count(params.count);
+		}
 	}
 
 	pointer create()
@@ -136,8 +157,17 @@ protected:
 	uint32_t m_elementSize;
 };
 
-template <template <typename,size_t,typename> class Fact, typename Upstream, size_t AreaCount, typename Area>
-concept AreaFactory = std::same_as<Fact<Upstream, AreaCount, Area>, area_factory<Upstream, AreaCount, Area>>;
+namespace details {
+template <typename T>
+struct is_AreaFactor : std::bool_constant<false>
+{ };
+template <typename Upstream, size_t AreaCount, typename Area>
+struct is_AreaFactor<area_factory<Upstream, AreaCount, Area>> : std::bool_constant<true>
+{ };
+}; // namespace details
+
+template <typename T>
+concept AreaFactory = details::is_AreaFactor<T>::value;
 
 /**
  * Factory that generates area blocks for area-based factories.
@@ -149,13 +179,12 @@ class bump_factory : private Upstream
 public:
 	using upstream_factory = Upstream;
 	using overflow_factory = Overflow;
-	using value_type = Area;
+	using value_type = std::byte;
 	using pointer = value_type*;
 	using size_type = size_t;
 
 	static consteval size_type alignment() noexcept { return alignof(max_align_t); }
-	static consteval size_type element_size() noexcept { return area_memory::size_n(AreaCount); }
-	static consteval size_type element_count() noexcept { return AreaCount; }
+	static consteval size_type element_size() noexcept { return 1; }
 
 	pointer create()
 	{

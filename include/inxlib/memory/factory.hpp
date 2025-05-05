@@ -36,9 +36,9 @@ template <typename Fact>
 concept Factory_base = requires (Fact f)
 {
 	// not movable or copyable
-	std::default_initializable<Fact>;
-	!std::movable<Fact>;
-	!std::copyable<Fact>;
+	requires std::default_initializable<Fact>;
+	requires !std::movable<Fact>;
+	requires !std::copyable<Fact>;
 
 	// required types
 	typename Fact::value_type;

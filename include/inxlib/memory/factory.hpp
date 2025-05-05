@@ -133,6 +133,16 @@ concept ByteFactory = ArrayFactory<Fact> && requires (Fact f)
 	requires Fact::element_size() == 1;
 };
 
+/**
+ * A byte factory that supports dynamic align allocation.
+ */
+template <typename Fact>
+concept AlignByteFactory = ByteFactory<Fact> && requires (Fact f, Fact::pointer ptr, Fact::size_type elem)
+{
+	{ f.allocate(elem, elem) } -> std::same_as<typename Fact::pointer>;
+	{ f.deallocate(ptr, elem, elem) };
+};
+
 template <typename Fact>
 concept VoidFactory = std::same_as<Fact, void_factory>;
 

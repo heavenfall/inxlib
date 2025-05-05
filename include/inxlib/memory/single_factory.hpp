@@ -39,16 +39,24 @@ public:
 	using typename Upstream::size_type;
 	using typename Upstream::pointer;
 
-	constexpr size_type alignment() noexcept { return Upstream::alignment(); }
+	constexpr size_type alignment() noexcept { return Alignment; }
 	constexpr size_type element_size() noexcept { return Upstream::element_size() * Elems; }
 
 	pointer create(size_type elems)
 	{
-		return Upstream::allocate(element_size());
+		if constexpr (AlignByteFactory<Upstream>) {
+			return Upstream::allocate(element_size(), alignment());
+		} else {
+			return Upstream::allocate(element_size());
+		}
 	}
 	void destroy(pointer ptr)
 	{
-		Upstream::deallocate(ptr, element_size());
+		if constexpr (AlignByteFactory<Upstream>) {
+			return Upstream::deallocate(ptr, element_size(), alignment());
+		} else {
+			return Upstream::deallocate(ptr, element_size());
+		}
 	}
 
 	upstream_factory& upstream() noexcept { return static_cast<upstream_factory&>(*this); }

@@ -34,55 +34,57 @@ namespace inx::memory {
 template <typename Fact>
 struct factory_pointer;
 
-template <ArrayFactory Fact>
+template <Factory Fact>
 struct factory_pointer<Fact>
 {
 	using factory_type = Fact;
 	factory_type* m_factoryBase = nullptr;
-	using typename factory_type::value_type;
-	using typename factory_type::pointer;
-	using typename factory_type::size_type;
+	using value_type = typename factory_type::value_type;
+	using pointer = typename factory_type::pointer;
+	using size_type = typename factory_type::size_type;
+
+	factory_pointer() = default;
+	factory_pointer(const factory_pointer&) = delete;
 
 	static constexpr size_type alignment() noexcept requires requires { Fact::alignment(); } { return Fact::alignment(); }
 	constexpr size_type alignment() noexcept requires (!requires { Fact::alignment(); }) { return m_factoryBase->alignment(); }
 	static constexpr size_type element_size() noexcept requires requires { Fact::element_size(); } { return Fact::element_size(); }
 	constexpr size_type element_size() noexcept requires (!requires { Fact::element_size(); }) { return m_factoryBase->element_size(); }
 
-	pointer allocate(size_type elems)
+	constexpr void setup(factory_type& upstream)
+	{
+		m_factoryBase = &upstream;
+	}
+
+	[[nodiscard]] pointer allocate(size_type elems) requires ArrayFactory<Fact>
 	{
 		return m_factoryBase->allocate(elems);
 	}
-	pointer deallocate(pointer ptr, size_type elems)
+	void deallocate(pointer ptr, size_type elems) requires ArrayFactory<Fact>
 	{
 		return m_factoryBase->deallocate(ptr, elems);
 	}
-	pointer deallocate(pointer ptr) requires requires { { m_factoryBase->deallocate(ptr) }; }
+	void deallocate(pointer ptr) requires ArrayFactory<Fact> && requires { { m_factoryBase->deallocate(ptr) }; }
 	{
 		return m_factoryBase->deallocate(ptr);
 	}
-};
 
-template <SingleFactory Fact>
-struct factory_pointer<Fact>
-{
-	using factory_type = Fact;
-	factory_type* m_factoryBase = nullptr;
-	using typename factory_type::value_type;
-	using typename factory_type::pointer;
-	using typename factory_type::size_type;
-
-	static constexpr size_type alignment() noexcept requires requires { Fact::alignment(); } { return Fact::alignment(); }
-	constexpr size_type alignment() noexcept requires (!requires { Fact::alignment(); }) { return m_factoryBase->alignment(); }
-	static constexpr size_type element_size() noexcept requires requires { Fact::element_size(); } { return Fact::element_size(); }
-	constexpr size_type element_size() noexcept requires (!requires { Fact::element_size(); }) { return m_factoryBase->element_size(); }
-
-	pointer create()
+	[[nodiscard]] pointer create() requires SingleFactory<Fact>
 	{
 		return m_factoryBase->create();
 	}
-	pointer destroy(pointer ptr)
+	[[nodiscard]] pointer destroy(pointer ptr) requires SingleFactory<Fact>
 	{
 		return m_factoryBase->destroy(ptr);
+	}
+
+	void release(bool free_upstream = true) requires requires { m_factoryBase->release(free_upstream); }
+	{
+		m_factoryBase->release(free_upstream);
+	}
+	void reclaim() requires requires { m_factoryBase->reclaim(); }
+	{
+		m_factoryBase->reclaim();
 	}
 };
 

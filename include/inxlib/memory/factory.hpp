@@ -48,7 +48,6 @@ concept Factory_base = requires (Fact f)
 	// required functions, can be static or member
 	{ f.alignment() } noexcept -> std::same_as<typename Fact::size_type>;
 	{ f.element_size() } noexcept -> std::same_as<typename Fact::size_type>;
-	{ f.setup() };
 };
 
 /**

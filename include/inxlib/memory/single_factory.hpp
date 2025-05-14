@@ -41,8 +41,14 @@ public:
 
 	constexpr size_type alignment() noexcept { return Alignment; }
 	constexpr size_type element_size() noexcept { return Upstream::element_size() * Elems; }
+	
+	template <typename... T>
+	constexpr void setup(T&&... args)
+	{
+		Upstream::setup(std::forward<T>(args)...);
+	}
 
-	pointer create(size_type elems)
+	[[nodiscard]] pointer create()
 	{
 		if constexpr (AlignByteFactory<Upstream>) {
 			return Upstream::allocate(element_size(), alignment());
@@ -62,6 +68,8 @@ public:
 	upstream_factory& upstream() noexcept { return static_cast<upstream_factory&>(*this); }
 	const upstream_factory& upstream() const noexcept { return static_cast<const upstream_factory&>(*this); }
 };
+template <typename Upstream, typename T>
+using single_factory_type = single_factory<Upstream, sizeof(T), alignof(T)>;
 
 } // namespace inx::memory
 

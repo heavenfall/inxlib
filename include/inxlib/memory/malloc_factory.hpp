@@ -50,7 +50,7 @@ public:
 	static consteval size_type alignment() noexcept { return alignof(max_align_t); }
 	static consteval size_type element_size() noexcept { return 1; }
 
-	pointer allocate(size_type elems)
+	[[nodiscard]] pointer allocate(size_type elems)
 	{
 		return static_cast<value_type*>(std::malloc(elems));
 	}
@@ -105,7 +105,13 @@ public:
 	{
 		release();
 	}
-	pointer allocate(size_type elems)
+	template <typename... T>
+	constexpr void setup(T&&... args)
+	{
+		Upstream::setup(std::forward<T>(args)...);
+	}
+
+	[[nodiscard]] pointer allocate(size_type elems)
 	{
 		auto* ptr = reinterpret_cast<pointer>( reinterpret_cast<pointer*>(upstream_factory::allocate(elems + 2*sizeof(pointer*))) + 2 );
 		pointer next = std::exchange(m_linkStart, ptr);
@@ -135,17 +141,19 @@ public:
 	{
 		deallocate(ptr);
 	}
-	void release()
+	void release(bool free_upstream = true)
 	{
-		for (pointer p = m_linkStart; p != nullptr; ) {
-			auto meta = link_meta(p);
-			auto next_p = meta.next;
-			if constexpr (store_size) {
-				free_(p, meta.size);
-			} else {
-				free_(p, 0);
+		if (free_upstream) {
+			for (pointer p = m_linkStart; p != nullptr; ) {
+				auto meta = link_meta(p);
+				auto next_p = meta.next;
+				if constexpr (store_size) {
+					free_(p, meta.size);
+				} else {
+					free_(p, 0);
+				}
+				p = next_p;
 			}
-			p = next_p;
 		}
 		m_linkStart = nullptr;
 	}

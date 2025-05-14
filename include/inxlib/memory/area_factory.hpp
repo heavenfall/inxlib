@@ -29,24 +29,25 @@ SOFTWARE.
 #include <inxlib/numeric/bits.hpp>
 #include "factory.hpp"
 #include "object.hpp"
+#include <memory>
 
 namespace inx::memory {
 
-struct alignas(max_align_t) area_memory_header
+struct area_memory_header
+{ };
+
+template <size_t Size, size_t Align>
+struct alignas(max_align_t) area_memory : area_memory_header
 {
+	static_assert(Size != 0, "Size must be greater than 0.");
+	static_assert(inx::numeric::popcount(Align) == 1 && Align <= alignof(max_align_t), "Align must be a valid alignment.");
+
 	union Val {
 		uint64_t u64;
 		int64_t i64;
 		void* p64;
 	};
 	std::array<Val, 2> h;
-};
-
-template <size_t Size, size_t Align>
-struct alignas(max_align_t) area_memory : area_memory_header
-{
-	static_assert(Size != 0, "Size must be greater than 0.");
-	static_assert(inx::numeric::popcount(Align) == 1 && Align < alignof(max_align_t), "Align must be a valid alignment.");
 	alignas(max_align_t) std::array<std::byte, Size> data[1];
 
 	consteval static size_t size() noexcept { return Size; }
@@ -62,7 +63,7 @@ struct alignas(max_align_t) area_memory : area_memory_header
 	}
 
 	template <std::derived_from<area_memory_header> T>
-	constexpr T& cast() noexcept { return static_cast<T&>( static_cast<area_memory_header&>(*this) ); }
+	constexpr T* cast() noexcept { return static_cast<T*>( static_cast<area_memory_header*>(this) ); }
 };
 template <typename T>
 using area_memory_type = area_memory<sizeof(T), alignof(T)>;
@@ -70,7 +71,10 @@ using area_memory_bytes = area_memory<1, alignof(max_align_t)>;
 
 struct area_factory_params
 {
-	size_t count; ///< amount to set element to, 0 = default
+	area_factory_params() = default;
+	area_factory_params(size_t l_count, bool l_use_size = false) : count(l_count), use_size(l_use_size)
+	{ }
+	size_t count = 0; ///< amount to set element to, 0 = default
 	bool use_size = false; ///< if true: element_size(count), else: element_count(count)
 };
 
@@ -91,13 +95,19 @@ public:
 	static consteval size_type element_size() noexcept { return Area::size_n(AreaCount); }
 	static consteval size_type element_count() noexcept { return AreaCount; }
 
+	template <typename... T>
+	constexpr void setup(T&&... args)
+	{
+		Upstream::setup(std::forward<T>(args)...);
+	}
+
 	pointer create()
 	{
-		return Upstream::allocate(element_size());
+		return reinterpret_cast<pointer>( Upstream::allocate(element_size()) );
 	}
 	void destroy(pointer ptr)
 	{
-		Upstream::deallocate(ptr, element_size());
+		Upstream::deallocate(reinterpret_cast<typename Upstream::pointer>(ptr), element_size());
 	}
 
 	upstream_factory& upstream() noexcept { return static_cast<upstream_factory&>(*this); }
@@ -107,6 +117,7 @@ template <ByteFactory Upstream, typename Area>
 class area_factory<Upstream, 0, Area> : private Upstream
 {
 public:
+	using upstream_factory = Upstream;
 	using value_type = Area;
 	using pointer = value_type*;
 	using size_type = size_t;
@@ -134,13 +145,13 @@ public:
 		}
 	}
 
-	pointer create()
+	[[nodiscard]] pointer create()
 	{
-		return Upstream::allocate(element_size());
+		return reinterpret_cast<pointer>( Upstream::allocate(element_size()) );
 	}
 	void destroy(pointer ptr)
 	{
-		Upstream::deallocate(ptr, element_size());
+		Upstream::deallocate(reinterpret_cast<typename Upstream::pointer>(ptr), element_size());
 	}
 
 	void element_size(size_type size)
@@ -159,6 +170,9 @@ public:
 			element_size(64);
 		}
 	}
+
+	upstream_factory& upstream() noexcept { return static_cast<upstream_factory&>(*this); }
+	const upstream_factory& upstream() const noexcept { return static_cast<const upstream_factory&>(*this); }
 
 protected:
 	uint32_t m_elementCount;
@@ -194,15 +208,27 @@ public:
 
 	static consteval size_type alignment() noexcept { return area::align(); }
 	static consteval size_type element_size() noexcept { return area::size(); }
+	
+	template <typename... T>
+	constexpr void setup(T&&... args)
+	{
+		Upstream::setup(std::forward<T>(args)...);
+	}
 
-	pointer allocate(size_type elems)
+	[[nodiscard]] pointer allocate(size_type elems)
 	{
-		return Upstream::allocate(element_size());
+		return allocate(elems, area::align());
 	}
-	void destroy(pointer ptr)
+	[[nodiscard]] pointer allocate(size_type elems, size_type align)
 	{
-		Upstream::deallocate(ptr, element_size());
+		if (elems <= Upstream::element_count() * area::size() / 2) [[likely]] {
+			return allocate_bump(elems, align);
+		} else {
+			return allocate_overflow(elems);
+		}
 	}
+	void deallocate(pointer ptr, size_type elems)
+	{ }
 
 	upstream_factory& upstream() noexcept { return static_cast<upstream_factory&>(*this); }
 	const upstream_factory& upstream() const noexcept { return static_cast<const upstream_factory&>(*this); }
@@ -226,7 +252,7 @@ protected:
 		area* a;
 		if constexpr (VoidFactory<Overflow>) {
 			// go upstream base
-			a = Upstream::base().allocate(area::size_n(elems));
+			a = reinterpret_cast<area*>( Upstream::upstream().allocate(area::size_n(elems)) );
 		} else {
 			a = m_overflow.allocate(area::size_n(elems));
 		}
@@ -235,28 +261,28 @@ protected:
 		m_currentArea = a;
 		return a;
 	}
-	pointer* allocate_bump(size_type elems, size_type align)
+	pointer allocate_bump(size_type elems, size_type align)
 	{
-		assert(elems <= (Upstream::element_count() >> 1) && std::popcount(align) == 1 && align < area::align());
-		void* p = std::align(align, element_size() * elems, m_bumpPtr, m_bumpSize);
+		assert(elems <= (Upstream::element_count() >> 1) && std::popcount(align) == 1 && align <= area::align());
+		void* p = align_adjust(align, element_size() * elems, m_bumpPtr, m_bumpSize);
 		if (p != nullptr) [[likely]]
-			return static_cast<pointer*>(p);
+			return static_cast<pointer>(p);
 		new_area();
-		p = std::align(align, element_size() * elems, m_bumpPtr, m_bumpSize);
+		p = align_adjust(align, element_size() * elems, m_bumpPtr, m_bumpSize);
 		assert(p != nullptr);
-		return static_cast<pointer*>(p);
+		return static_cast<pointer>(p);
 	}
 	pointer allocate_overflow(size_type elems)
 	{
 		// assume expected alignment is less or equal to area::align
 		assert(elems > (Upstream::element_count() >> 1));
 		area* a = new_overflow(elems);
-		return static_cast<pointer>( static_cast<void*>(&a.data[0]) );
+		return reinterpret_cast<pointer>( &a->data[0] );
 	}
 
 protected:
 	void* m_bumpPtr = nullptr;
-	size_t m_bumpSize = nullptr;
+	size_t m_bumpSize = 0;
 	area* m_currentArea = nullptr;
 	[[no_unique_address]] Overflow m_overflow;
 };

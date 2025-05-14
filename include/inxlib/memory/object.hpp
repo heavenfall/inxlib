@@ -27,6 +27,7 @@ SOFTWARE.
 
 #include <inxlib/inx.hpp>
 #include <inxlib/numeric/bits.hpp>
+#include <memory>
 
 namespace inx::memory {
 
@@ -58,6 +59,19 @@ constexpr size_t pad_type_alignment(size_t size)
 #define INXLIB_VAR_STRUCT(type,member) (::inx::memory::pad_type_alignment<type>(offsetof(type, member)))
 #define INXLIB_VAR_STRUCT_SIZE(type,member,size) (::inx::memory::pad_type_alignment<type, decltype(type::member)>(offsetof(type, member[size])))
 #define INXLIB_VAR_STRUCT_TYPE(type,member,member_type) (::inx::memory::pad_type_alignment<type, member_type>(offsetof(type, member)))
+
+/**
+ * Operates same as std::align, except if returned an adjusted value, will adjust ptr and space by size.
+ */
+inline void* align_adjust(std::size_t alignment, std::size_t size, void*& ptr, std::size_t& space)
+{
+	void* p = std::align(alignment, size, ptr, space);
+	if (p) {
+		ptr = static_cast<void*>( static_cast<std::byte*>(ptr) + size );
+		space -= size;
+	}
+	return p;
+}
 
 } // namespace inx::memory
 

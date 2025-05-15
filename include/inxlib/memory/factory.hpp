@@ -30,6 +30,14 @@ SOFTWARE.
 
 namespace inx::memory {
 
+enum factory_traits : uint32_t
+{
+	FactoryDefault = 0,
+	FactorySource = 1 << 0, /// allocations with no upstream (i.e. malloc)
+	FactoryOwn = 1 << 1, /// owns and will release memory
+	FactoryReuse = 1 << 2, /// factory will attempt to reuse memory
+};
+
 namespace details {
 
 template <typename Fact>
@@ -89,8 +97,10 @@ public:
 	void_factory(const void_factory&) = delete;
 	void_factory operator=(const void_factory&) = delete;
 
-	constexpr void setup() noexcept
-	{ }
+	constexpr bool setup() noexcept
+	{
+		return true;
+	}
 
 	static consteval size_type alignment() noexcept { return alignof(max_align_t); }
 	static consteval size_type element_size() noexcept { return 1; }

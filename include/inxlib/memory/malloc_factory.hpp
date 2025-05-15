@@ -40,12 +40,15 @@ public:
 	using pointer = value_type*;
 	using size_type = size_t;
 
+	static consteval uint32_t traits() noexcept { return FactorySource; }
+
 	constexpr malloc_factory() noexcept = default;
 	malloc_factory(const malloc_factory&) = delete;
-	malloc_factory operator=(const malloc_factory&) = delete;
 
-	constexpr void setup() noexcept
-	{ }
+	constexpr bool setup() noexcept
+	{
+		return true;
+	}
 
 	static consteval size_type alignment() noexcept { return alignof(max_align_t); }
 	static consteval size_type element_size() noexcept { return 1; }
@@ -75,6 +78,8 @@ public:
 	using typename Upstream::size_type;
 	using typename Upstream::pointer;
 
+	static consteval uint32_t traits() noexcept { return FactoryOwn; }
+
 	using Upstream::alignment;
 	using Upstream::element_size;
 	using Upstream::Upstream;
@@ -103,12 +108,12 @@ private:
 public:
 	~reclaim_factory()
 	{
-		release();
+		release(true);
 	}
 	template <typename... T>
-	constexpr void setup(T&&... args)
+	constexpr bool setup(T&&... args)
 	{
-		Upstream::setup(std::forward<T>(args)...);
+		return Upstream::setup(std::forward<T>(args)...);
 	}
 
 	[[nodiscard]] pointer allocate(size_type elems)
@@ -141,6 +146,7 @@ public:
 	{
 		deallocate(ptr);
 	}
+
 	void release(bool free_upstream = true)
 	{
 		if (free_upstream) {
@@ -159,7 +165,7 @@ public:
 	}
 	void reclaim()
 	{
-		release();
+		release(true);
 	}
 
 	upstream_factory& upstream() noexcept { return static_cast<upstream_factory&>(*this); }

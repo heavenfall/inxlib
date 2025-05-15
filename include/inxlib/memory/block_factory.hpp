@@ -22,185 +22,20 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#ifndef INXLIB_MEMORY_BUMP_FACTORY_HPP
-#define INXLIB_MEMORY_BUMP_FACTORY_HPP
+#ifndef INXLIB_MEMORY_BLOCK_FACTORY_HPP
+#define INXLIB_MEMORY_BLOCK_FACTORY_HPP
 
 #include <inxlib/inx.hpp>
-#include <inxlib/numeric/bits.hpp>
-#include "factory.hpp"
-#include "object.hpp"
-#include <memory>
+#include "area_factory.hpp"
 
 namespace inx::memory {
 
-struct area_memory_header
-{ };
-
-template <size_t Size, size_t Align>
-struct alignas(max_align_t) area_memory : area_memory_header
-{
-	static_assert(Size != 0, "Size must be greater than 0.");
-	static_assert(inx::numeric::popcount(Align) == 1 && Align <= alignof(max_align_t), "Align must be a valid alignment.");
-
-	union Val {
-		uint64_t u64;
-		int64_t i64;
-		void* p64;
-	};
-	std::array<Val, 2> h;
-	alignas(max_align_t) std::array<std::byte, Size> data[1];
-
-	consteval static size_t size() noexcept { return Size; }
-	consteval static size_t align() noexcept { return Align; }
-
-	constexpr static size_t size_header() noexcept
-	{
-		return offsetof(area_memory, data);
-	}
-	constexpr static size_t size_n(size_t elems) noexcept
-	{
-		return pad_alignment(size_header() + elems * Size, alignof(max_align_t));
-	}
-
-	template <std::derived_from<area_memory_header> T>
-	constexpr T* cast() noexcept { return static_cast<T*>( static_cast<area_memory_header*>(this) ); }
-};
-template <typename T>
-using area_memory_type = area_memory<sizeof(T), alignof(T)>;
-using area_memory_bytes = area_memory<1, alignof(max_align_t)>;
-
-struct area_factory_params
-{
-	area_factory_params() = default;
-	area_factory_params(size_t l_count, bool l_use_size = false) : count(l_count), use_size(l_use_size)
-	{ }
-	size_t count = 0; ///< amount to set element to, 0 = default
-	bool use_size = false; ///< if true: element_size(count), else: element_count(count)
-};
-
 /**
  * Factory that generates area blocks for area-based factories.
- * If AreaCount == 0, area_factory holds a dynamic size.
- */
-template <ByteFactory Upstream, size_t AreaCount, typename Area = area_memory_bytes>
-class area_factory : private Upstream
-{
-public:
-	using upstream_factory = Upstream;
-	using value_type = Area;
-	using pointer = value_type*;
-	using size_type = size_t;
-
-	static consteval uint32_t traits() noexcept { return FactoryDefault; }
-
-	static consteval size_type alignment() noexcept { return Area::align(); }
-	static consteval size_type element_size() noexcept { return Area::size_n(AreaCount); }
-	static consteval size_type element_count() noexcept { return AreaCount; }
-
-	template <typename... T>
-	constexpr bool setup(T&&... args)
-	{
-		return Upstream::setup(std::forward<T>(args)...);
-	}
-
-	pointer create()
-	{
-		return reinterpret_cast<pointer>( Upstream::allocate(element_size()) );
-	}
-	void destroy(pointer ptr)
-	{
-		Upstream::deallocate(reinterpret_cast<typename Upstream::pointer>(ptr), element_size());
-	}
-
-	upstream_factory& upstream() noexcept { return static_cast<upstream_factory&>(*this); }
-	const upstream_factory& upstream() const noexcept { return static_cast<const upstream_factory&>(*this); }
-};
-template <ByteFactory Upstream, typename Area>
-class area_factory<Upstream, 0, Area> : private Upstream
-{
-public:
-	using upstream_factory = Upstream;
-	using value_type = Area;
-	using pointer = value_type*;
-	using size_type = size_t;
-
-	static consteval size_type alignment() noexcept { return Area::align(); }
-	size_type element_size() const noexcept { return m_elementSize; }
-	size_type element_count() noexcept { return m_elementCount; }
-
-	constexpr area_factory() noexcept : area_factory(1024)
-	{ }
-	constexpr area_factory(size_type elem_size) noexcept
-	{
-		element_size(elem_size);
-	}
-
-	template <typename... T>
-	bool setup(area_factory_params params, T&&... args)
-	{
-		if (!Upstream::setup(std::forward<T>(args)...))
-			return false;
-		if (params.count != 0) {
-			if (params.use_size)
-				element_size(params.count);
-			else
-				element_count(params.count);
-		}
-		return true;
-	}
-
-	[[nodiscard]] pointer create()
-	{
-		return reinterpret_cast<pointer>( Upstream::allocate(element_size()) );
-	}
-	void destroy(pointer ptr)
-	{
-		Upstream::deallocate(reinterpret_cast<typename Upstream::pointer>(ptr), element_size());
-	}
-
-	void element_size(size_type size)
-	{
-		size = std::max(size, static_cast<size_type>(Area::size_n(2)));
-		m_elementCount = (size - Area::size_header()) / Area::size();
-		m_elementSize = Area::size_n(m_elementCount);
-	}
-	void element_count(size_type count)
-	{
-		count = std::max(count, static_cast<size_type>(0));
-		m_elementCount = count;
-		m_elementSize = Area::size_n(count);
-		if (m_elementSize < 64) {
-			// set to 64
-			element_size(64);
-		}
-	}
-
-	upstream_factory& upstream() noexcept { return static_cast<upstream_factory&>(*this); }
-	const upstream_factory& upstream() const noexcept { return static_cast<const upstream_factory&>(*this); }
-
-protected:
-	uint32_t m_elementCount;
-	uint32_t m_elementSize;
-};
-
-namespace details {
-template <typename T>
-struct is_AreaFactor : std::bool_constant<false>
-{ };
-template <typename Upstream, size_t AreaCount, typename Area>
-struct is_AreaFactor<area_factory<Upstream, AreaCount, Area>> : std::bool_constant<true>
-{ };
-}; // namespace details
-
-template <typename T>
-concept AreaFactory = details::is_AreaFactor<T>::value;
-
-/**
- * Factory that generates area blocks for area-based factories.
- * If AreaCount == 0, area_factory holds a dynamic size.
+ * Size is static.
  */
 template <AreaFactory Upstream, ByteFactory Overflow = void_factory>
-class bump_factory : private Upstream
+class block_factory : private Upstream
 {
 public:
 	using upstream_factory = Upstream;
@@ -347,4 +182,4 @@ protected:
 
 } // namespace inx::memory
 
-#endif // INXLIB_MEMORY_BUMP_FACTORY_HPP
+#endif // INXLIB_MEMORY_BLOCK_FACTORY_HPP

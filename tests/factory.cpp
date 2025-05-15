@@ -5,6 +5,7 @@
 #include <inxlib/memory/factory_chain.hpp>
 #include <inxlib/memory/single_factory.hpp>
 #include <inxlib/memory/area_factory.hpp>
+#include <string_view>
 
 using namespace std::string_view_literals;
 
@@ -57,9 +58,9 @@ TEST_CASE( "Basic factory check", "[factory]" ) {
 		area_factory< factory_pointer<base_bump_factory>, 128, area_memory_type<memb> > a1;
 		area_factory< factory_pointer<base_bump_factory>, 256, area_memory_type<memc> > a2;
 
-		ba.setup(area_factory_params(1024 * 128));
-		a1.setup(ba);
-		a2.setup(ba);
+		REQUIRE( ba.setup(area_factory_params(1024 * 128)) );
+		REQUIRE( a1.setup(ba) );
+		REQUIRE( a2.setup(ba) );
 
 		for (int i = 0; i < 1024; ++i) {
 			auto* p1 [[maybe_unused]] = a1.create();
@@ -71,6 +72,7 @@ TEST_CASE( "Basic factory check", "[factory]" ) {
 		using bump_factory = bump_factory<area_factory<malloc_factory, 256>>;
 		static_assert(ArrayFactory<bump_factory>, "bump_factory must be ArrayFactory");
 		single_factory_type<bump_factory, memb> ba;
+		REQUIRE( ba.setup() );
 		std::vector<memb*> ref;
 		constexpr int32_t TOTAL = 1024;
 

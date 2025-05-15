@@ -51,9 +51,10 @@ struct factory_pointer<Fact>
 	static constexpr size_type element_size() noexcept requires requires { Fact::element_size(); } { return Fact::element_size(); }
 	constexpr size_type element_size() noexcept requires (!requires { Fact::element_size(); }) { return m_factoryBase->element_size(); }
 
-	constexpr void setup(factory_type& upstream)
+	constexpr bool setup(factory_type& upstream)
 	{
 		m_factoryBase = &upstream;
+		return true;
 	}
 
 	[[nodiscard]] pointer allocate(size_type elems) requires ArrayFactory<Fact>

@@ -10,6 +10,7 @@ inxlib/io/null.hpp
 inxlib/io/transformers.hpp
 inxlib/memory/area_factory.hpp
 inxlib/memory/block_array.hpp
+inxlib/memory/block_factory.hpp
 inxlib/memory/factory.hpp
 inxlib/memory/factory_chain.hpp
 inxlib/memory/malloc_factory.hpp

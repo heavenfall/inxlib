@@ -36,6 +36,7 @@ enum factory_traits : uint32_t
 	FactorySource = 1 << 0, /// allocations with no upstream (i.e. malloc)
 	FactoryOwn = 1 << 1, /// owns and will release memory
 	FactoryReuse = 1 << 2, /// factory will attempt to reuse memory
+	FactoryNoFree = 1 << 3, /// factory has deallocate or destroy, but it does nothing
 };
 
 namespace details {
@@ -54,8 +55,9 @@ concept Factory_base = requires (Fact f)
 	typename Fact::size_type;
 
 	// required functions, can be static or member
-	{ f.alignment() } noexcept -> std::same_as<typename Fact::size_type>;
-	{ f.element_size() } noexcept -> std::same_as<typename Fact::size_type>;
+	{ f.alignment() } -> std::same_as<typename Fact::size_type>;
+	{ f.element_size() } -> std::same_as<typename Fact::size_type>;
+	{ Fact::traits() } -> std::same_as<uint32_t>;
 };
 
 /**
@@ -92,6 +94,8 @@ public:
 	using value_type = std::byte;
 	using pointer = value_type*;
 	using size_type = size_t;
+
+	static consteval uint32_t traits() noexcept { return FactoryDefault; }
 
 	constexpr void_factory() noexcept = default;
 	void_factory(const void_factory&) = delete;
@@ -130,6 +134,9 @@ concept SingleFactory = details::SingleFactory_base<Fact> && !details::ArrayFact
  */
 template <typename Fact>
 concept Factory = ArrayFactory<Fact> || SingleFactory<Fact>;
+
+template <typename Fact, factory_traits T>
+concept FactoryTrait = Factory<Fact> && (Fact::traits() & T) == T;
 
 /**
  * Class is a byte factory.  Provides allocation for byte object.

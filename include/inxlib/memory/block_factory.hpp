@@ -27,6 +27,7 @@ SOFTWARE.
 
 #include <inxlib/inx.hpp>
 #include "area_factory.hpp"
+#include "factory_adaptor.hpp"
 
 namespace inx::memory {
 
@@ -34,61 +35,73 @@ namespace inx::memory {
  * Factory that generates area blocks for area-based factories.
  * Size is static.
  */
-template <AreaFactory Upstream, ByteFactory Overflow = void_factory>
+template <AreaFactory Upstream, size_t Size = 0, size_t Align = 0>
 class block_factory : private Upstream
 {
 public:
 	using upstream_factory = Upstream;
-	using overflow_factory = Overflow;
 	using value_type = std::byte;
 	using pointer = value_type*;
 	using size_type = size_t;
-	using area = Upstream::value_type;
+	using area = upstream_type::value_type;
+protected:
+	using size_set = details::area_size_dynamic<Size, Align, area>;
 
-	~bump_factory()
+public:
+	~block_factory()
 	{
 		release(true);
 	}
 
 	static consteval uint32_t traits() noexcept { return FactoryOwn; }
 
-	static consteval size_type alignment() noexcept { return area::align(); }
-	static consteval size_type element_size() noexcept { return area::size(); }
+	static consteval size_type alignment() noexcept { return Align; }
+	static consteval size_type element_size() noexcept { return Size; }
 	
 	template <typename... T>
-	constexpr bool setup(T&&... args)
+	constexpr bool setup(T&&... args) requires (!size_set::dynamic)
 	{
-		return Upstream::setup(std::forward<T>(args)...);
+		return upstream_type::setup(std::forward<T>(args)...);
+	}
+	template <typename... T>
+	constexpr bool setup(block_factory_params param, T&&... args) requires (size_set::dynamic)
+	{
+		if (!upstream_type::setup(std::forward<T>(args)...))
+			return false;
+		if (!m_size.set(param.size, param.align))
+			return false;
+		return true;
 	}
 
-	[[nodiscard]] pointer allocate(size_type elems)
+	[[nodiscard]] pointer create()
 	{
-		return allocate(elems, area::align());
-	}
-	[[nodiscard]] pointer allocate(size_type elems, size_type align)
-	{
-		if (elems <= Upstream::element_count() * area::size() / 2) [[likely]] {
-			return allocate_bump(elems, align);
-		} else {
-			return allocate_overflow(elems);
+		if (m_currentLeft == 0) [[unlikely]] {
+			aquire_area();
 		}
+		assert(m_currentLeft > 0);
+		pointer ptr = reinterpret_cast<pointer>( m_currentArea ) + m_currentPos;
+		m_currentPos += m_size.size();
+		m_currentLeft -= 1;
+		return ptr;
 	}
-	void deallocate(pointer ptr, size_type elems)
+	void destroy(pointer ptr)
 	{ }
 
 	void release(bool free_upstream = true)
 	{
-		if (free_upstream) {
-			area* a = m_currentArea;
-			while (a != nullptr) {
-				area* anext = static_cast<area*>( a->h[1].p64 );
-				delete_area_overflow(a);
-				a = anext;
+		if (free_upstream && m_currentArea != nullptr) {
+			std::array<area*, 2> relptr{m_currentArea, m_currentArea->h[1].p64};
+			for (area* a : relptr) {
+				while (a != nullptr) {
+					area* anext = static_cast<area*>( a->h[0].p64 );
+					delete_area(a);
+					a = anext;
+				}
 			}
 		}
-		m_bumpPtr = nullptr;
-		m_bumpSize = 0;
 		m_currentArea = nullptr;
+		m_currentPos = 0;
+		m_currentLeft = 0;
 	}
 	void reclaim()
 	{
@@ -115,69 +128,45 @@ public:
 	const overflow_factory& overflow() const noexcept requires(!VoidFactory<Overflow>) { return m_overflow; }
 
 protected:
-	void new_area()
+	area* new_area()
 	{
-		area* a = Upstream::create();
-		a->h[0].u64 = 0;
-		a->h[1].p64 = static_cast<void*>(m_currentArea);
-		m_currentArea = a;
-		m_bumpPtr = static_cast<void*>(&a->data[0]);
-		m_bumpSize = Upstream::element_count() * area::size();
+		area* a = upstream_type::create();
+		a->h[0].p64 = nullptr; // next-link
+		a->h[1].p64 = nullptr; // reclaim-link
 	}
-	area* new_overflow(size_type elems)
+	void delete_area(area* a)
 	{
-		assert(elems > (Upstream::element_count() >> 1));
+		upstream_type::destroy(a);
+	}
+	void push_area(area* a)
+	{
+		a->h[0].p64 = std::exchange(m_currentArea, a);
+		m_currentPos = area::size_header();
+		m_currentLeft = m_size.count();
+	}
+	/// @brief aquire a new area, checking for reclaimed first, then new_area
+	area* aquire_area()
+	{
 		area* a;
-		if constexpr (VoidFactory<Overflow>) {
-			// go upstream base
-			a = reinterpret_cast<area*>( Upstream::upstream().allocate(area::size_n(elems)) );
+		if (m_currentArea == nullptr || m_currentArea->h[1].p64 == nullptr) {
+			a = new_area();
 		} else {
-			a = reinterpret_cast<area*>( m_overflow.allocate(area::size_n(elems)) );
+			// get reclaimed area
+			a = static_cast<area*>( std::exchange(m_currentArea->p[1].p64, nullptr) );
+			// move next-link to reclaim-link
+			assert(a->h[1].p64 == nullptr);
+			a->h[1].p64 = a->h[0].p64;
 		}
-		a->h[0].u64 = elems;
-		a->h[1].p64 = static_cast<void*>(m_currentArea);
-		m_currentArea = a;
+		// with new area, assign
+		push_area(a);
 		return a;
-	}
-	void delete_area_overflow(area* a)
-	{
-		if (size_type s = static_cast<size_type>(a->h[0].u64); s == 0) [[likely]] {
-			// area
-			Upstream::destroy(a);
-		} else {
-			s = area::size_n(s);
-			if constexpr (VoidFactory<Overflow>) {
-				// go upstream base
-				Upstream::upstream().deallocate(reinterpret_cast<std::byte*>(a), s);
-			} else {
-				m_overflow.deallocate(reinterpret_cast<std::byte*>(a), s);
-			}
-		}
-	}
-	pointer allocate_bump(size_type elems, size_type align)
-	{
-		assert(elems <= (Upstream::element_count() >> 1) && std::popcount(align) == 1 && align <= area::align());
-		void* p = align_adjust(align, element_size() * elems, m_bumpPtr, m_bumpSize);
-		if (p != nullptr) [[likely]]
-			return static_cast<pointer>(p);
-		new_area();
-		p = align_adjust(align, element_size() * elems, m_bumpPtr, m_bumpSize);
-		assert(p != nullptr);
-		return static_cast<pointer>(p);
-	}
-	pointer allocate_overflow(size_type elems)
-	{
-		// assume expected alignment is less or equal to area::align
-		assert(elems > (Upstream::element_count() >> 1));
-		area* a = new_overflow(elems);
-		return reinterpret_cast<pointer>( &a->data[0] );
 	}
 
 protected:
-	void* m_bumpPtr = nullptr;
-	size_t m_bumpSize = 0;
 	area* m_currentArea = nullptr;
-	[[no_unique_address]] Overflow m_overflow;
+	uint32_t m_currentPos = 0;
+	uint32_t m_currentLeft = 0;
+	[[no_unique_address]] size_set m_size;
 };
 
 } // namespace inx::memory

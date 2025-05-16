@@ -28,6 +28,7 @@ SOFTWARE.
 #include <inxlib/inx.hpp>
 #include <inxlib/numeric/bits.hpp>
 #include "factory.hpp"
+#include "factory_adaptor.hpp"
 #include "object.hpp"
 #include <memory>
 
@@ -195,20 +196,77 @@ struct is_AreaFactor<area_factory<Upstream, AreaCount, Area>> : std::bool_consta
 template <typename T>
 concept AreaFactory = details::is_AreaFactor<T>::value;
 
+
+/// @brief parameters for block_factory setup, when using 
+struct block_factory_params
+{
+	block_factory_params(size_t l_size, size_t l_align) :
+		size(l_size), align(l_align)
+	{ }
+	size_t size;
+	size_t align;
+};
+
+namespace details {
+template <typename Area>
+constexpr bool area_valid_elem_size(size_t size, size_t align) noexcept
+{
+	if (!(std::popcount(align) == 1 && align <= alignof(max_align_t)))
+		return false;
+	if (!(size > 0 && size % align == 0))
+		return false;
+	if (!(size % Area::size() == 0))
+		return false;
+	return true;
+}
+template <size_t Size, size_t Align, typename Area>
+struct area_size_dynamic
+{
+	static constexpr bool dynamic = false;
+	static_assert(std::popcount(Align) == 1 && Align <= alignof(max_align_t), "Must be a valid alignment");
+	static_assert(Size > 0 && Size % Align == 0, "Size must be a multiple of Align");
+	static_assert(Size % Area::size() == 0, "Size must be a mulitple of Area::size()");
+	consteval size_t size() noexcept { return Size; }
+	consteval size_t align() noexcept { return Align; }
+	consteval size_t count() noexcept { return Area::; }
+};
+template <typename Area>
+struct area_size_dynamic<0, 0, Area>
+{
+	static constexpr bool dynamic = true;
+	constexpr size_t size() noexcept { return m_size; }
+	constexpr size_t align() noexcept { return m_align; }
+
+	bool set(uint32_t l_size, uint32_t l_align) noexcept
+	{
+		if (!area_valid_elem_size<Area>(l_size, l_align))
+			return false;
+		m_size = l_size;
+		m_align = l_align;
+		return true;
+	}
+
+protected:
+	uint32_t m_size = 0;
+	uint32_t m_align = 0;
+};
+} // namespace details
+
 /**
  * Factory that generates area blocks for area-based factories.
  * If AreaCount == 0, area_factory holds a dynamic size.
  */
 template <AreaFactory Upstream, ByteFactory Overflow = void_factory>
-class bump_factory : private Upstream
+class bump_factory : private overflow_adaptor<Upstream, Overflow>
 {
 public:
-	using upstream_factory = Upstream;
+	using upstream_factory = overflow_adaptor<Upstream, Overflow>;
 	using overflow_factory = Overflow;
 	using value_type = std::byte;
 	using pointer = value_type*;
 	using size_type = size_t;
-	using area = Upstream::value_type;
+	using area = upstream_factory::value_type;
+	using typename upstream_factory::overflow_type;
 
 	~bump_factory()
 	{
@@ -223,7 +281,7 @@ public:
 	template <typename... T>
 	constexpr bool setup(T&&... args)
 	{
-		return Upstream::setup(std::forward<T>(args)...);
+		return upstream_factory::setup(std::forward<T>(args)...);
 	}
 
 	[[nodiscard]] pointer allocate(size_type elems)
@@ -232,7 +290,7 @@ public:
 	}
 	[[nodiscard]] pointer allocate(size_type elems, size_type align)
 	{
-		if (elems <= Upstream::element_count() * area::size() / 2) [[likely]] {
+		if (elems <= upstream_factory::element_count() * area::size() / 2) [[likely]] {
 			return allocate_bump(elems, align);
 		} else {
 			return allocate_overflow(elems);
@@ -276,29 +334,22 @@ public:
 	upstream_factory& upstream() noexcept { return static_cast<upstream_factory&>(*this); }
 	const upstream_factory& upstream() const noexcept { return static_cast<const upstream_factory&>(*this); }
 
-	overflow_factory& overflow() noexcept requires(!VoidFactory<Overflow>) { return m_overflow; }
-	const overflow_factory& overflow() const noexcept requires(!VoidFactory<Overflow>) { return m_overflow; }
+	using upstream_factory::overflow;
 
 protected:
 	void new_area()
 	{
-		area* a = Upstream::create();
+		area* a = upstream_factory::create();
 		a->h[0].u64 = 0;
 		a->h[1].p64 = static_cast<void*>(m_currentArea);
 		m_currentArea = a;
 		m_bumpPtr = static_cast<void*>(&a->data[0]);
-		m_bumpSize = Upstream::element_count() * area::size();
+		m_bumpSize = upstream_factory::element_count() * area::size();
 	}
 	area* new_overflow(size_type elems)
 	{
-		assert(elems > (Upstream::element_count() >> 1));
-		area* a;
-		if constexpr (VoidFactory<Overflow>) {
-			// go upstream base
-			a = reinterpret_cast<area*>( Upstream::upstream().allocate(area::size_n(elems)) );
-		} else {
-			a = reinterpret_cast<area*>( m_overflow.allocate(area::size_n(elems)) );
-		}
+		assert(elems > (upstream_factory::element_count() >> 1));
+		area* a = reinterpret_cast<area*>( upstream_factory::overflow_allocate(area::size_n(elems)) );
 		a->h[0].u64 = elems;
 		a->h[1].p64 = static_cast<void*>(m_currentArea);
 		m_currentArea = a;
@@ -308,20 +359,14 @@ protected:
 	{
 		if (size_type s = static_cast<size_type>(a->h[0].u64); s == 0) [[likely]] {
 			// area
-			Upstream::destroy(a);
+			upstream_factory::destroy(a);
 		} else {
-			s = area::size_n(s);
-			if constexpr (VoidFactory<Overflow>) {
-				// go upstream base
-				Upstream::upstream().deallocate(reinterpret_cast<std::byte*>(a), s);
-			} else {
-				m_overflow.deallocate(reinterpret_cast<std::byte*>(a), s);
-			}
+			upstream_factory::overflow_deallocate(reinterpret_cast<std::byte*>(a), area::size_n(s));
 		}
 	}
 	pointer allocate_bump(size_type elems, size_type align)
 	{
-		assert(elems <= (Upstream::element_count() >> 1) && std::popcount(align) == 1 && align <= area::align());
+		assert(elems <= (upstream_factory::element_count() >> 1) && std::popcount(align) == 1 && align <= area::align());
 		void* p = align_adjust(align, element_size() * elems, m_bumpPtr, m_bumpSize);
 		if (p != nullptr) [[likely]]
 			return static_cast<pointer>(p);
@@ -333,7 +378,7 @@ protected:
 	pointer allocate_overflow(size_type elems)
 	{
 		// assume expected alignment is less or equal to area::align
-		assert(elems > (Upstream::element_count() >> 1));
+		assert(elems > (upstream_factory::element_count() >> 1));
 		area* a = new_overflow(elems);
 		return reinterpret_cast<pointer>( &a->data[0] );
 	}

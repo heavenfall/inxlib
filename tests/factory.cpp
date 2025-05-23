@@ -9,6 +9,7 @@
 #include <string_view>
 #include <vector>
 #include <set>
+#include <iostream>
 
 using namespace std::string_view_literals;
 
@@ -111,13 +112,13 @@ TEST_CASE( "Basic factory check", "[factory]" ) {
 
 		for (int32_t i = 0; i < TOTAL; ++i) {
 			memc* v = reinterpret_cast<memc*>(ba.create());
+			std::cerr << v << std::endl;
 			v->a = i;
 			v->b = i*i;
 			REQUIRE_FALSE( alloc.contains(v) );
 			alloc.insert(v);
 		}
 		ba.reclaim();
-		alloc.clear();
 		int32_t dup_count = 0;
 		for (int32_t i = 0; i < TOTAL; ++i) {
 			memc* v = reinterpret_cast<memc*>(ba.create());

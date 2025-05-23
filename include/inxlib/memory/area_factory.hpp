@@ -96,7 +96,8 @@ public:
 
 	static consteval size_type alignment() noexcept { return Area::align(); }
 	static consteval size_type element_size() noexcept { return Area::size_n(AreaCount); }
-	static consteval size_type element_count() noexcept { return AreaCount; }
+	static consteval size_type item_size() noexcept { return Area::size(); }
+	static consteval size_type item_count() noexcept { return AreaCount; }
 
 	template <typename... T>
 	constexpr bool setup(T&&... args)
@@ -129,7 +130,8 @@ public:
 
 	static consteval size_type alignment() noexcept { return Area::align(); }
 	size_type element_size() const noexcept { return m_elementSize; }
-	size_type element_count() noexcept { return m_elementCount; }
+	static consteval size_type item_size() noexcept { return Area::size(); }
+	size_type item_count() noexcept { return m_elementCount; }
 
 	constexpr area_factory() noexcept : area_factory(1024)
 	{ }
@@ -279,9 +281,13 @@ protected:
 	}
 	void push_front(pointer at) noexcept
 	{
-		at->h[0].p64 = m_root;
+		if (m_root) [[likely]] {
+			at->h[0].p64 = m_root;
+			m_root->h[1].p64 = at;
+		} else {
+			at->h[0].p64 = nullptr;
+		}
 		at->h[1].p64 = nullptr;
-		m_root->h[1].p64 = at;
 		m_root = at;
 	}
 	void remove_from_list(pointer at) noexcept
@@ -329,7 +335,6 @@ protected:
 	void release_list(pointer at)
 	{
 		while (at != nullptr) {
-			assert(at->h[1].p64 == nullptr);
 			pointer next = reinterpret_cast<pointer>( at->h[0].p64 );
 			Upstream::destroy(at);
 			at = next;
@@ -380,7 +385,7 @@ struct area_reshape
 	constexpr size_t header() noexcept { return Fact::value_type::size_header(); }
 	constexpr size_t size() noexcept { return std::max(Size, MinSize); }
 	constexpr size_t align() noexcept { return Align; }
-	constexpr size_t count(const Fact& F) noexcept { return F.element_size() * F.element_count() / Size; }
+	constexpr size_t count(const Fact& F) noexcept { return Fact::value_type::size() * F.item_count() / size(); }
 };
 template <AreaFactory Fact, size_t MinSize>
 struct area_reshape<Fact, 0, 0, MinSize>
@@ -389,7 +394,7 @@ struct area_reshape<Fact, 0, 0, MinSize>
 	constexpr size_t header() noexcept { return Fact::value_type::size_header(); }
 	constexpr size_t size() noexcept { return m_size; }
 	constexpr size_t align() noexcept { return m_align; }
-	constexpr size_t count(const Fact& F) noexcept { return F.element_size() * F.element_count() / m_size; }
+	constexpr size_t count(const Fact& F) noexcept { return Fact::value_type::size() * F.item_count() / m_size; }
 
 	bool set(uint32_t l_size, uint32_t l_align) noexcept
 	{
@@ -430,7 +435,7 @@ public:
 	static consteval uint32_t traits() noexcept { return FactoryOwn; }
 
 	static consteval size_type alignment() noexcept { return area::align(); }
-	static consteval size_type element_size() noexcept { return area::size(); }
+	static consteval size_type element_size() noexcept { return Upstream::item_size(); }
 	
 	using pattern::setup;
 
@@ -440,7 +445,7 @@ public:
 	}
 	[[nodiscard]] pointer allocate(size_type elems, size_type align)
 	{
-		if (elems <= upstream_factory::element_count() * area::size() / 2) [[likely]] {
+		if (elems <= upstream_factory::item_count() * Upstream::item_size() / 2) [[likely]] {
 			return allocate_bump(elems, align);
 		} else {
 			return allocate_overflow(elems);
@@ -494,11 +499,11 @@ protected:
 		a->h[1].p64 = static_cast<void*>(m_currentArea);
 		m_currentArea = a;
 		m_bumpPtr = static_cast<void*>(&a->data[0]);
-		m_bumpSize = pattern::element_count() * area::size();
+		m_bumpSize = pattern::item_count() * pattern::item_size();
 	}
 	area* new_overflow(size_type elems)
 	{
-		assert(elems > (pattern::element_count() >> 1));
+		assert(elems > (pattern::item_count() >> 1));
 		area* a = reinterpret_cast<area*>( pattern::overflow_allocate(area::size_n(elems)) );
 		a->h[0].u64 = elems;
 		a->h[1].p64 = static_cast<void*>(m_currentArea);
@@ -516,7 +521,7 @@ protected:
 	}
 	pointer allocate_bump(size_type elems, size_type align)
 	{
-		assert(elems <= (pattern::element_count() >> 1) && std::popcount(align) == 1 && align <= area::align());
+		assert(elems <= (pattern::item_count() >> 1) && std::popcount(align) == 1 && align <= area::align());
 		void* p = align_adjust(align, element_size() * elems, m_bumpPtr, m_bumpSize);
 		if (p != nullptr) [[likely]]
 			return static_cast<pointer>(p);
@@ -528,7 +533,7 @@ protected:
 	pointer allocate_overflow(size_type elems)
 	{
 		// assume expected alignment is less or equal to area::align
-		assert(elems > (pattern::element_count() >> 1));
+		assert(elems > (pattern::item_count() >> 1));
 		area* a = new_overflow(elems);
 		return reinterpret_cast<pointer>( &a->data[0] );
 	}

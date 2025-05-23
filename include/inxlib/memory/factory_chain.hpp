@@ -52,8 +52,10 @@ struct factory_pointer<Fact>
 	constexpr size_type alignment() noexcept requires (!requires { Fact::alignment(); }) { return m_factoryBase->alignment(); }
 	static constexpr size_type element_size() noexcept requires requires { Fact::element_size(); } { return Fact::element_size(); }
 	constexpr size_type element_size() noexcept requires (!requires { Fact::element_size(); }) { return m_factoryBase->element_size(); }
-	static constexpr size_type element_count() noexcept requires requires { Fact::element_count(); } { return Fact::element_size(); }
-	constexpr size_type element_count() noexcept requires (!requires { Fact::element_count(); }) { return m_factoryBase->element_size(); }
+	static constexpr size_type item_count() noexcept requires requires { Fact::item_count(); } { return Fact::item_count(); }
+	constexpr size_type item_count() noexcept requires (!requires { Fact::item_count(); }) { return m_factoryBase->item_count(); }
+	static constexpr size_type item_size() noexcept requires requires { Fact::item_size(); } { return Fact::item_size(); }
+	constexpr size_type item_size() noexcept requires (!requires { Fact::item_size(); }) { return m_factoryBase->item_size(); }
 
 	constexpr bool setup(upstream_factory& upstream)
 	{

@@ -27,14 +27,25 @@ SOFTWARE.
 
 #include <inxlib/inx.hpp>
 #include "factory.hpp"
+#include <inxlib/types.hpp>
 #include <cstring>
 #include <memory>
 #include <tuple>
 
 namespace inx::memory {
 
+constexpr size_t reuse_size(size_t size) noexcept
+{
+	return std::max(size, sizeof(void*));
+}
+template <typename T>
+constexpr size_t reuse_size() noexcept
+{
+	return reuse_size(sizeof(T));
+}
+
 template <SingleFactory Upstream>
-	requires (!FactoryTrait<Upstream, FactoryOwn>)
+	requires (!FactoryTraitAny<Upstream, FactoryOwn | FactoryPointer>)
 class reuse_adaptor : public Upstream
 {
 public:
@@ -42,12 +53,12 @@ public:
 	using typename Upstream::size_type;
 	using typename Upstream::pointer;
 
-	static consteval uint32_t traits() noexcept { return Upstream::traits() | FactoryReuse; }
+	static consteval uint32_t traits() noexcept { return (Upstream::traits() & ~FactoryNoFree) | FactoryReuse; }
 
 	using Upstream::alignment;
 	using Upstream::element_size;
 
-	~single_reuse_adaptor()
+	~reuse_adaptor()
 	{
 		release(true);
 	}
@@ -89,7 +100,7 @@ public:
 		if constexpr (requires { { Upstream::release(free_upstream) }; }) {
 			// Upstream has release, just call it
 			Upstream::release(free_upstream);
-		} else if constexpr (!FactoryTrait<Upstream, FactoryNoFree) {
+		} else if constexpr (!FactoryTraitAll<Upstream, FactoryNoFree>) {
 			// only call Upstream::destory if upsteam uses one has one 
 			if (free_upstream) {
 				pointer p = m_reuse;
@@ -130,22 +141,20 @@ protected:
 
 
 template <Factory Upstream, ByteFactory Overflow = void_factory>
-class overflow_adaptor : public Upstream
+class overflow_pattern : public Upstream
 {
 public:
 	using typename Upstream::pointer;
 	using typename Upstream::size_type;
 	using overflow_type = Overflow;
-	
-	using Upstream::Upstream;
 
-	template <typename OverflowTuple, typename... T>
+	template <Tuple OverflowTuple, typename... T>
 	constexpr bool setup(OverflowTuple&& setup_overflow, T&&... args)
 	{
 		if (!Upstream::setup(std::forward<T>(args)...))
 			return false;
-		if (std::apply([this]<Ts...>(Ts&&... ts) {
-				this->setup(std::forward<Ts>(ts)...);
+		if (std::apply([this](auto&&... ts) {
+				this->setup(std::forward<decltype(ts)>(ts)...);
 			}, setup_overflow)) {
 			return false;
 		}
@@ -171,7 +180,7 @@ protected:
 
 template <Factory Upstream, ByteFactory Overflow>
 	requires VoidFactory<Overflow>
-class overflow_adaptor<Upstream, Overflow> : public Upstream
+class overflow_pattern<Upstream, Overflow> : public Upstream
 {
 public:
 	using typename Upstream::pointer;
@@ -196,11 +205,11 @@ public:
 	const overflow_type& overflow() const noexcept { return overflow_upstream(Upstream::upstream()); }
 
 protected:
-	constexpr pointer overflow_allocate(size_type elems)
+	constexpr std::byte* overflow_allocate(size_type elems)
 	{
 		return overflow().allocate(elems);
 	}
-	constexpr void overflow_deallocate(pointer ptr, size_type elems)
+	constexpr void overflow_deallocate(std::byte* ptr, size_type elems)
 	{
 		return overflow().deallocate(ptr, elems);
 	}

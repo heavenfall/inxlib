@@ -5,7 +5,10 @@
 #include <inxlib/memory/factory_chain.hpp>
 #include <inxlib/memory/single_factory.hpp>
 #include <inxlib/memory/area_factory.hpp>
+#include <inxlib/memory/block_factory.hpp>
 #include <string_view>
+#include <vector>
+#include <set>
 
 using namespace std::string_view_literals;
 
@@ -92,6 +95,37 @@ TEST_CASE( "Basic factory check", "[factory]" ) {
 			REQUIRE(ptr->a == i);
 			REQUIRE(ptr->b == i*i);
 		}
+	}
+
+	SECTION( "block factory" ) {
+		using area_fact = area_factory<malloc_factory, 1024>;
+		using block_fact_static = block_factory_type<factory_pointer<area_fact>, memc>;
+		static_assert(SingleFactory<block_fact_static>, "block_factory must be SingleFactory");
+		area_fact pool;
+		REQUIRE( pool.setup() );
+		block_fact_static ba;
+		REQUIRE( ba.setup(pool) );
+		std::vector<memc*> ref;
+		constexpr int32_t TOTAL = 1024;
+		std::set<memc*> alloc;
+
+		for (int32_t i = 0; i < TOTAL; ++i) {
+			memc* v = reinterpret_cast<memc*>(ba.create());
+			v->a = i;
+			v->b = i*i;
+			REQUIRE_FALSE( alloc.contains(v) );
+			alloc.insert(v);
+		}
+		ba.reclaim();
+		alloc.clear();
+		int32_t dup_count = 0;
+		for (int32_t i = 0; i < TOTAL; ++i) {
+			memc* v = reinterpret_cast<memc*>(ba.create());
+			if (alloc.contains(v))
+				dup_count += 1;
+		}
+		// requires some reuse of blocks
+		REQUIRE( dup_count > 0 );
 	}
 }
 

@@ -37,11 +37,13 @@ struct factory_pointer;
 template <Factory Fact>
 struct factory_pointer<Fact>
 {
-	using factory_type = Fact;
-	factory_type* m_factoryBase = nullptr;
-	using value_type = typename factory_type::value_type;
-	using pointer = typename factory_type::pointer;
-	using size_type = typename factory_type::size_type;
+	using upstream_factory = Fact;
+	upstream_factory* m_factoryBase = nullptr;
+	using value_type = typename upstream_factory::value_type;
+	using pointer = typename upstream_factory::pointer;
+	using size_type = typename upstream_factory::size_type;
+
+	static consteval uint32_t traits() noexcept { return Fact::traits() | FactoryPointer; }
 
 	factory_pointer() = default;
 	factory_pointer(const factory_pointer&) = delete;
@@ -50,8 +52,10 @@ struct factory_pointer<Fact>
 	constexpr size_type alignment() noexcept requires (!requires { Fact::alignment(); }) { return m_factoryBase->alignment(); }
 	static constexpr size_type element_size() noexcept requires requires { Fact::element_size(); } { return Fact::element_size(); }
 	constexpr size_type element_size() noexcept requires (!requires { Fact::element_size(); }) { return m_factoryBase->element_size(); }
+	static constexpr size_type element_count() noexcept requires requires { Fact::element_count(); } { return Fact::element_size(); }
+	constexpr size_type element_count() noexcept requires (!requires { Fact::element_count(); }) { return m_factoryBase->element_size(); }
 
-	constexpr bool setup(factory_type& upstream)
+	constexpr bool setup(upstream_factory& upstream)
 	{
 		m_factoryBase = &upstream;
 		return true;
@@ -74,9 +78,9 @@ struct factory_pointer<Fact>
 	{
 		return m_factoryBase->create();
 	}
-	[[nodiscard]] pointer destroy(pointer ptr) requires SingleFactory<Fact>
+	void destroy(pointer ptr) requires SingleFactory<Fact>
 	{
-		return m_factoryBase->destroy(ptr);
+		m_factoryBase->destroy(ptr);
 	}
 
 	void release(bool free_upstream = true) requires requires { m_factoryBase->release(free_upstream); }
@@ -87,6 +91,9 @@ struct factory_pointer<Fact>
 	{
 		m_factoryBase->reclaim();
 	}
+
+	upstream_factory& upstream() noexcept { assert(m_factoryBase != nullptr); return *m_factoryBase; }
+	const upstream_factory& upstream() const noexcept { assert(m_factoryBase != nullptr); return *m_factoryBase; }
 };
 
 } // namespace inx::memory

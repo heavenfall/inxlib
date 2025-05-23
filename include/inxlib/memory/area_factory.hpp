@@ -54,7 +54,7 @@ struct alignas(max_align_t) area_memory : area_memory_header
 	consteval static size_t size() noexcept { return Size; }
 	consteval static size_t align() noexcept { return Align; }
 
-	constexpr static size_t size_header() noexcept
+	consteval static size_t size_header() noexcept
 	{
 		return offsetof(area_memory, data);
 	}
@@ -125,6 +125,8 @@ public:
 	using pointer = value_type*;
 	using size_type = size_t;
 
+	static consteval uint32_t traits() noexcept { return FactoryDefault; }
+
 	static consteval size_type alignment() noexcept { return Area::align(); }
 	size_type element_size() const noexcept { return m_elementSize; }
 	size_type element_count() noexcept { return m_elementCount; }
@@ -191,16 +193,159 @@ struct is_AreaFactor : std::bool_constant<false>
 template <typename Upstream, size_t AreaCount, typename Area>
 struct is_AreaFactor<area_factory<Upstream, AreaCount, Area>> : std::bool_constant<true>
 { };
+template <typename Upstream>
+	requires FactoryTraitAll<Upstream, FactoryPointer> && FactoryTraitNone<Upstream, FactorySource>
+struct is_AreaFactor<Upstream> : is_AreaFactor<typename Upstream::upstream_factory>
+{ };
 }; // namespace details
 
 template <typename T>
 concept AreaFactory = details::is_AreaFactor<T>::value;
 
 
+/// @brief Add support to area_factory to manage a forward list of areas.
+///        O(1) reclaim operations.
+///        area.h[0] and area.h[1] are managed by this adaptor.
+/// @tparam Upstream 
+template <AreaFactory Upstream>
+	requires FactoryTraitNone<Upstream, FactoryOwn>
+class area_link_pattern : public Upstream
+{
+public:
+	using typename Upstream::value_type;
+	using typename Upstream::size_type;
+	using typename Upstream::pointer;
+
+	static consteval uint32_t traits() noexcept { return FactoryOwn | FactoryReuse; }
+
+	using Upstream::alignment;
+	using Upstream::element_size;
+
+	~area_link_pattern()
+	{
+		release(true);
+	}
+
+	using Upstream::setup;
+
+	pointer create()
+	{
+		pointer res;
+		if (m_reuse) {
+			res = pop_reuse();
+		} else {
+			// allocate new
+			res = Upstream::create();
+		}
+		push_front(res);
+		return res;
+	}
+	void destroy(pointer ptr)
+	{
+		// reuse for later
+		remove_from_list(ptr);
+		push_reuse(ptr);
+	}
+
+	/// @brief only releases memory calimed for reuse
+	/// @param free_upstream destorys memory upstream
+	void release(bool free_upstream = true)
+	{
+		if (free_upstream) {
+			release_list(m_root);
+			pointer at = m_reuse;
+			while (at != nullptr) {
+				release_list(reinterpret_cast<pointer>( at->h[0].p64 ));
+				pointer next = reinterpret_cast<pointer>( at->h[1].p64 );
+				Upstream::destroy(at);
+				at = next;
+			}
+		}
+		m_root = nullptr;
+		m_reuse = nullptr;
+	}
+	void reclaim()
+	{
+		if (m_root != nullptr) {
+			push_reuse_list(m_root);
+			m_root =  nullptr;
+		}
+	}
+
+protected:
+	pointer root() noexcept
+	{
+		return m_root;
+	}
+	void push_front(pointer at) noexcept
+	{
+		at->h[0].p64 = m_root;
+		at->h[1].p64 = nullptr;
+		m_root->h[1].p64 = at;
+		m_root = at;
+	}
+	void remove_from_list(pointer at) noexcept
+	{
+		if (at == m_root) [[unlikely]] {
+			pointer anext = reinterpret_cast<pointer>(at->h[0].p64);
+			m_root = anext;
+			if (anext)
+				anext->h[1].p64 = nullptr;
+		} else {
+			// double link
+			pointer anext = reinterpret_cast<pointer>(at->h[0].p64);
+			pointer aprev = reinterpret_cast<pointer>(at->h[1].p64);
+			assert(aprev != nullptr); // this is not root
+			aprev->h[0].p64 = anext;
+			if (anext)
+				anext->h[1].p64 = aprev;
+		}
+	}
+	void push_reuse(pointer at) noexcept
+	{
+		at->h[0].p64 = nullptr;
+		at->h[1].p64 = m_reuse;
+		m_reuse = at;
+	}
+	void push_reuse_list(pointer front) noexcept
+	{
+		front->h[1].p64 = m_reuse;
+		m_reuse = front;
+	}
+	[[nodiscard]] pointer pop_reuse() noexcept
+	{
+		assert(m_reuse != nullptr);
+		// reuse
+		pointer res = m_reuse;
+		if (pointer rnext = reinterpret_cast<pointer>(res->h[0].p64); rnext != nullptr) {
+			// move next to reuse
+			rnext->h[1].p64 = res->h[1].p64;
+			m_reuse = rnext;
+		} else {
+			m_reuse = reinterpret_cast<pointer>( res->h[1].p64 );
+		}
+		return res;
+	}
+	void release_list(pointer at)
+	{
+		while (at != nullptr) {
+			assert(at->h[1].p64 == nullptr);
+			pointer next = reinterpret_cast<pointer>( at->h[0].p64 );
+			Upstream::destroy(at);
+			at = next;
+		}
+	}
+
+protected:
+	pointer m_root = nullptr;
+	pointer m_reuse = nullptr;
+};
+
+
 /// @brief parameters for block_factory setup, when using 
 struct block_factory_params
 {
-	block_factory_params(size_t l_size, size_t l_align) :
+	constexpr block_factory_params(size_t l_size, size_t l_align) :
 		size(l_size), align(l_align)
 	{ }
 	size_t size;
@@ -219,27 +364,37 @@ constexpr bool area_valid_elem_size(size_t size, size_t align) noexcept
 		return false;
 	return true;
 }
-template <size_t Size, size_t Align, typename Area>
-struct area_size_dynamic
+} // namespace details
+
+/// @brief params for reshaping AreaFactory
+/// @tparam Fact 
+/// @tparam Size 
+/// @tparam Align 
+template <AreaFactory Fact, size_t Size, size_t Align, size_t MinSize = 1>
+struct area_reshape
 {
 	static constexpr bool dynamic = false;
 	static_assert(std::popcount(Align) == 1 && Align <= alignof(max_align_t), "Must be a valid alignment");
 	static_assert(Size > 0 && Size % Align == 0, "Size must be a multiple of Align");
-	static_assert(Size % Area::size() == 0, "Size must be a mulitple of Area::size()");
-	consteval size_t size() noexcept { return Size; }
-	consteval size_t align() noexcept { return Align; }
-	consteval size_t count() noexcept { return Area::; }
+	static_assert(Size % Fact::value_type::size() == 0, "Size must be a mulitple of Area::size()");
+	constexpr size_t header() noexcept { return Fact::value_type::size_header(); }
+	constexpr size_t size() noexcept { return std::max(Size, MinSize); }
+	constexpr size_t align() noexcept { return Align; }
+	constexpr size_t count(const Fact& F) noexcept { return F.element_size() * F.element_count() / Size; }
 };
-template <typename Area>
-struct area_size_dynamic<0, 0, Area>
+template <AreaFactory Fact, size_t MinSize>
+struct area_reshape<Fact, 0, 0, MinSize>
 {
 	static constexpr bool dynamic = true;
+	constexpr size_t header() noexcept { return Fact::value_type::size_header(); }
 	constexpr size_t size() noexcept { return m_size; }
 	constexpr size_t align() noexcept { return m_align; }
+	constexpr size_t count(const Fact& F) noexcept { return F.element_size() * F.element_count() / m_size; }
 
 	bool set(uint32_t l_size, uint32_t l_align) noexcept
 	{
-		if (!area_valid_elem_size<Area>(l_size, l_align))
+		l_size = std::max(l_size, static_cast<uint32_t>(MinSize));
+		if (!area_valid_elem_size<typename Fact::value_type>(l_size, l_align))
 			return false;
 		m_size = l_size;
 		m_align = l_align;
@@ -250,23 +405,22 @@ protected:
 	uint32_t m_size = 0;
 	uint32_t m_align = 0;
 };
-} // namespace details
 
 /**
  * Factory that generates area blocks for area-based factories.
  * If AreaCount == 0, area_factory holds a dynamic size.
  */
 template <AreaFactory Upstream, ByteFactory Overflow = void_factory>
-class bump_factory : private overflow_adaptor<Upstream, Overflow>
+class bump_factory : private overflow_pattern<Upstream, Overflow>
 {
+	using pattern = overflow_pattern<Upstream, Overflow>;
 public:
-	using upstream_factory = overflow_adaptor<Upstream, Overflow>;
-	using overflow_factory = Overflow;
+	using upstream_factory = Upstream;
 	using value_type = std::byte;
 	using pointer = value_type*;
 	using size_type = size_t;
-	using area = upstream_factory::value_type;
-	using typename upstream_factory::overflow_type;
+	using area = typename pattern::value_type;
+	using typename pattern::overflow_type;
 
 	~bump_factory()
 	{
@@ -278,11 +432,7 @@ public:
 	static consteval size_type alignment() noexcept { return area::align(); }
 	static consteval size_type element_size() noexcept { return area::size(); }
 	
-	template <typename... T>
-	constexpr bool setup(T&&... args)
-	{
-		return upstream_factory::setup(std::forward<T>(args)...);
-	}
+	using pattern::setup;
 
 	[[nodiscard]] pointer allocate(size_type elems)
 	{
@@ -334,22 +484,22 @@ public:
 	upstream_factory& upstream() noexcept { return static_cast<upstream_factory&>(*this); }
 	const upstream_factory& upstream() const noexcept { return static_cast<const upstream_factory&>(*this); }
 
-	using upstream_factory::overflow;
+	using pattern::overflow;
 
 protected:
 	void new_area()
 	{
-		area* a = upstream_factory::create();
+		area* a = pattern::create();
 		a->h[0].u64 = 0;
 		a->h[1].p64 = static_cast<void*>(m_currentArea);
 		m_currentArea = a;
 		m_bumpPtr = static_cast<void*>(&a->data[0]);
-		m_bumpSize = upstream_factory::element_count() * area::size();
+		m_bumpSize = pattern::element_count() * area::size();
 	}
 	area* new_overflow(size_type elems)
 	{
-		assert(elems > (upstream_factory::element_count() >> 1));
-		area* a = reinterpret_cast<area*>( upstream_factory::overflow_allocate(area::size_n(elems)) );
+		assert(elems > (pattern::element_count() >> 1));
+		area* a = reinterpret_cast<area*>( pattern::overflow_allocate(area::size_n(elems)) );
 		a->h[0].u64 = elems;
 		a->h[1].p64 = static_cast<void*>(m_currentArea);
 		m_currentArea = a;
@@ -359,14 +509,14 @@ protected:
 	{
 		if (size_type s = static_cast<size_type>(a->h[0].u64); s == 0) [[likely]] {
 			// area
-			upstream_factory::destroy(a);
+			pattern::destroy(a);
 		} else {
-			upstream_factory::overflow_deallocate(reinterpret_cast<std::byte*>(a), area::size_n(s));
+			pattern::overflow_deallocate(reinterpret_cast<std::byte*>(a), area::size_n(s));
 		}
 	}
 	pointer allocate_bump(size_type elems, size_type align)
 	{
-		assert(elems <= (upstream_factory::element_count() >> 1) && std::popcount(align) == 1 && align <= area::align());
+		assert(elems <= (pattern::element_count() >> 1) && std::popcount(align) == 1 && align <= area::align());
 		void* p = align_adjust(align, element_size() * elems, m_bumpPtr, m_bumpSize);
 		if (p != nullptr) [[likely]]
 			return static_cast<pointer>(p);
@@ -378,7 +528,7 @@ protected:
 	pointer allocate_overflow(size_type elems)
 	{
 		// assume expected alignment is less or equal to area::align
-		assert(elems > (upstream_factory::element_count() >> 1));
+		assert(elems > (pattern::element_count() >> 1));
 		area* a = new_overflow(elems);
 		return reinterpret_cast<pointer>( &a->data[0] );
 	}

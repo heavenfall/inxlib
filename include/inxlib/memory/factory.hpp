@@ -37,6 +37,7 @@ enum factory_traits : uint32_t
 	FactoryOwn = 1 << 1, /// owns and will release memory
 	FactoryReuse = 1 << 2, /// factory will attempt to reuse memory
 	FactoryNoFree = 1 << 3, /// factory has deallocate or destroy, but it does nothing
+	FactoryPointer = 1 << 4, /// factory is a pointer to another factory
 };
 
 namespace details {
@@ -135,8 +136,12 @@ concept SingleFactory = details::SingleFactory_base<Fact> && !details::ArrayFact
 template <typename Fact>
 concept Factory = ArrayFactory<Fact> || SingleFactory<Fact>;
 
-template <typename Fact, factory_traits T>
-concept FactoryTrait = Factory<Fact> && (Fact::traits() & T) == T;
+template <typename Fact, uint32_t T>
+concept FactoryTraitAll = Factory<Fact> && (Fact::traits() & T) == T;
+template <typename Fact, uint32_t T>
+concept FactoryTraitAny = Factory<Fact> && (Fact::traits() & T) != 0;
+template <typename Fact, uint32_t T>
+concept FactoryTraitNone = Factory<Fact> && (Fact::traits() & T) == 0;
 
 /**
  * Class is a byte factory.  Provides allocation for byte object.
@@ -182,6 +187,29 @@ concept ReclaimFactory = Factory<Fact> && requires (Fact f)
 	{ f.release() };
 	{ f.reclaim() };
 };
+
+/// @brief Get factory upstream
+/// @param F factory
+/// @return F.upstream()
+Factory auto& upstream(Factory auto& F) noexcept
+{
+	return F.upstream();
+}
+
+/// @brief Gets a upstream factory matching Fact type
+/// @param F factory
+/// @return Factory of type Fact, const auto deduced based on F
+template <Factory Fact>
+Factory auto& upstream(Factory auto& F) noexcept
+{
+	Factory auto& up = F.upstream();
+	if constexpr (std::same_as<std::remove_cvref_t<decltype(up)>,Fact>)
+	{
+		return up;
+	} else {
+		return upstream<Fact>(up);
+	}
+}
 
 } // namespace inx::memory
 

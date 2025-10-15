@@ -59,6 +59,11 @@ concept Factory_base = requires (Fact f)
 	{ f.alignment() } -> std::same_as<typename Fact::size_type>;
 	{ f.element_size() } -> std::same_as<typename Fact::size_type>;
 	{ Fact::traits() } -> std::same_as<uint32_t>;
+	
+	requires ( (Fact::traits() & FactorySource) != 0 ) ||
+	requires {
+		{ f.upstream() };
+	};
 };
 
 /**
@@ -96,7 +101,7 @@ public:
 	using pointer = value_type*;
 	using size_type = size_t;
 
-	static consteval uint32_t traits() noexcept { return FactoryDefault; }
+	static consteval uint32_t traits() noexcept { return FactorySource; }
 
 	constexpr void_factory() noexcept = default;
 	void_factory(const void_factory&) = delete;
@@ -179,12 +184,21 @@ concept ElemFreeFactory = ArrayFactory<Fact> && requires (Fact f, typename Fact:
 };
 
 /**
+ * Class has memory release functions.
+ */
+template <typename Fact>
+concept ReleaseFactory = Factory<Fact> && requires (Fact f, bool b)
+{
+	{ f.release() };
+	{ f.release(b) };
+};
+
+/**
  * Class has memory reclaim functions.
  */
 template <typename Fact>
-concept ReclaimFactory = Factory<Fact> && requires (Fact f)
+concept ReclaimFactory = ReleaseFactory<Fact> && requires (Fact f)
 {
-	{ f.release() };
 	{ f.reclaim() };
 };
 

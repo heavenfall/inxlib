@@ -14,11 +14,11 @@ inxlib/memory/block_factory.hpp
 inxlib/memory/factory.hpp
 inxlib/memory/factory_adaptor.hpp
 inxlib/memory/factory_chain.hpp
-inxlib/memory/malloc_factory.hpp
 inxlib/memory/object.hpp
 inxlib/memory/single_factory.hpp
 inxlib/memory/slice_array.hpp
 inxlib/memory/slice_factory.hpp
+inxlib/memory/source_factory.hpp
 inxlib/numeric/bits.hpp
 inxlib/numeric/fixed_point.hpp
 inxlib/numeric/int128.hpp

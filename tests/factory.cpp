@@ -1,7 +1,7 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/generators/catch_generators.hpp>
 #include <inxlib/memory/factory.hpp>
-#include <inxlib/memory/malloc_factory.hpp>
+#include <inxlib/memory/source_factory.hpp>
 #include <inxlib/memory/factory_chain.hpp>
 #include <inxlib/memory/single_factory.hpp>
 #include <inxlib/memory/area_factory.hpp>
@@ -26,12 +26,12 @@ TEST_CASE( "Basic factory check", "[factory]" ) {
 
 	SECTION( "concept check" ) {
 		CHECK( ByteFactory<malloc_factory> );
-		CHECK( ByteFactory<reclaim_factory<malloc_factory>> );
+		CHECK( ByteFactory<release_adaptor<malloc_factory>> );
 		CHECK( SingleFactory<single_factory<malloc_factory, 4>> );
 		CHECK( VoidFactory<void_factory> );
 		CHECK_FALSE( VoidFactory<malloc_factory> );
-		CHECK( ReclaimFactory<reclaim_factory<malloc_factory>> );
-		CHECK( ByteFactory< factory_pointer< reclaim_factory<malloc_factory>> > );
+		CHECK( ReclaimFactory<release_adaptor<malloc_factory>> );
+		CHECK( ByteFactory< factory_pointer< release_adaptor<malloc_factory>> > );
 		CHECK( SingleFactory< factory_pointer<single_factory<malloc_factory, 4>> > );
 	}
 

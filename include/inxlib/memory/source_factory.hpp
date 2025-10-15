@@ -22,8 +22,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#ifndef INXLIB_MEMORY_MALLOC_FACTORY_HPP
-#define INXLIB_MEMORY_MALLOC_FACTORY_HPP
+#ifndef INXLIB_MEMORY_SOURCE_FACTORY_HPP
+#define INXLIB_MEMORY_SOURCE_FACTORY_HPP
 
 #include <inxlib/inx.hpp>
 #include "factory.hpp"
@@ -55,7 +55,7 @@ public:
 
 	[[nodiscard]] pointer allocate(size_type elems)
 	{
-		return static_cast<value_type*>(std::malloc(elems));
+		return static_cast<pointer>(std::malloc(elems));
 	}
 	void deallocate(pointer ptr)
 	{
@@ -67,138 +67,55 @@ public:
 	}
 };
 
-static_assert(ArrayFactory<malloc_factory>, "malloc_factory must be a valid Factory");
-
-template <ByteFactory Upstream>
-class reclaim_factory : private Upstream
+class memory_resource_factory
 {
 public:
-	using upstream_factory = Upstream;
-	using typename Upstream::value_type;
-	using typename Upstream::size_type;
-	using typename Upstream::pointer;
+	using value_type = std::byte;
+	using pointer = value_type*;
+	using size_type = size_t;
 
-	static consteval uint32_t traits() noexcept { return FactoryOwn; }
+	/// @brief memory_resource_factory may not align properly with these underlying traits
+	static consteval uint32_t traits() noexcept { return FactorySource; }
 
-	using Upstream::alignment;
-	using Upstream::element_size;
-	using Upstream::Upstream;
-	using Upstream::setup;
+	constexpr memory_resource_factory() noexcept = default;
+	memory_resource_factory(const memory_resource_factory&) = delete;
 
-private:
-	struct alignas(max_align_t) pointer_meta_size
+	constexpr bool setup(std::pmr::memory_resource* res) noexcept
 	{
-		pointer prev;
-		pointer next;
-		uintptr_t size;
-	};
-	struct alignas(max_align_t) pointer_meta
-	{
-		pointer prev;
-		pointer next;
-		// pointer_meta& operator=(const pointer_meta_size& m)
-		// {
-		// 	prev = m.prev;
-		// 	next = m.next;
-		// }
-	};
-	static constexpr bool store_size = !ElemFreeFactory<upstream_factory>;
-	using store_meta = std::conditional_t<store_size, pointer_meta_size, pointer_meta>;
-
-public:
-	~reclaim_factory()
-	{
-		release(true);
+		if (res == nullptr)
+			return false;
+		m_memory_resouce = res;
+		return true;
 	}
-	template <typename... T>
-	constexpr bool setup(T&&... args)
-	{
-		return Upstream::setup(std::forward<T>(args)...);
-	}
+
+	static consteval size_type alignment() noexcept { return alignof(max_align_t); }
+	static consteval size_type element_size() noexcept { return 1; }
 
 	[[nodiscard]] pointer allocate(size_type elems)
 	{
-		auto* ptr = reinterpret_cast<pointer>( reinterpret_cast<pointer*>(upstream_factory::allocate(elems + 2*sizeof(pointer*))) + 2 );
-		pointer next = std::exchange(m_linkStart, ptr);
-		link_next(ptr) = next;
-		if (next != nullptr) [[likely]] {
-			link_prev(next) = ptr;
-		}
+		return static_cast<pointer>(m_memory_resouce->allocate(elems)); // alignment() should be the same as default
 	}
-	void deallocate(pointer ptr)
+	[[nodiscard]] pointer allocate(size_type elems, size_type align)
 	{
-		auto meta = link_meta(ptr);
-		if (meta.prev != nullptr) [[likely]] {
-			link_next(meta.prev) = meta.next;
-		} else {
-			m_linkStart = meta.next;
-		}
-		if (meta.next != nullptr) [[likely]] {
-			link_prev(meta.next) = meta.prev;
-		}
-		if constexpr (store_size) {
-			free_(ptr, meta.size);
-		} else {
-			free_(ptr, 0);
-		}
+		return static_cast<pointer>(m_memory_resouce->allocate(elems, align)); // alignment() should be the same as default
 	}
 	void deallocate(pointer ptr, size_type elems)
 	{
-		deallocate(ptr);
+		m_memory_resouce->deallocate(ptr, elems);
+	}
+	void deallocate(pointer ptr, size_type elems, size_type align)
+	{
+		m_memory_resouce->deallocate(ptr, elems, align);
 	}
 
-	void release(bool free_upstream = true)
-	{
-		if (free_upstream) {
-			for (pointer p = m_linkStart; p != nullptr; ) {
-				auto meta = link_meta(p);
-				auto next_p = meta.next;
-				if constexpr (store_size) {
-					free_(p, meta.size);
-				} else {
-					free_(p, 0);
-				}
-				p = next_p;
-			}
-		}
-		m_linkStart = nullptr;
-	}
-	void reclaim()
-	{
-		release(true);
-	}
+	std::pmr::memory_resource* get_memory_resource() const noexcept { return m_memory_resouce; }
 
-	upstream_factory& upstream() noexcept { return static_cast<upstream_factory&>(*this); }
-	const upstream_factory& upstream() const noexcept { return static_cast<const upstream_factory&>(*this); }
-
-protected:
-	static store_meta& link_meta(pointer mem) noexcept
-	{
-		return *reinterpret_cast<store_meta*>(mem - sizeof(store_meta));
-	}
-	pointer allocate_(size_type elems)
-	{
-		elems += sizeof(store_meta);
-		pointer ptr = upstream_factory::allocate(elems);
-		reinterpret_cast<store_meta*>(ptr)->size = elems;
-		return ptr + sizeof(store_meta);
-	}
-	void free_(pointer ptr, size_type elems[[maybe_unused]])
-	{
-		if constexpr (store_size) {
-			upstream_factory::deallocate(ptr - sizeof(store_meta), elems);
-		} else {
-			upstream_factory::deallocate(ptr - sizeof(store_meta));
-		}
-	}
-
-protected:
-	pointer m_linkStart = nullptr;
+private:
+	std::pmr::memory_resource* m_memory_resouce = nullptr;
 };
 
-using reclaim_malloc_factory = reclaim_factory<malloc_factory>;
-static_assert(ReclaimFactory<reclaim_malloc_factory>, "reclaim_factory<malloc_factory> must provide ReclaimFactory concept.");
+static_assert(ArrayFactory<malloc_factory>, "malloc_factory must be a valid Factory");
 
 } // namespace inx::memory
 
-#endif // INXLIB_MEMORY_MALLOC_FACTORY_HPP
+#endif // INXLIB_MEMORY_SOURCE_FACTORY_HPP

@@ -2,6 +2,10 @@
 
 Data structures and program control
 
+See extended docs:
+
+[memory allocation](docs/allocator.md)
+
 # inxflow
 
 TODO: planned library, not created yet

@@ -67,6 +67,10 @@ struct factory_pointer<Fact>
 	{
 		return m_factoryBase->allocate(elems);
 	}
+	[[nodiscard]] pointer allocate(size_type elems, size_type align) requires AlignByteFactory<Fact>
+	{
+		return m_factoryBase->allocate(elems, align);
+	}
 	void deallocate(pointer ptr, size_type elems) requires ArrayFactory<Fact>
 	{
 		return m_factoryBase->deallocate(ptr, elems);

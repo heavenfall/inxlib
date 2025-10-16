@@ -432,7 +432,7 @@ public:
 		release(true);
 	}
 
-	static consteval uint32_t traits() noexcept { return FactoryOwn; }
+	static consteval uint32_t traits() noexcept { return FactoryOwn | FactoryNoFree; }
 
 	static consteval size_type alignment() noexcept { return area::align(); }
 	static consteval size_type element_size() noexcept { return Upstream::item_size(); }
@@ -445,13 +445,13 @@ public:
 	}
 	[[nodiscard]] pointer allocate(size_type elems, size_type align)
 	{
-		if (elems <= upstream_factory::item_count() * Upstream::item_size() / 2) [[likely]] {
+		if (elems <= Upstream::item_count() * Upstream::item_size() / 2) [[likely]] {
 			return allocate_bump(elems, align);
 		} else {
 			return allocate_overflow(elems);
 		}
 	}
-	void deallocate(pointer ptr, size_type elems)
+	void deallocate(pointer ptr[[maybe_unused]], size_type elems[[maybe_unused]])
 	{ }
 
 	void release(bool free_upstream = true)
@@ -473,7 +473,7 @@ public:
 		area* a = m_currentArea;
 		area* keep = nullptr;
 		while (a != nullptr) {
-			area* anext = a->h[1].p64;
+			area* anext = reinterpret_cast<area*>(a->h[1].p64);
 			if (!keep && a->h[0].u64 == 0) {
 				keep = a;
 			} else {

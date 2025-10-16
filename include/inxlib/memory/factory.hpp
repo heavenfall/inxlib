@@ -101,7 +101,7 @@ public:
 	using pointer = value_type*;
 	using size_type = size_t;
 
-	static consteval uint32_t traits() noexcept { return FactorySource; }
+	static consteval uint32_t traits() noexcept { return FactorySource | FactoryNoFree; }
 
 	constexpr void_factory() noexcept = default;
 	void_factory(const void_factory&) = delete;

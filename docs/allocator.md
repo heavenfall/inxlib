@@ -47,39 +47,44 @@ Class `void_factory` mimics a `ByteFactory` but does nothing, concept `VoidFacto
 Concept `ElemFreeFactory` is an `ArrayFactory` that supports `deallocate` function calls.
 
 Concept `ReleaseFactory` is a `Factory` that supports `release()` and `release(bool)` function,
-with `release(bool)` will releases all allocations to upstream if true, otherwise would logically release memory allocations.
-A logical release is useful if an upstream resouce has already released its memory, thus calling to upstream
-or using the current allocators may be ill-formed, the `release(false)` would simply forget any memory it has or
-had issued.
+where `release(bool)` will releases all allocations to upstream if true, otherwise would logically reset the factory without deallocations.
+A logical release is useful if an upstream resouce has released or reclaimed its memory, thus calling to upstream
+or using the current allocators may be ill-formed.
 
 Concept `ReclaimFactory` is a `ReleaseFactory` that supports `reclaim` function calls,
-which will logically release all allocations given by this factory, but instead of returning resouces to
-upstream like `release(true)` or resetting memory state like `release(false)`, `reclaim()` would instead
-try to reuse its memory resources as much as possible.
-This does not mean that no memory would be released, only that it would reuse what it can.
+which invalidates all downstream allocations (memory from its create or allocate).
+There is no mechenisms to automatically inform downstream that its memory has being reclaimed or released,
+thus the user must call `release(false)` on all downstream manually (if supported) to prevent the program being ill-formed,
+as the destructor will call `release(true)` which is ill-formed in this case.
+If `reclaim` or `release` is used on an upstream factory, any future call to downstream `create` or `allocate` is ill-formed
+until `release(false)` is called downstream, after which factory can be used as normal.
 
-Function `upstream(Factory&)` return the `upstream` of provided, and `upstream<Factory>(Factory&)` returns the template class upstream of provided upstream, i.e. chains until reaching template class.
+Function `upstream(Factory&)` return the `upstream` of provided factory, and `upstream<Factory>(Factory&)` returns a upstream factory
+matching template class (i.e. chains until reaching template class).
+While factories are chain inheritied, the inheritance is private and thus, calls to either `f.upstream()` or `upstream<?>(f)` must be made
+to access upstream factories.
 
 ## Setup and Use
 
 Factories are designed around chain-inheritance.
 For example: `single_factory<malloc_factory, sizeof(int)>` has the top-level factory `single_factory`
 inherit the `malloc_factory` as its upstream, resulting in `single_factory` serving int sized memory
-blocks using the malloc upstream blocks.
+blocks using the malloc upstream allocations (4-byte allocations).
 
 As factories can be given run-time parameters, this is initalized with the `setup()` function call.
 The end factory will require the user to call `setup(args...)`, with args being a set of arguments
 used at runtime.
 The methodolgy is that each factory will use 1 or 0 arguments (taken from the front), and pass the rest
 to its upstream setup function.
-It will return true if factory initalization is correct, in which case the user can then use the allocator.
-If any of the factories return false, then the allocator is not in a valid state for use.
+It will return true if factory initalization succeeded, in which case the user can then use the allocator.
+If any of the factories return false, then the allocator is not in a valid state to use.
 
 ## Core factories
 
-The primary method of allocating memory is through the `malloc_factory` in header `inxlib/memory/malloc_factory.hpp`.
+The primary method of allocating memory is through the `malloc_factory` in header `inxlib/memory/source_factory.hpp`.
 This factory is a `BytesFactory`, and is non-owning, thus `deallocate` must be called for every
-`allocate` else a memory leak will occur.
+`allocate` else a memory leaks will occur.
+The other 
 
 The `single_factory` in header `inxlib/memory/single_factory.hpp` provides a basic way to allocate a single memory
 of set size from an `ArrayFactory`.

@@ -30,7 +30,8 @@ TEST_CASE( "Basic factory check", "[factory]" ) {
 		CHECK( SingleFactory<single_factory<malloc_factory, 4>> );
 		CHECK( VoidFactory<void_factory> );
 		CHECK_FALSE( VoidFactory<malloc_factory> );
-		CHECK( ReclaimFactory<release_adaptor<malloc_factory>> );
+		CHECK( ReleaseFactory<release_adaptor<malloc_factory>> );
+		CHECK_FALSE( ReclaimFactory<release_adaptor<malloc_factory>> );
 		CHECK( ByteFactory< factory_pointer< release_adaptor<malloc_factory>> > );
 		CHECK( SingleFactory< factory_pointer<single_factory<malloc_factory, 4>> > );
 	}
@@ -47,6 +48,29 @@ TEST_CASE( "Basic factory check", "[factory]" ) {
 		p2->a = 3242;
 		factory.destroy(reinterpret_cast<std::byte*>(p2));
 		auto p3 = reinterpret_cast<memb*>(factory.create());
+		auto p4 = reinterpret_cast<memb*>(factory.create());
+		p3->a = p4->b = 324222;
+		factory.destroy(reinterpret_cast<std::byte*>(p4));
+		factory.destroy(reinterpret_cast<std::byte*>(p1));
+		factory.destroy(reinterpret_cast<std::byte*>(p3));
+	}
+
+	SECTION( "reuse factory" ) {
+		single_factory_type<malloc_factory, memb> factory;
+		static_assert(SingleFactory<decltype(factory)>, "single_factory must be SingleFactory");
+		REQUIRE( factory.element_size() == sizeof(memb) );
+		std::set<memb*> alloc;
+		REQUIRE( factory.alignment() == alignof(memb) );
+		auto p1 = reinterpret_cast<memb*>(factory.create());
+		alloc.insert(p1);
+		p1->a = 342;
+		p1->b = 4224;
+		auto p2 = reinterpret_cast<memb*>(factory.create());
+		alloc.insert(p2);
+		p2->a = 3242;
+		factory.destroy(reinterpret_cast<std::byte*>(p2));
+		auto p3 = reinterpret_cast<memb*>(factory.create());
+		CHECK( alloc.contains(p3) );
 		auto p4 = reinterpret_cast<memb*>(factory.create());
 		p3->a = p4->b = 324222;
 		factory.destroy(reinterpret_cast<std::byte*>(p4));
@@ -125,6 +149,80 @@ TEST_CASE( "Basic factory check", "[factory]" ) {
 		}
 		// requires some reuse of blocks
 		REQUIRE( dup_count > 0 );
+	}
+
+	SECTION( "buffer factory" ) {
+		buffer_factory<1024> factory_void;
+		factory_void.setup();
+		int valid = 0, invalid = 0;
+		for (int i = 0; i < 16; i++) {
+			auto* p = factory_void.allocate(128);
+			if (p)
+				valid += 1;
+			else
+				invalid += 1;
+		}
+		CHECK( valid != 0 );
+		CHECK( valid <= 8 );
+		CHECK( invalid >= 8 );
+		factory_void.release();
+		valid = 0, invalid = 0;
+		for (int i = 0; i < 16; i++) {
+			auto* p = factory_void.allocate(128);
+			if (p)
+				valid += 1;
+			else
+				invalid += 1;
+		}
+		CHECK( valid != 0 );
+		CHECK( valid <= 8 );
+		CHECK( invalid >= 8 );
+
+		buffer_factory<1024, malloc_factory> factory_malloc;
+		factory_malloc.setup();
+		valid = 0, invalid = 0;
+		for (int i = 0; i < 64; i++) {
+			auto* p = factory_malloc.allocate(128);
+			if (p)
+				valid += 1;
+			else
+				invalid += 1;
+		}
+		REQUIRE( invalid == 0 );
+		factory_malloc.reclaim();
+		valid = 0, invalid = 0;
+		for (int i = 0; i < 64; i++) {
+			auto* p = factory_malloc.allocate(128);
+			if (p)
+				valid += 1;
+			else
+				invalid += 1;
+		}
+		REQUIRE( invalid == 0 );
+
+		using bfactory = bump_factory< area_factory<malloc_factory, 4096> >;
+		buffer_factory<1024, bfactory> factory_bump;
+		factory_bump.setup();
+		valid = 0, invalid = 0;
+		for (int i = 0; i < 1024; i++) {
+			auto* p = factory_bump.allocate(128);
+			if (p)
+				valid += 1;
+			else
+				invalid += 1;
+		}
+		REQUIRE( invalid == 0 );
+		factory_bump.upstream().reclaim();
+		factory_bump.release(false);
+		valid = 0, invalid = 0;
+		for (int i = 0; i < 1024; i++) {
+			auto* p = factory_bump.allocate(128);
+			if (p)
+				valid += 1;
+			else
+				invalid += 1;
+		}
+		CHECK( invalid == 0 );
 	}
 }
 

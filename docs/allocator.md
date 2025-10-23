@@ -44,7 +44,7 @@ runtime specified alignment value.
 
 Class `void_factory` mimics a `ByteFactory` but does nothing, concept `VoidFactory` checks only for `void_factory`.
 
-Concept `ElemFreeFactory` is an `ArrayFactory` that supports `deallocate` function calls.
+Concept `FreeArrayFactory` is an `ArrayFactory` that does not require knowing the allocation for deallocate function calls.
 
 Concept `ReleaseFactory` is a `Factory` that supports `release()` and `release(bool)` function,
 where `release(bool)` will releases all allocations to upstream if true, otherwise would logically reset the factory without deallocations.
@@ -87,8 +87,14 @@ The source factories are where memory origonates from.
 These are all `ByteFactory`.
 
 The primary method of allocating memory is through the `malloc_factory` in header `inxlib/memory/source_factory.hpp`.
-This factory is non-owning, thus `deallocate` must be called for every
-`allocate` else memory leaks will occur.
+This factory is a `BytesFactory`, and is non-owning, thus `deallocate` must be called for every
+`allocate` else a memory leaks will occur.
+
+The `memory_resource_factory` in header `inxlib/memory/source_factory.hpp` is a source factory that aquires memory
+from an `std::pmr::memory_resource` pointer.
+The `memory_resource` can reclaiming all its resources without this factory breaking, but further down the chain will
+have to call a `release(false)`; the `memory_resource` going out of scope breaks this factory until `release(false)` is
+called, and then `setup` to point at a new factory (must be done in this order).
 
 The `memory_resource_factory` in header `inxlib/memory/source_factory.hpp` is given a C++ `std::pmr::memory_resource`.
 Reuse of deallocated memory is dependent on the underlying `memory_resource`.

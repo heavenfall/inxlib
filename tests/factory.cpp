@@ -222,7 +222,7 @@ TEST_CASE( "Basic factory check", "[factory]" ) {
 			else
 				invalid += 1;
 		}
-		CHECK( invalid == 0 );
+		REQUIRE( invalid == 0 );
 	}
 }
 

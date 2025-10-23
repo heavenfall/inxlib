@@ -225,7 +225,7 @@ public:
 
 	~area_link_pattern()
 	{
-		release(true);
+		release(factory_chain_free_release<Upstream>);
 	}
 
 	using Upstream::setup;
@@ -429,7 +429,7 @@ public:
 
 	~bump_factory()
 	{
-		release(true);
+		release(factory_chain_free_release<Upstream>);
 	}
 
 	static consteval uint32_t traits() noexcept { return FactoryOwn | FactoryNoFree; }
@@ -475,6 +475,7 @@ public:
 		while (a != nullptr) {
 			area* anext = reinterpret_cast<area*>(a->h[1].p64);
 			if (!keep && a->h[0].u64 == 0) {
+				a->h[1].p64 = nullptr;
 				keep = a;
 			} else {
 				delete_area_overflow(a);

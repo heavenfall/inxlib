@@ -60,12 +60,13 @@ public:
 
 	~reuse_adaptor()
 	{
-		release(true);
+		release(factory_chain_free_release<Upstream>);
 	}
 
 	template <typename... T>
 	constexpr bool setup(T&&... args)
 	{
+		release(factory_chain_free_release<Upstream>);
 		if (!Upstream::setup(std::forward<T>(args)...))
 			return false;
 		if (Upstream::element_size() < sizeof(pointer))
@@ -173,7 +174,8 @@ private:
 		// 	next = m.next;
 		// }
 	};
-	static constexpr bool store_size = !ElemFreeFactory<upstream_factory>;
+	static constexpr bool auto_free = !FactoryTraitAll<upstream_factory, FactoryNoFree>;
+	static constexpr bool store_size = !auto_free && !FreeArrayFactory<upstream_factory>;
 	using store_meta = std::conditional_t<store_size, pointer_meta_size, pointer_meta>;
 
 public:
@@ -207,10 +209,12 @@ public:
 		if (meta.next != nullptr) [[likely]] {
 			link_prev(meta.next) = meta.prev;
 		}
-		if constexpr (store_size) {
-			free_(ptr, meta.size);
-		} else {
-			free_(ptr, 0);
+		if constexpr (!auto_free) {
+			if constexpr (store_size) {
+				free_(ptr, meta.size);
+			} else {
+				free_(ptr, 0);
+			}
 		}
 	}
 	void deallocate(pointer ptr, size_type elems)
@@ -218,18 +222,20 @@ public:
 		deallocate(ptr);
 	}
 
-	void release(bool free_upstream = true)
+	void release(bool free_upstream[[maybe_unused]] = true)
 	{
-		if (free_upstream) {
-			for (pointer p = m_linkStart; p != nullptr; ) {
-				auto meta = link_meta(p);
-				auto next_p = meta.next;
-				if constexpr (store_size) {
-					free_(p, meta.size);
-				} else {
-					free_(p, 0);
+		if constexpr (!auto_free) {
+			if (free_upstream) {
+				for (pointer p = m_linkStart; p != nullptr; ) {
+					auto meta = link_meta(p);
+					auto next_p = meta.next;
+					if constexpr (store_size) {
+						free_(p, meta.size);
+					} else {
+						free_(p, 0);
+					}
+					p = next_p;
 				}
-				p = next_p;
 			}
 		}
 		m_linkStart = nullptr;

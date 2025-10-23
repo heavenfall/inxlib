@@ -148,6 +148,14 @@ concept FactoryTraitAny = Factory<Fact> && (Fact::traits() & T) != 0;
 template <typename Fact, uint32_t T>
 concept FactoryTraitNone = Factory<Fact> && (Fact::traits() & T) == 0;
 
+// setup or destructor calls release if it has one, free_upstream is set to false iff:
+// upstream is FactoryNoFree OR (upstream is FactoryOwn AND upstream is not FactoryPointer)
+template <Factory Fact>
+inline constexpr bool factory_chain_free_release = !(
+	(Fact::traits() & FactoryNoFree) != 0 ||
+	( (Fact::traits() & FactoryOwn) != 0 && (Fact::traits() & FactoryPointer) == 0 )
+);
+
 /**
  * Class is a byte factory.  Provides allocation for byte object.
  */
@@ -169,19 +177,19 @@ concept AlignByteFactory = ByteFactory<Fact> && requires (Fact f, Fact::pointer 
 	{ f.deallocate(ptr, elem, elem) };
 };
 
-template <typename Fact>
-concept VoidFactory = std::same_as<Fact, void_factory>;
-
-static_assert(ByteFactory<void_factory> && VoidFactory<void_factory>, "void_factory must be a valid ByteFactory");
-
 /**
  * Class is a factory.  Designed to provide flexible memory generation.
  */
 template <typename Fact>
-concept ElemFreeFactory = ArrayFactory<Fact> && requires (Fact f, typename Fact::pointer ptr)
+concept FreeArrayFactory = ArrayFactory<Fact> && requires (Fact f, typename Fact::pointer ptr)
 {
 	{ f.deallocate(ptr) };
 };
+
+template <typename Fact>
+concept VoidFactory = std::same_as<Fact, void_factory>;
+
+static_assert(ByteFactory<void_factory> && VoidFactory<void_factory> && FreeArrayFactory<void_factory>, "void_factory must be a valid ByteFactory");
 
 /**
  * Class has memory release functions.

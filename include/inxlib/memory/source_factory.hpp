@@ -164,12 +164,13 @@ public:
 	buffer_factory(const buffer_factory&) = delete;
 	~buffer_factory()
 	{
-		release(true);
+		release(factory_chain_free_release<Upstream>);
 	}
 
 	template <typename... T>
 	constexpr bool setup(T&&... args)
 	{
+		release(factory_chain_free_release<Upstream>);
 		m_bumpPtr = m_buffer.data();
 		m_bumpSize = Buffer;
 		return Upstream::setup(std::forward<T>(args)...);
@@ -205,14 +206,16 @@ public:
 			return static_cast<pointer>(align_adjust(align, elems, m_bumpPtr, m_bumpSize));
 		}
 	}
+	void deallocate(pointer ptr[[maybe_unused]]) // FreeArrayFactory
+	{ }
 	void deallocate(pointer ptr[[maybe_unused]], size_type elems[[maybe_unused]])
 	{ }
-	void deallocate(pointer ptr[[maybe_unused]], size_type elems[[maybe_unused]], size_type align[[maybe_unused]])
+	void deallocate(pointer ptr[[maybe_unused]], size_type elems[[maybe_unused]], size_type align[[maybe_unused]]) // AlignByteFactory
 	{ }
 
 	/// @brief only releases memory calimed for reuse
 	/// @param free_upstream destorys memory upstream
-	void release(bool free_upstream = true)
+	void release(bool free_upstream[[maybe_unused]] = true)
 	{
 		if constexpr (FactoryTraitNone<Upstream,FactoryNoFree>) {
 			// must free to upstream

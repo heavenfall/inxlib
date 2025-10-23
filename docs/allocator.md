@@ -79,24 +79,82 @@ to its upstream setup function.
 It will return true if factory initalization succeeded, in which case the user can then use the allocator.
 If any of the factories return false, then the allocator is not in a valid state to use.
 
-## Core factories
+# Factories
+
+## Mermory Source Factories
+
+The source factories are where memory origonates from.
+These are all `ByteFactory`.
 
 The primary method of allocating memory is through the `malloc_factory` in header `inxlib/memory/source_factory.hpp`.
-This factory is a `BytesFactory`, and is non-owning, thus `deallocate` must be called for every
-`allocate` else a memory leaks will occur.
-The other 
+This factory is non-owning, thus `deallocate` must be called for every
+`allocate` else memory leaks will occur.
 
-The `single_factory` in header `inxlib/memory/single_factory.hpp` provides a basic way to allocate a single memory
-of set size from an `ArrayFactory`.
-This primarily is intended for use with a `ByteFactory` type.
+The `memory_resource_factory` in header `inxlib/memory/source_factory.hpp` is given a C++ `std::pmr::memory_resource`.
+Reuse of deallocated memory is dependent on the underlying `memory_resource`.
+
+The `buffer_factory` in header `inxlib/memory/source_factory.hpp` is not strictly a source factory.
+It is given a buffer size (in bytes), which allocations (both normal and aligned)
+can be made,
+and will return a memory address on that internal buffer (can be fully on the stack).
+It has an `Upstream` factory, for use when that buffer is used up; if left to default,
+allocation will fail.
+Upstream allocation is also a block of specified size (or buffer size if 0).
+This factory is owning, thus can release (frees all upsteam) or reclaim (reuse including upstream).
+
+## Shaping Factories
+
+The `single_factory` in header `inxlib/memory/single_factory.hpp` takes any `ArrayFactory` and provides allocations
+as a `SingleFactory`.
+This does not support a type, so user must specify in template parameters these values.
+Use `single_factory_type` for this, though the upstream must be a `ByteFactory`.
+If not using a `ByteFactory` upstream, the allocated size would be `Elems` times
+the size of upstream `value_type`.
+
+The other major shaping are the `AreaFactory` concept of factories, in `area_factory.hpp`.
+These are detailed in their own section.
+
+## Adaptors and Patterns
+
+The adaptors in `inx/memory/factory_adaptor.hpp` are special factories that change the behaviour of a factory.
+Unlike other factories, that inherit their `Upstream` as private, these inherit
+public,
+and are deisgned to add/mutate factory functions.
+The major differences is a factory uses `Upstream` to source its own production,
+whereas an adaptor simply adds to `Upstream` behaviour; therefore use of `Upstream` directly is discouraged,
+use the adaptor version, as calling `Upstream` functions may break the adaptor.
+
+A pattern is like an adaptor but is applied when inheriting a factory.
+It is more for internal use, but will be listed here.
+
+The `reuse_adaptor` is used on a `SingleFactory` without the `FactoryOwn` and `FactoryPointer` traits.
+The `element_size()` must be big enough to hold a single pointer, otherwise `setup` will return false.
+When destroy is called, instead of passing to upstream, it will be kept and used in a following `create`.
+This is done by chaining, thus is `O(1)` and fast.
+The `release` function is provided; if `Upstream` is a `ReleaseFactory`, this will call `Upstream` ones,
+otherwise it will release up to upstream if `free_upstream` is true.
+
+The `release_adaptor` takes a `ByteFactory Upstream` and adds a `release` function.
+This will add two pointer size (typically 16 bytes) to each allocation for this feature.
+
+The `overflow_pattern` gives a factory support for allocating memory in a way that is not standard for it.
+This pattern introduces an overflow `ByteFactory`, in which memory allocations that do not fit normal
+allocation will instead be allocated from an overflow.
+For example, when allocated from a shared memory region but one allocation is as big as the whole region,
+it will allocate from overflow instead of upstream.
+Overflow can be `void_factory`, in which case it will search for the first upstream that is a `ByteFactory`
+for the overflow allcoation.
+The overflow factory can be access with `overflow()`, in the same mannor as presented above.
 
 ## Factory Pointer
 
-The header `inxlib/memory/factory_chain.hpp` gives support methods for how factories chain together, primarily
-a pointer wrapper to a factory.
-This wrapper is important as without it, there would be no method to split factory connections.
+The header `inxlib/memory/factory_chain.hpp` gives support methods for how factories chain together,
+primarily a pointer wrapper to a factory.
+The factory_pointer takes a `Factory`, is given a pointer and will make available the required
+functions.
+This is more a reference wrapper than a strict pointer, and adds support to share an upstream with multiple factories.
 For example:
-given some `ByteFactory Src`, for example a `bump_factory` that gives memory allocations out from larger block,
+given some `ByteFactory Src`, for example a `bump_factory` that gives memory allocations out from a larger block,
 the user would normally have to allocated `Src` sepretatly between two seperate `single_factory`, but by using
 `factory_pointer<Src>`, a user can use the following code:
 
@@ -109,23 +167,52 @@ the user would normally have to allocated `Src` sepretatly between two seperate 
 
 This setup will have `fact_int` and `fact_double` both share `src` as their upstream.
 
-## Factory Adaptors
+## Area Factory
 
-The header `inxlib/memory/factory_adaptor.hpp` provides special adaptors.
-While these adaptors behave similiarly to factories, they differ in what they provide the user.
-A normal factory focuses on how to shape memory allocations or provide resource, while an adaptor is
-designed to add functionality to an existing factory without changing the resouces.
+The `AreaFactory` concept is a pattern factory described in `inx/memory/area_factory.hpp`.
+The class `area_factory` is a `SingleFactory`, it and its `pointer_factory` are the only `AreaFactory`.
+The `area_factory` allocates static-sized blocked of RAM of template type `Area[]` from upstream.
+The size is `AreaCount` number of `Area` types, plus 16 bytes of linkage for factory use.
+It is intended to be used as a common type of other factories that stores in blocks.
+Giving an `AreaCount` of 0 makes this factory a dynamic sized `AreaCount`, specified at runtime
+through the setup function.
 
-The two provided adaptors for end users are the `reuse_adaptor` and `reclaim_adaptor`.
-The `reuse_adaptor` requires a `SingleFactory` upstream of element size at least big enough to store a pointer (8 bytes normally).
-This adaptor instead of passing `destory` calls to upsteam will store the address and re-issue it on a `create` call.
+The `Area` defaults to `area_memory_bytes`, with element size of 1 and align of `max_align_t` (16).
+Using `area_memory_type<T>` for specific type is also usable; although using the default is recommended.
+Factories down the link can resahpe the type, thus `area_memory_bytes` works properly.
 
-The `reclaim_adaptor` takes a `ByteFactory` upstream and adds support for memory reclaim, which adds
-a `release` and `reclaim` function call.
-It adds book keeping to all memory allocations that allows a `ByteFactory` to reclaim resources given out
-from `allocate`.
+The `area_link_pattern` makes an `AreaFactory` be `FactoryOwn` and `FactoryReuse`.
+This pattern manages the linkage space, though allows for `release` and `reclaim`.
 
-The `overflow_pattern` is not quite an adaptor, but a pattern.
-Patterns are designed here as an adaptor of sorts for use interally by factories.
-The `overflow_pattern` takes both an `Upstream` and `Overflow`, where `Overflow` is a seperate `ByteFactory`
-for extra allocations that do not fit the default 
+The most basic use of of an `AreaFactory` is the `bump_factory`, a `ReclaimFactory`.
+This uses the overflow pattern on the `AreaFactory`, and creates a `ByteFactory` that allocates
+to `Area` chunks.
+New allocations are put on chucks, making allocations mainly a pointer update.
+Once an area is used up, a new area is created from upstream.
+Large allocations (at least half size of area) that do not fit in a chuck allocate from overflow.
+
+The `block_factory` in `inx/memory/block_factory.hpp` takes an `AreaFactory` upstream,
+and similar to the `bump_factory`, splits those areas to its underlying type, except
+this is `SingleFactory` that allocates with `Size` and `Align`.
+
+# Example Usage
+
+An advance usage is a program having allocations from a common memory pool.
+This can be achived efficently from pointer allocations on a common `bump_factory`.
+
+	// area factory with support of 4MB of allocation chunks
+	using top_factory = bump_factory< area_factory<malloc_factory, 4 * 1024 * 1024> >;
+	using top_pointer = factory_pointer<top_factory>;
+	
+	// new bump allocates that support 1008 byte blocks (16 reserved for pointer)
+	using byte_1024 = bump_factory< area_factory<top_pointer, 1024-16> >;
+	// a SingleFactory that allocates std::string_view, up to 512 per area block
+	using sv_512 = block_factory_type<top_pointer, std::string_view>;
+
+	// setup factory
+	top_factory F1;
+	F1.setup();
+	byte_1024 F2;
+	byte_1024.setup(&F1);
+	sv_512 F3;
+	F3.setup(&F1);

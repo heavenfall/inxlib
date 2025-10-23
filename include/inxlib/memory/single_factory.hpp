@@ -36,6 +36,7 @@ template <ArrayFactory Upstream, size_t Elems, size_t Alignment = alignof(max_al
 class single_factory : private Upstream
 {
 public:
+	static_assert(Elems != 0 && Alignment != 0, "Elems and Alignment must not be 0.");
 	using upstream_factory = Upstream;
 	using typename Upstream::value_type;
 	using typename Upstream::size_type;
@@ -72,7 +73,7 @@ public:
 	upstream_factory& upstream() noexcept { return static_cast<upstream_factory&>(*this); }
 	const upstream_factory& upstream() const noexcept { return static_cast<const upstream_factory&>(*this); }
 };
-template <typename Upstream, typename T>
+template <ByteFactory Upstream, typename T>
 using single_factory_type = single_factory<Upstream, sizeof(T), alignof(T)>;
 
 } // namespace inx::memory

@@ -97,7 +97,7 @@ public:
 	/// @param free_upstream destorys memory upstream
 	void release(bool free_upstream = true)
 	{
-		if constexpr (requires { { Upstream::release(free_upstream) }; }) {
+		if constexpr (ReleaseFactory<Upstream>) {
 			// Upstream has release, just call it
 			Upstream::release(free_upstream);
 		} else if constexpr (!FactoryTraitAll<Upstream, FactoryNoFree>) {

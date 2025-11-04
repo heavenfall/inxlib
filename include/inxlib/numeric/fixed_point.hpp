@@ -26,6 +26,7 @@ SOFTWARE.
 #define INXLIB_NUMERIC_FIXED_POINT_HPP
 
 #include <inxlib/inx.hpp>
+#include <limits>
 #include "bits.hpp"
 #include "int128.hpp"
 
@@ -327,5 +328,40 @@ constexpr std::strong_ordering operator<=>(A a, B b) noexcept
 }
 
 } // namespace inx::numeric
+
+namespace std
+{
+
+template <size_t Digits, size_t Fraction>
+struct numeric_limits<::inx::numeric::binary_fixed_point<Digits, Fraction>>
+{
+	using type = ::inx::numeric::binary_fixed_point<Digits, Fraction>;
+	static constexpr bool is_specialized = true;
+	static constexpr bool is_signed = true;
+	static constexpr bool is_integer = false;
+	static constexpr bool is_exact = true;
+	static constexpr bool has_infinity = false;
+	static constexpr bool has_quiet_NaN = false;
+	static constexpr bool has_signaling_NaN = false;
+	static constexpr std::float_denorm_style has_denorm = std::denorm_absent;
+	static constexpr bool has_denorm_loss = false;
+	static constexpr std::float_round_style round_style = std::round_toward_zero;
+	static constexpr bool is_iec559 = false;
+	static constexpr bool is_bounded = true;
+	static constexpr bool is_modulo = std::numeric_limits<typename type::value_type>::is_modulo;
+	static constexpr size_t digits = Digits;
+	static constexpr size_t digits10 = static_cast<size_t>(Digits * (0.30102999566398119521373889472449302676818));
+	static constexpr bool max_digits10 = 0;
+	static constexpr bool radix = 2;
+	static constexpr bool min_exponent = true;
+	static constexpr bool min_exponent10 = true;
+	static constexpr bool max_exponent = true;
+	static constexpr bool max_exponent10 = true;
+	static constexpr bool traps = true;
+	static constexpr bool tinyness_before = true;
+
+};
+
+}
 
 #endif // INXLIB_NUMERIC_FIXED_POINT_HPP

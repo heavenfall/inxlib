@@ -26,6 +26,7 @@ SOFTWARE.
 #define INXLIB_NUMERIC_FIXED_POINT_HPP
 
 #include <inxlib/inx.hpp>
+#include <limits>
 #include "bits.hpp"
 #include "int128.hpp"
 
@@ -84,10 +85,10 @@ struct binary_fixed_point
 	static_assert(Digits <= deduce::digits, "Digits must not exceed max integer size.");
 	static_assert(Fraction < deduce::digits, "Fraction must be less than integer size.");
 
-	consteval static size_t digits() noexcept { return deduce::digits; }
-	consteval static size_t logical_digits() noexcept { return Digits; }
-	consteval static size_t frac() noexcept { return Fraction; }
-	consteval static bool overflow() noexcept { return deduce::overflow; }
+	static consteval size_t digits() noexcept { return deduce::digits; }
+	static consteval size_t logical_digits() noexcept { return Digits; }
+	static consteval size_t frac() noexcept { return Fraction; }
+	static consteval bool overflow() noexcept { return deduce::overflow; }
 
 	value_type value;
 	
@@ -327,5 +328,49 @@ constexpr std::strong_ordering operator<=>(A a, B b) noexcept
 }
 
 } // namespace inx::numeric
+
+namespace std
+{
+
+template <size_t Digits, size_t Fraction>
+struct numeric_limits<::inx::numeric::binary_fixed_point<Digits, Fraction>>
+{
+	using type = ::inx::numeric::binary_fixed_point<Digits, Fraction>;
+	using value_type = typename type::value_type;
+	static constexpr bool is_specialized = true;
+	static constexpr bool is_signed = true;
+	static constexpr bool is_integer = Fraction == 0;
+	static constexpr bool is_exact = true;
+	static constexpr bool has_infinity = false;
+	static constexpr bool has_quiet_NaN = false;
+	static constexpr bool has_signaling_NaN = false;
+	static constexpr std::float_denorm_style has_denorm = std::denorm_absent;
+	static constexpr bool has_denorm_loss = false;
+	static constexpr std::float_round_style round_style = std::round_toward_zero;
+	static constexpr bool is_iec559 = false;
+	static constexpr bool is_bounded = true;
+	static constexpr bool is_modulo = std::numeric_limits<value_type>::is_modulo;
+	static constexpr size_t digits = Digits;
+	static constexpr size_t digits10 = static_cast<size_t>(Digits * (0.30102999566398119521373889472449302676818));
+	static constexpr bool max_digits10 = 0;
+	static constexpr bool radix = 2;
+	static constexpr type min_exponent = type(0);
+	static constexpr type min_exponent10 = type(0);
+	static constexpr type max_exponent = type(0);
+	static constexpr type max_exponent10 = type(0);
+	static constexpr bool traps = std::numeric_limits<value_type>::traps;
+	static constexpr bool tinyness_before = false;
+
+	static consteval type min() noexcept { return type( ~value_type(0) << (type::digits()-1) ); }
+	static consteval type max() noexcept { return type( ~(~value_type(0) << (type::digits()-1)) ); }
+	static consteval type lowest() noexcept { return min(); }
+	static consteval type epsilon() noexcept { return type(1); }
+	static consteval type round_error() noexcept { return type(0); }
+	static consteval type infinity() noexcept { return type(0); }
+	static consteval type quiet_NaN() noexcept { return type(0); }
+	static consteval type signaling_NaN() noexcept { return type(0); }
+};
+
+}
 
 #endif // INXLIB_NUMERIC_FIXED_POINT_HPP

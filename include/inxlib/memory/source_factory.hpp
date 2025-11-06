@@ -190,7 +190,7 @@ public:
 			if (auto* p = align_adjust(align, elems, m_bumpPtr, m_bumpSize); p != nullptr) [[likely]]
 				return static_cast<pointer>(p);
 			if (elems > overflow_size/2) {
-				size_t osize = INXLIB_VAR_STRUCT_SIZE(details::buffer_overflow_slab,buffer,elems);
+				size_t osize = INXLIB_VAR_STRUCT_DYNAMIC_SIZE(details::buffer_overflow_slab,buffer,elems);
 				auto* p = reinterpret_cast<details::buffer_overflow_slab*>(Upstream::allocate(osize));
 				// only track if free is required
 				if constexpr (FactoryTraitNone<Upstream,FactoryNoFree>) {

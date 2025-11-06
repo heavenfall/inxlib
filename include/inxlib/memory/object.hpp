@@ -58,6 +58,7 @@ constexpr size_t pad_type_alignment(size_t size)
 
 #define INXLIB_VAR_STRUCT(type,member) (::inx::memory::pad_type_alignment<type>(offsetof(type, member)))
 #define INXLIB_VAR_STRUCT_SIZE(type,member,size) (::inx::memory::pad_type_alignment<type, decltype(type::member)>(offsetof(type, member[size])))
+#define INXLIB_VAR_STRUCT_DYNAMIC_SIZE(type,member,size) (::inx::memory::pad_type_alignment<type, decltype(type::member)>( offsetof(type, member[0]) + sizeof(decltype(type::member)) * size))
 #define INXLIB_VAR_STRUCT_TYPE(type,member,member_type) (::inx::memory::pad_type_alignment<type, member_type>(offsetof(type, member)))
 
 /**

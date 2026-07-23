@@ -117,7 +117,7 @@ private:
 	std::pmr::memory_resource* m_memory_resouce = nullptr;
 };
 
-static_assert(ByteFactory<memory_resource_factory>, "malloc_factory must be a valid Factory");
+static_assert(ByteFactory<memory_resource_factory>, "memory_resource_factory must be a valid Factory");
 
 namespace details {
 
@@ -287,6 +287,8 @@ private:
 	[[no_unique_address]] details::BufferOverflowData<Upstream> m_overflow;
 	object_bytes_size<pad_alignment(Buffer, alignof(max_align_t)), alignof(max_align_t)> m_buffer;
 };
+
+static_assert(ByteFactory<buffer_factory<1024>>, "buffer_factory<1024> must be a valid Factory");
 
 } // namespace inx::memory
 

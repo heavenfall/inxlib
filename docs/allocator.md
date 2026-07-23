@@ -15,7 +15,7 @@ Key terms follow:
 - Factory source: `FactorySource` is a factory that allocates memory, mainly malloc
 - Factory ownership: `FactoryOwn` factory tracks the memory it allocates and can/will deallocate it
 - Reuse: `FactoryReuse` factory can attempt to reuse deallocated memory from downstream/user calls
-- No free: `FactoryNoFree` factory deallocator does nothing, relaise on upstream to deallocate
+- No free: `FactoryNoFree` factory deallocator does nothing, release on upstream to deallocate
 - Pointer: `FactoryPointer` factory is simply a pointer factory to another, specialised use
 
 Factories are expected to provide:

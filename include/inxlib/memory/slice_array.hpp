@@ -260,6 +260,6 @@ protected:
 template <typename ValueType, size_t Tollerance = 0>
 using SliceArray = details::SliceArray<ValueType, Tollerance>;
 
-} // namespace inx::data
+} // namespace inx::memory
 
 #endif // INXLIB_MEMORY_SLICE_ARRAY_HPP

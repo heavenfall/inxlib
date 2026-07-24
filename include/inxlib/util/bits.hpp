@@ -25,16 +25,13 @@ SOFTWARE.
 #ifndef INXLIB_UTIL_BITS_HPP
 #define INXLIB_UTIL_BITS_HPP
 
-#include <bit>
-#include <inxlib/inx.hpp>
 #include <inxlib/numeric/bits.hpp>
-#include <concepts>
 
 namespace {
 [[deprecated("Header deprecated. Use inxlib/numeric/bits.hpp instead.")]]
 constexpr inline int inxlib_util_bits_hpp_ = 0;
 constexpr inline int inxlib_util_bits_hpp_dep_ = inxlib_util_bits_hpp_;
-}
+} // namespace
 
 namespace inx::util {
 

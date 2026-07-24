@@ -32,22 +32,22 @@ namespace inx {
 namespace details {
 template <typename T>
 struct TypeTemplate : std::false_type
-{ };
+{};
 template <template <typename...> typename T, typename... Ts>
 struct TypeTemplate<T<Ts...>> : std::true_type
-{ };
+{};
 template <typename T>
 struct TypeTemplateSize : std::integral_constant<size_t, 0>
-{ };
+{};
 template <template <typename...> typename T, typename... Ts>
 struct TypeTemplateSize<T<Ts...>> : std::integral_constant<size_t, sizeof...(Ts)>
-{ };
+{};
 template <typename T>
 struct TupleType : std::false_type
-{ };
+{};
 template <typename... Ts>
 struct TupleType<std::tuple<Ts...>> : std::true_type
-{ };
+{};
 } // namespace details
 
 template <typename T>

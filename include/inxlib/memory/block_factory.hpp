@@ -30,16 +30,17 @@ SOFTWARE.
 
 namespace inx::memory {
 
-/// @brief parameters for block_factory setup, when using 
+/// @brief parameters for block_factory setup, when using
 struct block_factory_params
 {
-	constexpr block_factory_params(size_t l_size, size_t l_align) :
-		size(l_size), align(l_align)
-	{ }
+	constexpr block_factory_params(size_t l_size, size_t l_align)
+	  : size(l_size)
+	  , align(l_align)
+	{
+	}
 	size_t size;
 	size_t align;
 };
-
 
 /**
  * Factory that generates area blocks for area-based factories.
@@ -50,6 +51,7 @@ class block_factory : public area_link_pattern<Upstream>
 {
 	using pattern = area_link_pattern<Upstream>;
 	using size_set = area_reshape<Upstream, Size, Align>;
+
 public:
 	using upstream_factory = Upstream;
 	using value_type = std::byte;
@@ -58,19 +60,20 @@ public:
 	using area = upstream_factory::value_type;
 
 public:
-
 	static consteval uint32_t traits() noexcept { return FactoryOwn | FactoryNoFree; }
 
 	static consteval size_type alignment() noexcept { return Align; }
 	static consteval size_type element_size() noexcept { return Size; }
-	
+
 	template <typename... T>
-	constexpr bool setup(T&&... args) requires (!size_set::dynamic)
+	constexpr bool setup(T&&... args)
+	    requires(!size_set::dynamic)
 	{
 		return pattern::setup(std::forward<T>(args)...);
 	}
 	template <typename... T>
-	constexpr bool setup(block_factory_params param, T&&... args) requires (size_set::dynamic)
+	constexpr bool setup(block_factory_params param, T&&... args)
+	    requires(size_set::dynamic)
 	{
 		if (!pattern::setup(std::forward<T>(args)...))
 			return false;
@@ -85,13 +88,12 @@ public:
 			new_root();
 		}
 		assert(m_currentLeft > 0);
-		pointer ptr = reinterpret_cast<pointer>( pattern::root() ) + m_currentPos;
+		pointer ptr = reinterpret_cast<pointer>(pattern::root()) + m_currentPos;
 		m_currentPos += m_size.size();
 		m_currentLeft -= 1;
 		return ptr;
 	}
-	void destroy(pointer ptr)
-	{ }
+	void destroy(pointer ptr) {}
 
 	upstream_factory& upstream() noexcept { return static_cast<upstream_factory&>(*this); }
 	const upstream_factory& upstream() const noexcept { return static_cast<const upstream_factory&>(*this); }

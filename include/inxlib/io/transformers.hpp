@@ -25,8 +25,9 @@ SOFTWARE.
 #ifndef INXLIB_IO_TRANSFORMERS_HPP
 #define INXLIB_IO_TRANSFORMERS_HPP
 
-#include <cmath>
 #include <inxlib/inx.hpp>
+
+#include <cmath>
 #include <iomanip>
 #include <limits>
 #include <ostream>

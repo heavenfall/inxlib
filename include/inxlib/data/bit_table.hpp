@@ -25,9 +25,11 @@ SOFTWARE.
 #ifndef INXLIB_DATA_BIT_TABLE_HPP
 #define INXLIB_DATA_BIT_TABLE_HPP
 
-#include <cstring>
 #include <inxlib/inx.hpp>
+
 #include <inxlib/numeric/bits.hpp>
+
+#include <cstring>
 #ifndef NDEBUG
 #include <vector>
 #endif

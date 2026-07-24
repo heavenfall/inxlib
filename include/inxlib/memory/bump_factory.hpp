@@ -28,8 +28,7 @@ SOFTWARE.
 #include "area_factory.hpp"
 #include "factory_adaptor.hpp"
 
-namespace inx::memory
-{
+namespace inx::memory {
 
 /**
  * Factory that generates area blocks for area-based factories.
@@ -39,6 +38,7 @@ template <AreaFactory Upstream, ByteFactory Overflow = void_factory>
 class bump_factory : private overflow_pattern<Upstream, Overflow>
 {
 	using pattern = overflow_pattern<Upstream, Overflow>;
+
 public:
 	using upstream_factory = Upstream;
 	using value_type = std::byte;
@@ -47,22 +47,16 @@ public:
 	using area = typename pattern::value_type;
 	using typename pattern::overflow_type;
 
-	~bump_factory()
-	{
-		release(factory_chain_free_release<Upstream>);
-	}
+	~bump_factory() { release(factory_chain_free_release<Upstream>); }
 
 	static consteval uint32_t traits() noexcept { return FactoryOwn | FactoryNoFree; }
 
 	static consteval size_type alignment() noexcept { return area::align(); }
 	static consteval size_type element_size() noexcept { return Upstream::item_size(); }
-	
+
 	using pattern::setup;
 
-	[[nodiscard]] pointer allocate(size_type elems)
-	{
-		return allocate(elems, area::align());
-	}
+	[[nodiscard]] pointer allocate(size_type elems) { return allocate(elems, area::align()); }
 	[[nodiscard]] pointer allocate(size_type elems, size_type align)
 	{
 		if (elems <= Upstream::item_count() * Upstream::item_size() / 2) [[likely]] {
@@ -71,15 +65,14 @@ public:
 			return allocate_overflow(elems);
 		}
 	}
-	void deallocate(pointer ptr[[maybe_unused]], size_type elems[[maybe_unused]])
-	{ }
+	void deallocate(pointer ptr [[maybe_unused]], size_type elems [[maybe_unused]]) {}
 
 	void release(bool free_upstream = true)
 	{
 		if (free_upstream) {
 			area* a = m_currentArea;
 			while (a != nullptr) {
-				area* anext = static_cast<area*>( a->h[1].p64 );
+				area* anext = static_cast<area*>(a->h[1].p64);
 				delete_area_overflow(a);
 				a = anext;
 			}
@@ -125,7 +118,7 @@ protected:
 	area* new_overflow(size_type elems)
 	{
 		assert(elems > (pattern::item_count() >> 1));
-		area* a = reinterpret_cast<area*>( pattern::overflow_allocate(area::size_n(elems)) );
+		area* a = reinterpret_cast<area*>(pattern::overflow_allocate(area::size_n(elems)));
 		a->h[0].u64 = elems;
 		a->h[1].p64 = static_cast<void*>(m_currentArea);
 		m_currentArea = a;
@@ -156,7 +149,7 @@ protected:
 		// assume expected alignment is less or equal to area::align
 		assert(elems > (pattern::item_count() >> 1));
 		area* a = new_overflow(elems);
-		return reinterpret_cast<pointer>( &a->data[0] );
+		return reinterpret_cast<pointer>(&a->data[0]);
 	}
 
 protected:

@@ -35,18 +35,17 @@ namespace inx::memory {
 enum factory_traits : uint32_t
 {
 	FactoryDefault = 0,
-	FactorySource = 1 << 0, /// allocations with no upstream (i.e. malloc)
-	FactoryOwn = 1 << 1, /// owns and will release memory
-	FactoryReuse = 1 << 2, /// factory will attempt to reuse memory
-	FactoryNoFree = 1 << 3, /// factory has deallocate or destroy, but it does nothing
+	FactorySource = 1 << 0,  /// allocations with no upstream (i.e. malloc)
+	FactoryOwn = 1 << 1,     /// owns and will release memory
+	FactoryReuse = 1 << 2,   /// factory will attempt to reuse memory
+	FactoryNoFree = 1 << 3,  /// factory has deallocate or destroy, but it does nothing
 	FactoryPointer = 1 << 4, /// factory is a pointer to another factory
 };
 
 namespace details {
 
 template <typename Fact>
-concept Factory_base = requires (Fact f)
-{
+concept Factory_base = requires(Fact f) {
 	// not movable or copyable
 	requires std::default_initializable<Fact>;
 	requires !std::movable<Fact>;
@@ -61,9 +60,8 @@ concept Factory_base = requires (Fact f)
 	{ f.alignment() } -> std::same_as<typename Fact::size_type>;
 	{ f.element_size() } -> std::same_as<typename Fact::size_type>;
 	{ Fact::traits() } -> std::same_as<uint32_t>;
-	
-	requires ( (Fact::traits() & FactorySource) != 0 ) ||
-	requires {
+
+	requires((Fact::traits() & FactorySource) != 0) || requires {
 		{ f.upstream() };
 	};
 };
@@ -72,9 +70,8 @@ concept Factory_base = requires (Fact f)
  * Class is a array factory.  Provides allocation of array's.
  */
 template <typename Fact>
-concept ArrayFactory_base = details::Factory_base<Fact> && requires (Fact f)
-{
-	requires requires (typename Fact::pointer ptr, typename Fact::size_type elem) {
+concept ArrayFactory_base = details::Factory_base<Fact> && requires(Fact f) {
+	requires requires(typename Fact::pointer ptr, typename Fact::size_type elem) {
 		// array allocation
 		{ f.allocate(elem) } -> std::same_as<typename Fact::pointer>;
 		{ f.deallocate(ptr, elem) };
@@ -85,9 +82,8 @@ concept ArrayFactory_base = details::Factory_base<Fact> && requires (Fact f)
  * Class is a single element factory.  Provides allocation of single elements.
  */
 template <typename Fact>
-concept SingleFactory_base = details::Factory_base<Fact> && requires (Fact f)
-{
-	requires requires (typename Fact::pointer ptr) {
+concept SingleFactory_base = details::Factory_base<Fact> && requires(Fact f) {
+	requires requires(typename Fact::pointer ptr) {
 		// single allocation
 		{ f.create() } -> std::same_as<typename Fact::pointer>;
 		{ f.destroy(ptr) };
@@ -109,20 +105,14 @@ public:
 	void_factory(const void_factory&) = delete;
 	void_factory operator=(const void_factory&) = delete;
 
-	constexpr bool setup() noexcept
-	{
-		return true;
-	}
+	constexpr bool setup() noexcept { return true; }
 
 	static consteval size_type alignment() noexcept { return alignof(max_align_t); }
 	static consteval size_type element_size() noexcept { return 1; }
 
-	constexpr pointer allocate(size_type)
-	{ return {}; }
-	constexpr void deallocate(pointer)
-	{ }
-	constexpr void deallocate(pointer, size_type)
-	{ }
+	constexpr pointer allocate(size_type) { return {}; }
+	constexpr void deallocate(pointer) {}
+	constexpr void deallocate(pointer, size_type) {}
 };
 
 /**
@@ -153,17 +143,15 @@ concept FactoryTraitNone = Factory<Fact> && (Fact::traits() & T) == 0;
 // setup or destructor calls release if it has one, free_upstream is set to false iff:
 // upstream is FactoryNoFree OR (upstream is FactoryOwn AND upstream is not FactoryPointer)
 template <Factory Fact>
-inline constexpr bool factory_chain_free_release = !(
-	(Fact::traits() & FactoryNoFree) != 0 ||
-	( (Fact::traits() & FactoryOwn) != 0 && (Fact::traits() & FactoryPointer) == 0 )
-);
+inline constexpr bool factory_chain_free_release =
+  !((Fact::traits() & FactoryNoFree) != 0 ||
+    ((Fact::traits() & FactoryOwn) != 0 && (Fact::traits() & FactoryPointer) == 0));
 
 /**
  * Class is a byte factory.  Provides allocation for byte object.
  */
 template <typename Fact>
-concept ByteFactory = ArrayFactory<Fact> && requires (Fact f)
-{
+concept ByteFactory = ArrayFactory<Fact> && requires(Fact f) {
 	requires std::same_as<typename Fact::value_type, std::byte>;
 	requires Fact::alignment() == alignof(max_align_t);
 	requires Fact::element_size() == 1;
@@ -173,8 +161,7 @@ concept ByteFactory = ArrayFactory<Fact> && requires (Fact f)
  * A byte factory that supports dynamic align allocation.
  */
 template <typename Fact>
-concept AlignByteFactory = ByteFactory<Fact> && requires (Fact f, Fact::pointer ptr, Fact::size_type elem)
-{
+concept AlignByteFactory = ByteFactory<Fact> && requires(Fact f, Fact::pointer ptr, Fact::size_type elem) {
 	{ f.allocate(elem, elem) } -> std::same_as<typename Fact::pointer>;
 	{ f.deallocate(ptr, elem, elem) };
 };
@@ -183,22 +170,21 @@ concept AlignByteFactory = ByteFactory<Fact> && requires (Fact f, Fact::pointer 
  * Class is a factory.  Designed to provide flexible memory generation.
  */
 template <typename Fact>
-concept FreeArrayFactory = ArrayFactory<Fact> && requires (Fact f, typename Fact::pointer ptr)
-{
+concept FreeArrayFactory = ArrayFactory<Fact> && requires(Fact f, typename Fact::pointer ptr) {
 	{ f.deallocate(ptr) };
 };
 
 template <typename Fact>
 concept VoidFactory = std::same_as<Fact, void_factory>;
 
-static_assert(ByteFactory<void_factory> && VoidFactory<void_factory> && FreeArrayFactory<void_factory>, "void_factory must be a valid ByteFactory");
+static_assert(ByteFactory<void_factory> && VoidFactory<void_factory> && FreeArrayFactory<void_factory>,
+              "void_factory must be a valid ByteFactory");
 
 /**
  * Class has memory release functions.
  */
 template <typename Fact>
-concept ReleaseFactory = Factory<Fact> && requires (Fact f, bool b)
-{
+concept ReleaseFactory = Factory<Fact> && requires(Fact f, bool b) {
 	{ f.release() };
 	{ f.release(b) };
 };
@@ -207,15 +193,15 @@ concept ReleaseFactory = Factory<Fact> && requires (Fact f, bool b)
  * Class has memory reclaim functions.
  */
 template <typename Fact>
-concept ReclaimFactory = ReleaseFactory<Fact> && requires (Fact f)
-{
+concept ReclaimFactory = ReleaseFactory<Fact> && requires(Fact f) {
 	{ f.reclaim() };
 };
 
 /// @brief Get factory upstream
 /// @param F factory
 /// @return F.upstream()
-Factory auto& upstream(Factory auto& F) noexcept
+Factory auto&
+upstream(Factory auto& F) noexcept
 {
 	return F.upstream();
 }
@@ -224,11 +210,11 @@ Factory auto& upstream(Factory auto& F) noexcept
 /// @param F factory
 /// @return Factory of type Fact, const auto deduced based on F
 template <Factory Fact>
-Factory auto& upstream(Factory auto& F) noexcept
+Factory auto&
+upstream(Factory auto& F) noexcept
 {
 	Factory auto& up = F.upstream();
-	if constexpr (std::same_as<std::remove_cvref_t<decltype(up)>,Fact>)
-	{
+	if constexpr (std::same_as<std::remove_cvref_t<decltype(up)>, Fact>) {
 		return up;
 	} else {
 		return upstream<Fact>(up);

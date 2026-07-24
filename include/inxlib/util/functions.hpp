@@ -26,6 +26,7 @@ SOFTWARE.
 #define INXLIB_UTIL_FUNCTIONS_HPP
 
 #include <inxlib/inx.hpp>
+
 #include <memory>
 
 namespace inx::util {

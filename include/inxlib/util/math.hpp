@@ -26,13 +26,14 @@ SOFTWARE.
 #define INXLIB_UTIL_MATH_HPP
 
 #include <inxlib/inx.hpp>
+
 #include <inxlib/numeric/math.hpp>
 
 namespace {
 [[deprecated("Header deprecated. Use inxlib/numeric/math.hpp instead.")]]
 constexpr inline int inxlib_util_math_hpp_ = 0;
 constexpr inline int inxlib_util_math_hpp_dep_ = inxlib_util_math_hpp_;
-}
+} // namespace
 
 namespace inx::util {
 

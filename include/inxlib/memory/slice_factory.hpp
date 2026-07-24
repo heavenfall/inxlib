@@ -268,6 +268,6 @@ public:
 template <typename ValueType, size_t N, size_t SlabMinLevel = 0>
 using SliceFactoryN = SliceFactory<ValueType, N * sizeof(ValueType), SlabMinLevel>;
 
-} // namespace inx::data
+} // namespace inx::memory
 
 #endif // INXLIB_MEMORY_SLICE_FACTORY_HPP

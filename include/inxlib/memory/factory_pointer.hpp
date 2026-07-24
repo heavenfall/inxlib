@@ -48,14 +48,46 @@ struct factory_pointer<Fact>
 	factory_pointer() = default;
 	factory_pointer(const factory_pointer&) = delete;
 
-	static constexpr size_type alignment() noexcept requires requires { Fact::alignment(); } { return Fact::alignment(); }
-	constexpr size_type alignment() noexcept requires (!requires { Fact::alignment(); }) { return m_factoryBase->alignment(); }
-	static constexpr size_type element_size() noexcept requires requires { Fact::element_size(); } { return Fact::element_size(); }
-	constexpr size_type element_size() noexcept requires (!requires { Fact::element_size(); }) { return m_factoryBase->element_size(); }
-	static constexpr size_type item_count() noexcept requires requires { Fact::item_count(); } { return Fact::item_count(); }
-	constexpr size_type item_count() noexcept requires (!requires { Fact::item_count(); }) { return m_factoryBase->item_count(); }
-	static constexpr size_type item_size() noexcept requires requires { Fact::item_size(); } { return Fact::item_size(); }
-	constexpr size_type item_size() noexcept requires (!requires { Fact::item_size(); }) { return m_factoryBase->item_size(); }
+	static constexpr size_type alignment() noexcept
+	    requires requires { Fact::alignment(); }
+	{
+		return Fact::alignment();
+	}
+	constexpr size_type alignment() noexcept
+	    requires(!requires { Fact::alignment(); })
+	{
+		return m_factoryBase->alignment();
+	}
+	static constexpr size_type element_size() noexcept
+	    requires requires { Fact::element_size(); }
+	{
+		return Fact::element_size();
+	}
+	constexpr size_type element_size() noexcept
+	    requires(!requires { Fact::element_size(); })
+	{
+		return m_factoryBase->element_size();
+	}
+	static constexpr size_type item_count() noexcept
+	    requires requires { Fact::item_count(); }
+	{
+		return Fact::item_count();
+	}
+	constexpr size_type item_count() noexcept
+	    requires(!requires { Fact::item_count(); })
+	{
+		return m_factoryBase->item_count();
+	}
+	static constexpr size_type item_size() noexcept
+	    requires requires { Fact::item_size(); }
+	{
+		return Fact::item_size();
+	}
+	constexpr size_type item_size() noexcept
+	    requires(!requires { Fact::item_size(); })
+	{
+		return m_factoryBase->item_size();
+	}
 
 	constexpr bool setup(upstream_factory& upstream)
 	{
@@ -63,43 +95,61 @@ struct factory_pointer<Fact>
 		return true;
 	}
 
-	[[nodiscard]] pointer allocate(size_type elems) requires ArrayFactory<Fact>
+	[[nodiscard]] pointer allocate(size_type elems)
+	    requires ArrayFactory<Fact>
 	{
 		return m_factoryBase->allocate(elems);
 	}
-	[[nodiscard]] pointer allocate(size_type elems, size_type align) requires AlignByteFactory<Fact>
+	[[nodiscard]] pointer allocate(size_type elems, size_type align)
+	    requires AlignByteFactory<Fact>
 	{
 		return m_factoryBase->allocate(elems, align);
 	}
-	void deallocate(pointer ptr, size_type elems) requires ArrayFactory<Fact>
+	void deallocate(pointer ptr, size_type elems)
+	    requires ArrayFactory<Fact>
 	{
 		return m_factoryBase->deallocate(ptr, elems);
 	}
-	void deallocate(pointer ptr) requires ArrayFactory<Fact> && requires { { m_factoryBase->deallocate(ptr) }; }
+	void deallocate(pointer ptr)
+	    requires ArrayFactory<Fact> && requires {
+		    { m_factoryBase->deallocate(ptr) };
+	    }
 	{
 		return m_factoryBase->deallocate(ptr);
 	}
 
-	[[nodiscard]] pointer create() requires SingleFactory<Fact>
+	[[nodiscard]] pointer create()
+	    requires SingleFactory<Fact>
 	{
 		return m_factoryBase->create();
 	}
-	void destroy(pointer ptr) requires SingleFactory<Fact>
+	void destroy(pointer ptr)
+	    requires SingleFactory<Fact>
 	{
 		m_factoryBase->destroy(ptr);
 	}
 
-	void release(bool free_upstream = true) requires requires { m_factoryBase->release(free_upstream); }
+	void release(bool free_upstream = true)
+	    requires requires { m_factoryBase->release(free_upstream); }
 	{
 		m_factoryBase->release(free_upstream);
 	}
-	void reclaim() requires requires { m_factoryBase->reclaim(); }
+	void reclaim()
+	    requires requires { m_factoryBase->reclaim(); }
 	{
 		m_factoryBase->reclaim();
 	}
 
-	upstream_factory& upstream() noexcept { assert(m_factoryBase != nullptr); return *m_factoryBase; }
-	const upstream_factory& upstream() const noexcept { assert(m_factoryBase != nullptr); return *m_factoryBase; }
+	upstream_factory& upstream() noexcept
+	{
+		assert(m_factoryBase != nullptr);
+		return *m_factoryBase;
+	}
+	const upstream_factory& upstream() const noexcept
+	{
+		assert(m_factoryBase != nullptr);
+		return *m_factoryBase;
+	}
 };
 
 } // namespace inx::memory

@@ -28,8 +28,8 @@ SOFTWARE.
 #include "factory.hpp"
 #include "object.hpp"
 
-#include <cstdlib>
 #include <cstddef>
+#include <cstdlib>
 #include <memory_resource>
 
 namespace inx::memory {
@@ -46,26 +46,14 @@ public:
 	constexpr malloc_factory() noexcept = default;
 	malloc_factory(const malloc_factory&) = delete;
 
-	constexpr bool setup() noexcept
-	{
-		return true;
-	}
+	constexpr bool setup() noexcept { return true; }
 
 	static consteval size_type alignment() noexcept { return alignof(max_align_t); }
 	static consteval size_type element_size() noexcept { return 1; }
 
-	[[nodiscard]] pointer allocate(size_type elems)
-	{
-		return static_cast<pointer>(std::malloc(elems));
-	}
-	void deallocate(pointer ptr)
-	{
-		std::free(ptr);
-	}
-	void deallocate(pointer ptr, size_type)
-	{
-		deallocate(ptr);
-	}
+	[[nodiscard]] pointer allocate(size_type elems) { return static_cast<pointer>(std::malloc(elems)); }
+	void deallocate(pointer ptr) { std::free(ptr); }
+	void deallocate(pointer ptr, size_type) { deallocate(ptr); }
 };
 
 static_assert(ByteFactory<malloc_factory>, "malloc_factory must be a valid Factory");
@@ -100,16 +88,11 @@ public:
 	}
 	[[nodiscard]] pointer allocate(size_type elems, size_type align)
 	{
-		return static_cast<pointer>(m_memory_resouce->allocate(elems, align)); // alignment() should be the same as default
+		return static_cast<pointer>(
+		  m_memory_resouce->allocate(elems, align)); // alignment() should be the same as default
 	}
-	void deallocate(pointer ptr, size_type elems)
-	{
-		m_memory_resouce->deallocate(ptr, elems);
-	}
-	void deallocate(pointer ptr, size_type elems, size_type align)
-	{
-		m_memory_resouce->deallocate(ptr, elems, align);
-	}
+	void deallocate(pointer ptr, size_type elems) { m_memory_resouce->deallocate(ptr, elems); }
+	void deallocate(pointer ptr, size_type elems, size_type align) { m_memory_resouce->deallocate(ptr, elems, align); }
 
 	std::pmr::memory_resource* get_memory_resource() const noexcept { return m_memory_resouce; }
 
@@ -137,9 +120,9 @@ struct BufferOverflowData
 
 template <>
 struct BufferOverflowData<void_factory>
-{ };
+{};
 
-}
+} // namespace details
 
 template <size_t Buffer, ByteFactory Upstream = void_factory, size_t UpstreamSize = 0>
 class buffer_factory : private Upstream
@@ -151,7 +134,8 @@ public:
 	using size_type = size_t;
 
 	static_assert(Buffer >= alignof(max_align_t), "Buffer must fit max alignment.");
-	static_assert(UpstreamSize == 0 || UpstreamSize >= alignof(max_align_t), "Upstream size must fit max alignment (or 0).");
+	static_assert(UpstreamSize == 0 || UpstreamSize >= alignof(max_align_t),
+	              "Upstream size must fit max alignment (or 0).");
 
 	static consteval uint32_t traits() noexcept { return FactoryOwn | FactoryReuse | FactoryNoFree; }
 
@@ -162,10 +146,7 @@ private:
 public:
 	constexpr buffer_factory() noexcept = default;
 	buffer_factory(const buffer_factory&) = delete;
-	~buffer_factory()
-	{
-		release(factory_chain_free_release<Upstream>);
-	}
+	~buffer_factory() { release(factory_chain_free_release<Upstream>); }
 
 	template <typename... T>
 	constexpr bool setup(T&&... args)
@@ -179,21 +160,18 @@ public:
 	static consteval size_type alignment() noexcept { return alignof(max_align_t); }
 	static consteval size_type element_size() noexcept { return 1; }
 
-	[[nodiscard]] pointer allocate(size_type elems)
-	{
-		return allocate(elems, alignof(max_align_t));
-	}
+	[[nodiscard]] pointer allocate(size_type elems) { return allocate(elems, alignof(max_align_t)); }
 	[[nodiscard]] pointer allocate(size_type elems, size_type align)
 	{
 		assert(m_bumpPtr != nullptr);
 		if constexpr (overflow_buffer) {
 			if (auto* p = align_adjust(align, elems, m_bumpPtr, m_bumpSize); p != nullptr) [[likely]]
 				return static_cast<pointer>(p);
-			if (elems > overflow_size/2) {
-				size_t osize = INXLIB_VAR_STRUCT_DYNAMIC_SIZE(details::buffer_overflow_slab,buffer,elems);
+			if (elems > overflow_size / 2) {
+				size_t osize = INXLIB_VAR_STRUCT_DYNAMIC_SIZE(details::buffer_overflow_slab, buffer, elems);
 				auto* p = reinterpret_cast<details::buffer_overflow_slab*>(Upstream::allocate(osize));
 				// only track if free is required
-				if constexpr (FactoryTraitNone<Upstream,FactoryNoFree>) {
+				if constexpr (FactoryTraitNone<Upstream, FactoryNoFree>) {
 					p->elems = elems;
 					p->next = std::exchange(m_overflow.slab, p);
 				}
@@ -206,24 +184,28 @@ public:
 			return static_cast<pointer>(align_adjust(align, elems, m_bumpPtr, m_bumpSize));
 		}
 	}
-	void deallocate(pointer ptr[[maybe_unused]]) // FreeArrayFactory
-	{ }
-	void deallocate(pointer ptr[[maybe_unused]], size_type elems[[maybe_unused]])
-	{ }
-	void deallocate(pointer ptr[[maybe_unused]], size_type elems[[maybe_unused]], size_type align[[maybe_unused]]) // AlignByteFactory
-	{ }
+	void deallocate(pointer ptr [[maybe_unused]]) // FreeArrayFactory
+	{
+	}
+	void deallocate(pointer ptr [[maybe_unused]], size_type elems [[maybe_unused]]) {}
+	void deallocate(pointer ptr [[maybe_unused]],
+	                size_type elems [[maybe_unused]],
+	                size_type align [[maybe_unused]]) // AlignByteFactory
+	{
+	}
 
 	/// @brief only releases memory calimed for reuse
 	/// @param free_upstream destorys memory upstream
-	void release(bool free_upstream[[maybe_unused]] = true)
+	void release(bool free_upstream [[maybe_unused]] = true)
 	{
-		if constexpr (FactoryTraitNone<Upstream,FactoryNoFree>) {
+		if constexpr (FactoryTraitNone<Upstream, FactoryNoFree>) {
 			// must free to upstream
 			if (free_upstream) {
 				for (details::buffer_overflow_slab* p : {m_overflow.slab, m_overflow.reuse}) {
 					while (p != nullptr) {
 						auto* pnext = p->next;
-						Upstream::deallocate(reinterpret_cast<std::byte*>(p), INXLIB_VAR_STRUCT_SIZE(details::buffer_overflow_slab,buffer,p->elems));
+						Upstream::deallocate(reinterpret_cast<std::byte*>(p),
+						                     INXLIB_VAR_STRUCT_SIZE(details::buffer_overflow_slab, buffer, p->elems));
 						p = pnext;
 					}
 				}
@@ -259,7 +241,8 @@ public:
 	const upstream_factory& upstream() const noexcept { return static_cast<const upstream_factory&>(*this); }
 
 private:
-	details::buffer_overflow_slab* new_slab_buffer() requires (overflow_buffer)
+	details::buffer_overflow_slab* new_slab_buffer()
+	    requires(overflow_buffer)
 	{
 		if (m_overflow.reuse != nullptr) {
 			details::buffer_overflow_slab* p = std::exchange(m_overflow.reuse, m_overflow.reuse->next);
@@ -268,10 +251,10 @@ private:
 			m_bumpSize = p->elems;
 			return p;
 		} else {
-			size_t osize = INXLIB_VAR_STRUCT_SIZE(details::buffer_overflow_slab,buffer,overflow_size);
+			size_t osize = INXLIB_VAR_STRUCT_SIZE(details::buffer_overflow_slab, buffer, overflow_size);
 			auto* p = reinterpret_cast<details::buffer_overflow_slab*>(Upstream::allocate(osize));
 			// only track if free is required
-			if constexpr (FactoryTraitNone<Upstream,FactoryNoFree>) {
+			if constexpr (FactoryTraitNone<Upstream, FactoryNoFree>) {
 				p->elems = overflow_size;
 				p->next = std::exchange(m_overflow.slab, p);
 			}

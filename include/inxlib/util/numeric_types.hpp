@@ -25,14 +25,13 @@ SOFTWARE.
 #ifndef INXLIB_UTIL_NUMERIC_TYPES_HPP
 #define INXLIB_UTIL_NUMERIC_TYPES_HPP
 
-#include <inxlib/inx.hpp>
 #include <inxlib/numeric/numeric_types.hpp>
 
 namespace {
 [[deprecated("Header deprecated. Use inxlib/numeric/numeric_types.hpp instead.")]]
 constexpr inline int inxlib_util_numeric_types_hpp_ = 0;
 constexpr inline int inxlib_util_numeric_types_hpp_dep_ = inxlib_util_numeric_types_hpp_;
-}
+} // namespace
 
 namespace inx::util {
 

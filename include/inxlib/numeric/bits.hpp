@@ -25,8 +25,9 @@ SOFTWARE.
 #ifndef INXLIB_NUMERIC_BITS_HPP
 #define INXLIB_NUMERIC_BITS_HPP
 
-#include <bit>
 #include <inxlib/inx.hpp>
+
+#include <bit>
 #include <concepts>
 
 namespace inx::numeric {

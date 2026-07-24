@@ -35,18 +35,20 @@ namespace inx::memory {
 
 template <size_t Size, size_t Align>
 struct alignas(Align) object_bytes_size : std::array<std::byte, Size>
-{ };
+{};
 template <typename T>
 using object_bytes = object_bytes_size<sizeof(T), alignof(T)>;
 
-constexpr size_t pad_alignment(size_t size, size_t align)
+constexpr size_t
+pad_alignment(size_t size, size_t align)
 {
 	assert(numeric::is_log2(align));
 	// [[assume(numeric::popcount(align) == 1)]];
-	return size + ( (align - (size & (align-1))) & ~align );
+	return size + ((align - (size & (align - 1))) & ~align);
 }
 template <typename AlignTo, typename AlignFrom = void>
-constexpr size_t pad_type_alignment(size_t size)
+constexpr size_t
+pad_type_alignment(size_t size)
 {
 	if constexpr (std::same_as<AlignFrom, void>) {
 		return pad_alignment(size, alignof(AlignTo));
@@ -58,19 +60,24 @@ constexpr size_t pad_type_alignment(size_t size)
 	}
 }
 
-#define INXLIB_VAR_STRUCT(type,member) (::inx::memory::pad_type_alignment<type>(offsetof(type, member)))
-#define INXLIB_VAR_STRUCT_SIZE(type,member,size) (::inx::memory::pad_type_alignment<type, decltype(type::member)>(offsetof(type, member[size])))
-#define INXLIB_VAR_STRUCT_DYNAMIC_SIZE(type,member,size) (::inx::memory::pad_type_alignment<type, decltype(type::member)>( offsetof(type, member[0]) + sizeof(decltype(type::member)) * size))
-#define INXLIB_VAR_STRUCT_TYPE(type,member,member_type) (::inx::memory::pad_type_alignment<type, member_type>(offsetof(type, member)))
+#define INXLIB_VAR_STRUCT(type, member) (::inx::memory::pad_type_alignment<type>(offsetof(type, member)))
+#define INXLIB_VAR_STRUCT_SIZE(type, member, size)                                                                     \
+	(::inx::memory::pad_type_alignment<type, decltype(type::member)>(offsetof(type, member[size])))
+#define INXLIB_VAR_STRUCT_DYNAMIC_SIZE(type, member, size)                                                             \
+	(::inx::memory::pad_type_alignment<type, decltype(type::member)>(offsetof(type, member[0]) +                       \
+	                                                                 sizeof(decltype(type::member)) * size))
+#define INXLIB_VAR_STRUCT_TYPE(type, member, member_type)                                                              \
+	(::inx::memory::pad_type_alignment<type, member_type>(offsetof(type, member)))
 
 /**
  * Operates same as std::align, except if returned an adjusted value, will adjust ptr and space by size.
  */
-inline void* align_adjust(std::size_t alignment, std::size_t size, void*& ptr, std::size_t& space)
+inline void*
+align_adjust(std::size_t alignment, std::size_t size, void*& ptr, std::size_t& space)
 {
 	void* p = std::align(alignment, size, ptr, space);
 	if (p) {
-		ptr = static_cast<void*>( static_cast<std::byte*>(ptr) + size );
+		ptr = static_cast<void*>(static_cast<std::byte*>(ptr) + size);
 		space -= size;
 	}
 	return p;

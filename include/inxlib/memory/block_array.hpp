@@ -381,6 +381,6 @@ public:
 	const_reverse_iterator rend() const noexcept { return begin(); }
 };
 
-} // namespace inx::data
+} // namespace inx::memory
 
 #endif // INXLIB_MEMORY_BLOCK_ARRAY_HPP

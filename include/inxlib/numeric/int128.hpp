@@ -27,8 +27,7 @@ SOFTWARE.
 
 #include <inxlib/inx.hpp>
 
-namespace inx::numeric
-{
+namespace inx::numeric {
 
 #ifdef __SIZEOF_INT128__
 #define INX_INT128

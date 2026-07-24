@@ -35,34 +35,33 @@ SOFTWARE.
 
 namespace inx::memory {
 
-constexpr size_t reuse_size(size_t size) noexcept
+constexpr size_t
+reuse_size(size_t size) noexcept
 {
 	return std::max(size, sizeof(void*));
 }
 template <typename T>
-constexpr size_t reuse_size() noexcept
+constexpr size_t
+reuse_size() noexcept
 {
 	return reuse_size(sizeof(T));
 }
 
 template <SingleFactory Upstream>
-	requires (!FactoryTraitAny<Upstream, FactoryOwn | FactoryPointer>)
+    requires(!FactoryTraitAny<Upstream, FactoryOwn | FactoryPointer>)
 class reuse_adaptor : public Upstream
 {
 public:
-	using typename Upstream::value_type;
-	using typename Upstream::size_type;
 	using typename Upstream::pointer;
+	using typename Upstream::size_type;
+	using typename Upstream::value_type;
 
 	static consteval uint32_t traits() noexcept { return (Upstream::traits() & ~FactoryNoFree) | FactoryReuse; }
 
 	using Upstream::alignment;
 	using Upstream::element_size;
 
-	~reuse_adaptor()
-	{
-		release(factory_chain_free_release<Upstream>);
-	}
+	~reuse_adaptor() { release(factory_chain_free_release<Upstream>); }
 
 	template <typename... T>
 	constexpr bool setup(T&&... args)
@@ -103,7 +102,7 @@ public:
 			// Upstream has release, just call it
 			Upstream::release(free_upstream);
 		} else if constexpr (!FactoryTraitAll<Upstream, FactoryNoFree>) {
-			// only call Upstream::destory if upsteam uses one has one 
+			// only call Upstream::destory if upsteam uses one has one
 			if (free_upstream) {
 				pointer p = m_reuse;
 				while (p) {
@@ -115,7 +114,8 @@ public:
 		}
 		m_reuse = nullptr;
 	}
-	void reclaim() requires ReclaimFactory<Upstream>
+	void reclaim()
+	    requires ReclaimFactory<Upstream>
 	{
 		Upstream::reclaim();
 		m_reuse = nullptr;
@@ -141,22 +141,21 @@ protected:
 	pointer* m_reuse = nullptr;
 };
 
-
 template <ByteFactory Upstream>
 class release_adaptor : private Upstream
 {
 public:
 	using upstream_factory = Upstream;
-	using typename Upstream::value_type;
-	using typename Upstream::size_type;
 	using typename Upstream::pointer;
+	using typename Upstream::size_type;
+	using typename Upstream::value_type;
 
 	static consteval uint32_t traits() noexcept { return FactoryOwn; }
 
 	using Upstream::alignment;
 	using Upstream::element_size;
-	using Upstream::Upstream;
 	using Upstream::setup;
+	using Upstream::Upstream;
 
 private:
 	struct alignas(max_align_t) pointer_meta_size
@@ -180,10 +179,7 @@ private:
 	using store_meta = std::conditional_t<store_size, pointer_meta_size, pointer_meta>;
 
 public:
-	~release_adaptor()
-	{
-		release(true);
-	}
+	~release_adaptor() { release(true); }
 	template <typename... T>
 	constexpr bool setup(T&&... args)
 	{
@@ -192,7 +188,8 @@ public:
 
 	[[nodiscard]] pointer allocate(size_type elems)
 	{
-		auto* ptr = reinterpret_cast<pointer>( reinterpret_cast<pointer*>(upstream_factory::allocate(elems + 2*sizeof(pointer*))) + 2 );
+		auto* ptr = reinterpret_cast<pointer>(
+		  reinterpret_cast<pointer*>(upstream_factory::allocate(elems + 2 * sizeof(pointer*))) + 2);
 		pointer next = std::exchange(m_linkStart, ptr);
 		link_next(ptr) = next;
 		if (next != nullptr) [[likely]] {
@@ -218,16 +215,13 @@ public:
 			}
 		}
 	}
-	void deallocate(pointer ptr, size_type elems)
-	{
-		deallocate(ptr);
-	}
+	void deallocate(pointer ptr, size_type elems) { deallocate(ptr); }
 
-	void release(bool free_upstream[[maybe_unused]] = true)
+	void release(bool free_upstream [[maybe_unused]] = true)
 	{
 		if constexpr (!auto_free) {
 			if (free_upstream) {
-				for (pointer p = m_linkStart; p != nullptr; ) {
+				for (pointer p = m_linkStart; p != nullptr;) {
 					auto meta = link_meta(p);
 					auto next_p = meta.next;
 					if constexpr (store_size) {
@@ -257,7 +251,7 @@ protected:
 		reinterpret_cast<store_meta*>(ptr)->size = elems;
 		return ptr + sizeof(store_meta);
 	}
-	void free_(pointer ptr, size_type elems[[maybe_unused]])
+	void free_(pointer ptr, size_type elems [[maybe_unused]])
 	{
 		if constexpr (store_size) {
 			upstream_factory::deallocate(ptr - sizeof(store_meta), elems);
@@ -269,7 +263,6 @@ protected:
 protected:
 	pointer m_linkStart = nullptr;
 };
-
 
 template <Factory Upstream, ByteFactory Overflow = void_factory>
 class overflow_pattern : public Upstream
@@ -284,9 +277,8 @@ public:
 	{
 		if (!Upstream::setup(std::forward<T>(args)...))
 			return false;
-		if (!std::apply([&of=m_overflow](auto&&... ts) {
-				return of.setup(std::forward<decltype(ts)>(ts)...);
-			}, setup_overflow)) {
+		if (!std::apply([&of = m_overflow](auto&&... ts) { return of.setup(std::forward<decltype(ts)>(ts)...); },
+		                setup_overflow)) {
 			return false;
 		}
 		return true;
@@ -296,21 +288,15 @@ public:
 	const overflow_type& overflow() const noexcept { return m_overflow; }
 
 protected:
-	constexpr pointer overflow_allocate(size_type elems)
-	{
-		return m_overflow.allocate(elems);
-	}
-	constexpr void overflow_deallocate(pointer ptr, size_type elems)
-	{
-		return m_overflow.deallocate(ptr, elems);
-	}
+	constexpr pointer overflow_allocate(size_type elems) { return m_overflow.allocate(elems); }
+	constexpr void overflow_deallocate(pointer ptr, size_type elems) { return m_overflow.deallocate(ptr, elems); }
 
 protected:
 	[[no_unique_address]] Overflow m_overflow;
 };
 
 template <Factory Upstream, ByteFactory Overflow>
-	requires VoidFactory<Overflow>
+    requires VoidFactory<Overflow>
 class overflow_pattern<Upstream, Overflow> : public Upstream
 {
 public:
@@ -336,14 +322,8 @@ public:
 	const overflow_type& overflow() const noexcept { return overflow_upstream(Upstream::upstream()); }
 
 protected:
-	constexpr std::byte* overflow_allocate(size_type elems)
-	{
-		return overflow().allocate(elems);
-	}
-	constexpr void overflow_deallocate(std::byte* ptr, size_type elems)
-	{
-		return overflow().deallocate(ptr, elems);
-	}
+	constexpr std::byte* overflow_allocate(size_type elems) { return overflow().allocate(elems); }
+	constexpr void overflow_deallocate(std::byte* ptr, size_type elems) { return overflow().deallocate(ptr, elems); }
 
 protected:
 	[[no_unique_address]] Overflow m_overflow;

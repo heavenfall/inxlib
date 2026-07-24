@@ -9,8 +9,9 @@ See <http://creativecommons.org/publicdomain/zero/1.0/>.*/
 #ifndef INXLIB_UTIL_XOSHIRO256_HPP
 #define INXLIB_UTIL_XOSHIRO256_HPP
 
-#include <bit>
 #include <inxlib/inx.hpp>
+
+#include <bit>
 #include <limits>
 #include <random>
 

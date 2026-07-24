@@ -38,15 +38,15 @@ class single_factory : private Upstream
 public:
 	static_assert(Elems != 0 && Alignment != 0, "Elems and Alignment must not be 0.");
 	using upstream_factory = Upstream;
-	using typename Upstream::value_type;
-	using typename Upstream::size_type;
 	using typename Upstream::pointer;
+	using typename Upstream::size_type;
+	using typename Upstream::value_type;
 
 	static consteval uint32_t traits() noexcept { return FactoryDefault; }
 
 	constexpr size_type alignment() noexcept { return Alignment; }
 	constexpr size_type element_size() noexcept { return Upstream::element_size() * Elems; }
-	
+
 	template <typename... T>
 	constexpr bool setup(T&&... args)
 	{

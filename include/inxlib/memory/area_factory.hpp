@@ -36,15 +36,17 @@ SOFTWARE.
 namespace inx::memory {
 
 struct area_memory_header
-{ };
+{};
 
 template <size_t Size, size_t Align>
 struct alignas(max_align_t) area_memory : area_memory_header
 {
 	static_assert(Size != 0, "Size must be greater than 0.");
-	static_assert(inx::numeric::popcount(Align) == 1 && Align <= alignof(max_align_t), "Align must be a valid alignment.");
+	static_assert(inx::numeric::popcount(Align) == 1 && Align <= alignof(max_align_t),
+	              "Align must be a valid alignment.");
 
-	union Val {
+	union Val
+	{
 		uint64_t u64;
 		int64_t i64;
 		void* p64;
@@ -55,34 +57,37 @@ struct alignas(max_align_t) area_memory : area_memory_header
 	consteval static size_t size() noexcept { return Size; }
 	consteval static size_t align() noexcept { return Align; }
 
-	consteval static size_t size_header() noexcept
-	{
-		return offsetof(area_memory, data);
-	}
+	consteval static size_t size_header() noexcept { return offsetof(area_memory, data); }
 	constexpr static size_t size_n(size_t elems) noexcept
 	{
 		return pad_alignment(size_header() + elems * Size, alignof(max_align_t));
 	}
 
 	template <std::derived_from<area_memory_header> T>
-	constexpr T* cast() noexcept { return static_cast<T*>( static_cast<area_memory_header*>(this) ); }
+	constexpr T* cast() noexcept
+	{
+		return static_cast<T*>(static_cast<area_memory_header*>(this));
+	}
 };
 
 template <typename T>
 using area_memory_type = area_memory<sizeof(T), alignof(T)>;
 using area_memory_bytes = area_memory<1, alignof(max_align_t)>;
 
-/// @brief Determine the size (in bytes) each area slab requires for number of Elements of Size in Area (area_memory_type,area_memory_bytes)
+/// @brief Determine the size (in bytes) each area slab requires for number of Elements of Size in Area
+/// (area_memory_type,area_memory_bytes)
 /// @tparam Area
 template <size_t Size, typename Area = area_memory_bytes>
-constexpr size_t calc_area_size(size_t Elements) noexcept
+constexpr size_t
+calc_area_size(size_t Elements) noexcept
 {
 	return Area::size_n(Elements);
 }
 
 /// @brief Determine the size (in bytes) of area_memory_type<ElementType> with number of Elements
 template <typename ElementType>
-constexpr size_t calc_area_size_type(size_t Elements) noexcept
+constexpr size_t
+calc_area_size_type(size_t Elements) noexcept
 {
 	return area_memory_type<ElementType>::size_n(Elements);
 }
@@ -90,9 +95,12 @@ constexpr size_t calc_area_size_type(size_t Elements) noexcept
 struct area_factory_params
 {
 	area_factory_params() = default;
-	area_factory_params(size_t l_count, bool l_use_size = false) : count(l_count), use_size(l_use_size)
-	{ }
-	size_t count = 0; ///< amount to set element to, 0 = default
+	area_factory_params(size_t l_count, bool l_use_size = false)
+	  : count(l_count)
+	  , use_size(l_use_size)
+	{
+	}
+	size_t count = 0;      ///< amount to set element to, 0 = default
 	bool use_size = false; ///< if true: element_size(count), else: element_count(count)
 };
 
@@ -122,10 +130,7 @@ public:
 		return Upstream::setup(std::forward<T>(args)...);
 	}
 
-	pointer create()
-	{
-		return reinterpret_cast<pointer>( Upstream::allocate(element_size()) );
-	}
+	pointer create() { return reinterpret_cast<pointer>(Upstream::allocate(element_size())); }
 	void destroy(pointer ptr)
 	{
 		Upstream::deallocate(reinterpret_cast<typename Upstream::pointer>(ptr), element_size());
@@ -150,12 +155,11 @@ public:
 	static consteval size_type item_size() noexcept { return Area::size(); }
 	size_type item_count() noexcept { return m_elementCount; }
 
-	constexpr area_factory() noexcept : area_factory(1024)
-	{ }
-	constexpr area_factory(size_type elem_size) noexcept
+	constexpr area_factory() noexcept
+	  : area_factory(1024)
 	{
-		element_size(elem_size);
 	}
+	constexpr area_factory(size_type elem_size) noexcept { element_size(elem_size); }
 
 	template <typename... T>
 	bool setup(area_factory_params params, T&&... args)
@@ -171,10 +175,7 @@ public:
 		return true;
 	}
 
-	[[nodiscard]] pointer create()
-	{
-		return reinterpret_cast<pointer>( Upstream::allocate(element_size()) );
-	}
+	[[nodiscard]] pointer create() { return reinterpret_cast<pointer>(Upstream::allocate(element_size())); }
 	void destroy(pointer ptr)
 	{
 		Upstream::deallocate(reinterpret_cast<typename Upstream::pointer>(ptr), element_size());
@@ -208,42 +209,38 @@ protected:
 namespace details {
 template <typename T>
 struct is_AreaFactor : std::bool_constant<false>
-{ };
+{};
 template <typename Upstream, size_t AreaCount, typename Area>
 struct is_AreaFactor<area_factory<Upstream, AreaCount, Area>> : std::bool_constant<true>
-{ };
+{};
 template <typename Upstream>
-	requires FactoryTraitAll<Upstream, FactoryPointer> && FactoryTraitNone<Upstream, FactorySource>
+    requires FactoryTraitAll<Upstream, FactoryPointer> && FactoryTraitNone<Upstream, FactorySource>
 struct is_AreaFactor<Upstream> : is_AreaFactor<typename Upstream::upstream_factory>
-{ };
+{};
 }; // namespace details
 
 template <typename T>
 concept AreaFactory = details::is_AreaFactor<T>::value;
 
-
 /// @brief Add support to area_factory to manage a forward list of areas.
 ///        O(1) reclaim operations.
 ///        area.h[0] and area.h[1] are managed by this adaptor.
-/// @tparam Upstream 
+/// @tparam Upstream
 template <AreaFactory Upstream>
-	requires FactoryTraitNone<Upstream, FactoryOwn>
+    requires FactoryTraitNone<Upstream, FactoryOwn>
 class area_link_pattern : public Upstream
 {
 public:
-	using typename Upstream::value_type;
-	using typename Upstream::size_type;
 	using typename Upstream::pointer;
+	using typename Upstream::size_type;
+	using typename Upstream::value_type;
 
 	static consteval uint32_t traits() noexcept { return FactoryOwn | FactoryReuse; }
 
 	using Upstream::alignment;
 	using Upstream::element_size;
 
-	~area_link_pattern()
-	{
-		release(factory_chain_free_release<Upstream>);
-	}
+	~area_link_pattern() { release(factory_chain_free_release<Upstream>); }
 
 	using Upstream::setup;
 
@@ -274,8 +271,8 @@ public:
 			release_list(m_root);
 			pointer at = m_reuse;
 			while (at != nullptr) {
-				release_list(reinterpret_cast<pointer>( at->h[0].p64 ));
-				pointer next = reinterpret_cast<pointer>( at->h[1].p64 );
+				release_list(reinterpret_cast<pointer>(at->h[0].p64));
+				pointer next = reinterpret_cast<pointer>(at->h[1].p64);
 				Upstream::destroy(at);
 				at = next;
 			}
@@ -287,15 +284,12 @@ public:
 	{
 		if (m_root != nullptr) {
 			push_reuse_list(m_root);
-			m_root =  nullptr;
+			m_root = nullptr;
 		}
 	}
 
 protected:
-	pointer root() noexcept
-	{
-		return m_root;
-	}
+	pointer root() noexcept { return m_root; }
 	void push_front(pointer at) noexcept
 	{
 		if (m_root) [[likely]] {
@@ -345,14 +339,14 @@ protected:
 			rnext->h[1].p64 = res->h[1].p64;
 			m_reuse = rnext;
 		} else {
-			m_reuse = reinterpret_cast<pointer>( res->h[1].p64 );
+			m_reuse = reinterpret_cast<pointer>(res->h[1].p64);
 		}
 		return res;
 	}
 	void release_list(pointer at)
 	{
 		while (at != nullptr) {
-			pointer next = reinterpret_cast<pointer>( at->h[0].p64 );
+			pointer next = reinterpret_cast<pointer>(at->h[0].p64);
 			Upstream::destroy(at);
 			at = next;
 		}
@@ -365,7 +359,8 @@ protected:
 
 namespace details {
 template <typename Area>
-constexpr bool area_valid_elem_size(size_t size, size_t align) noexcept
+constexpr bool
+area_valid_elem_size(size_t size, size_t align) noexcept
 {
 	if (!(std::popcount(align) == 1 && align <= alignof(max_align_t)))
 		return false;
@@ -378,9 +373,9 @@ constexpr bool area_valid_elem_size(size_t size, size_t align) noexcept
 } // namespace details
 
 /// @brief params for reshaping AreaFactory
-/// @tparam Fact 
-/// @tparam Size 
-/// @tparam Align 
+/// @tparam Fact
+/// @tparam Size
+/// @tparam Align
 template <AreaFactory Fact, size_t Size, size_t Align, size_t MinSize = 1>
 struct area_reshape
 {
@@ -416,7 +411,6 @@ protected:
 	uint32_t m_size = 0;
 	uint32_t m_align = 0;
 };
-
 
 } // namespace inx::memory
 

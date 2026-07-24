@@ -26,6 +26,7 @@ SOFTWARE.
 #define INXLIB_MEMORY_OBJECT_HPP
 
 #include <inxlib/inx.hpp>
+
 #include <inxlib/numeric/bits.hpp>
 
 #include <memory>

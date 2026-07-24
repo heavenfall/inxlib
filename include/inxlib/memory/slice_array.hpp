@@ -25,8 +25,6 @@ SOFTWARE.
 #ifndef INXLIB_MEMORY_SLICE_ARRAY_HPP
 #define INXLIB_MEMORY_SLICE_ARRAY_HPP
 
-#include <inxlib/inx.hpp>
-
 #include "slice_factory.hpp"
 
 #include <inxlib/numeric/bits.hpp>

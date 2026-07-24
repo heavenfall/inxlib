@@ -25,9 +25,8 @@ SOFTWARE.
 #ifndef INXLIB_MEMORY_FACTORY_POINTER_HPP
 #define INXLIB_MEMORY_FACTORY_POINTER_HPP
 
-#include <inxlib/inx.hpp>
-
 #include "factory.hpp"
+
 #include <memory_resource>
 
 namespace inx::memory {

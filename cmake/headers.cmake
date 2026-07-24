@@ -13,10 +13,10 @@ inxlib/io/transformers.hpp
 inxlib/memory/area_factory.hpp
 inxlib/memory/block_array.hpp
 inxlib/memory/block_factory.hpp
+inxlib/memory/bump_factory.hpp
 inxlib/memory/factory.hpp
 inxlib/memory/factory_adaptor.hpp
 inxlib/memory/factory_pointer.hpp
-inxlib/memory/indexed_factory.hpp
 inxlib/memory/object.hpp
 inxlib/memory/single_factory.hpp
 inxlib/memory/slice_array.hpp

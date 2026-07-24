@@ -25,12 +25,21 @@ SOFTWARE.
 #ifndef INXLIB_MEMORY_BLOCK_FACTORY_HPP
 #define INXLIB_MEMORY_BLOCK_FACTORY_HPP
 
-#include <inxlib/inx.hpp>
-
 #include "area_factory.hpp"
 #include "factory_adaptor.hpp"
 
 namespace inx::memory {
+
+/// @brief parameters for block_factory setup, when using 
+struct block_factory_params
+{
+	constexpr block_factory_params(size_t l_size, size_t l_align) :
+		size(l_size), align(l_align)
+	{ }
+	size_t size;
+	size_t align;
+};
+
 
 /**
  * Factory that generates area blocks for area-based factories.
@@ -100,6 +109,7 @@ protected:
 	uint32_t m_currentLeft = 0;
 	[[no_unique_address]] size_set m_size;
 };
+
 template <typename Upstream, typename T>
 using block_factory_type = block_factory<Upstream, sizeof(T), alignof(T)>;
 

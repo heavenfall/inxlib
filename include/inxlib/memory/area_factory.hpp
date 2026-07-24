@@ -22,10 +22,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#ifndef INXLIB_MEMORY_BUMP_FACTORY_HPP
-#define INXLIB_MEMORY_BUMP_FACTORY_HPP
-
-#include <inxlib/inx.hpp>
+#ifndef INXLIB_MEMORY_AREA_FACTORY_HPP
+#define INXLIB_MEMORY_AREA_FACTORY_HPP
 
 #include "factory.hpp"
 #include "factory_adaptor.hpp"
@@ -69,9 +67,25 @@ struct alignas(max_align_t) area_memory : area_memory_header
 	template <std::derived_from<area_memory_header> T>
 	constexpr T* cast() noexcept { return static_cast<T*>( static_cast<area_memory_header*>(this) ); }
 };
+
 template <typename T>
 using area_memory_type = area_memory<sizeof(T), alignof(T)>;
 using area_memory_bytes = area_memory<1, alignof(max_align_t)>;
+
+/// @brief Determine the size (in bytes) each area slab requires for number of Elements of Size in Area (area_memory_type,area_memory_bytes)
+/// @tparam Area
+template <size_t Size, typename Area = area_memory_bytes>
+constexpr size_t calc_area_size(size_t Elements) noexcept
+{
+	return Area::size_n(Elements);
+}
+
+/// @brief Determine the size (in bytes) of area_memory_type<ElementType> with number of Elements
+template <typename ElementType>
+constexpr size_t calc_area_size_type(size_t Elements) noexcept
+{
+	return area_memory_type<ElementType>::size_n(Elements);
+}
 
 struct area_factory_params
 {
@@ -349,17 +363,6 @@ protected:
 	pointer m_reuse = nullptr;
 };
 
-
-/// @brief parameters for block_factory setup, when using 
-struct block_factory_params
-{
-	constexpr block_factory_params(size_t l_size, size_t l_align) :
-		size(l_size), align(l_align)
-	{ }
-	size_t size;
-	size_t align;
-};
-
 namespace details {
 template <typename Area>
 constexpr bool area_valid_elem_size(size_t size, size_t align) noexcept
@@ -414,141 +417,7 @@ protected:
 	uint32_t m_align = 0;
 };
 
-/**
- * Factory that generates area blocks for area-based factories.
- * If AreaCount == 0, area_factory holds a dynamic size.
- */
-template <AreaFactory Upstream, ByteFactory Overflow = void_factory>
-class bump_factory : private overflow_pattern<Upstream, Overflow>
-{
-	using pattern = overflow_pattern<Upstream, Overflow>;
-public:
-	using upstream_factory = Upstream;
-	using value_type = std::byte;
-	using pointer = value_type*;
-	using size_type = size_t;
-	using area = typename pattern::value_type;
-	using typename pattern::overflow_type;
-
-	~bump_factory()
-	{
-		release(factory_chain_free_release<Upstream>);
-	}
-
-	static consteval uint32_t traits() noexcept { return FactoryOwn | FactoryNoFree; }
-
-	static consteval size_type alignment() noexcept { return area::align(); }
-	static consteval size_type element_size() noexcept { return Upstream::item_size(); }
-	
-	using pattern::setup;
-
-	[[nodiscard]] pointer allocate(size_type elems)
-	{
-		return allocate(elems, area::align());
-	}
-	[[nodiscard]] pointer allocate(size_type elems, size_type align)
-	{
-		if (elems <= Upstream::item_count() * Upstream::item_size() / 2) [[likely]] {
-			return allocate_bump(elems, align);
-		} else {
-			return allocate_overflow(elems);
-		}
-	}
-	void deallocate(pointer ptr[[maybe_unused]], size_type elems[[maybe_unused]])
-	{ }
-
-	void release(bool free_upstream = true)
-	{
-		if (free_upstream) {
-			area* a = m_currentArea;
-			while (a != nullptr) {
-				area* anext = static_cast<area*>( a->h[1].p64 );
-				delete_area_overflow(a);
-				a = anext;
-			}
-		}
-		m_bumpPtr = nullptr;
-		m_bumpSize = 0;
-		m_currentArea = nullptr;
-	}
-	void reclaim()
-	{
-		area* a = m_currentArea;
-		area* keep = nullptr;
-		while (a != nullptr) {
-			area* anext = reinterpret_cast<area*>(a->h[1].p64);
-			if (!keep && a->h[0].u64 == 0) {
-				a->h[1].p64 = nullptr;
-				keep = a;
-			} else {
-				delete_area_overflow(a);
-			}
-			a = anext;
-		}
-		m_bumpPtr = nullptr;
-		m_bumpSize = 0;
-		m_currentArea = keep;
-	}
-
-	upstream_factory& upstream() noexcept { return static_cast<upstream_factory&>(*this); }
-	const upstream_factory& upstream() const noexcept { return static_cast<const upstream_factory&>(*this); }
-
-	using pattern::overflow;
-
-protected:
-	void new_area()
-	{
-		area* a = pattern::create();
-		a->h[0].u64 = 0;
-		a->h[1].p64 = static_cast<void*>(m_currentArea);
-		m_currentArea = a;
-		m_bumpPtr = static_cast<void*>(&a->data[0]);
-		m_bumpSize = pattern::item_count() * pattern::item_size();
-	}
-	area* new_overflow(size_type elems)
-	{
-		assert(elems > (pattern::item_count() >> 1));
-		area* a = reinterpret_cast<area*>( pattern::overflow_allocate(area::size_n(elems)) );
-		a->h[0].u64 = elems;
-		a->h[1].p64 = static_cast<void*>(m_currentArea);
-		m_currentArea = a;
-		return a;
-	}
-	void delete_area_overflow(area* a)
-	{
-		if (size_type s = static_cast<size_type>(a->h[0].u64); s == 0) [[likely]] {
-			// area
-			pattern::destroy(a);
-		} else {
-			pattern::overflow_deallocate(reinterpret_cast<std::byte*>(a), area::size_n(s));
-		}
-	}
-	pointer allocate_bump(size_type elems, size_type align)
-	{
-		assert(elems <= (pattern::item_count() >> 1) && std::popcount(align) == 1 && align <= area::align());
-		void* p = align_adjust(align, element_size() * elems, m_bumpPtr, m_bumpSize);
-		if (p != nullptr) [[likely]]
-			return static_cast<pointer>(p);
-		new_area();
-		p = align_adjust(align, element_size() * elems, m_bumpPtr, m_bumpSize);
-		assert(p != nullptr);
-		return static_cast<pointer>(p);
-	}
-	pointer allocate_overflow(size_type elems)
-	{
-		// assume expected alignment is less or equal to area::align
-		assert(elems > (pattern::item_count() >> 1));
-		area* a = new_overflow(elems);
-		return reinterpret_cast<pointer>( &a->data[0] );
-	}
-
-protected:
-	void* m_bumpPtr = nullptr;
-	size_t m_bumpSize = 0;
-	area* m_currentArea = nullptr;
-	[[no_unique_address]] Overflow m_overflow;
-};
 
 } // namespace inx::memory
 
-#endif // INXLIB_MEMORY_BUMP_FACTORY_HPP
+#endif // INXLIB_MEMORY_AREA_FACTORY_HPP

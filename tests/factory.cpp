@@ -1,11 +1,14 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/generators/catch_generators.hpp>
+
 #include <inxlib/memory/factory.hpp>
 #include <inxlib/memory/source_factory.hpp>
 #include <inxlib/memory/factory_pointer.hpp>
 #include <inxlib/memory/single_factory.hpp>
 #include <inxlib/memory/area_factory.hpp>
 #include <inxlib/memory/block_factory.hpp>
+#include <inxlib/memory/bump_factory.hpp>
+
 #include <string_view>
 #include <vector>
 #include <set>

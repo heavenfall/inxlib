@@ -25,8 +25,6 @@ SOFTWARE.
 #ifndef INXLIB_MEMORY_FACTORY_ADAPTOR_HPP
 #define INXLIB_MEMORY_FACTORY_ADAPTOR_HPP
 
-#include <inxlib/inx.hpp>
-
 #include "factory.hpp"
 
 #include <inxlib/types.hpp>

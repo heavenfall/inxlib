@@ -25,8 +25,6 @@ SOFTWARE.
 #ifndef INXLIB_MEMORY_SINGLE_FACTORY_HPP
 #define INXLIB_MEMORY_SINGLE_FACTORY_HPP
 
-#include <inxlib/inx.hpp>
-
 #include "factory.hpp"
 
 #include <cstring>

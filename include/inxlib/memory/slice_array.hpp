@@ -26,8 +26,10 @@ SOFTWARE.
 #define INXLIB_MEMORY_SLICE_ARRAY_HPP
 
 #include <inxlib/inx.hpp>
-#include <inxlib/numeric/bits.hpp>
+
 #include "slice_factory.hpp"
+
+#include <inxlib/numeric/bits.hpp>
 
 namespace inx::memory {
 

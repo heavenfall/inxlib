@@ -27,6 +27,7 @@ SOFTWARE.
 
 #include <inxlib/inx.hpp>
 #include <inxlib/numeric/bits.hpp>
+
 #include <memory>
 
 namespace inx::memory {

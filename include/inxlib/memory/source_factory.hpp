@@ -26,8 +26,10 @@ SOFTWARE.
 #define INXLIB_MEMORY_SOURCE_FACTORY_HPP
 
 #include <inxlib/inx.hpp>
+
 #include "factory.hpp"
 #include "object.hpp"
+
 #include <cstdlib>
 #include <cstddef>
 #include <memory_resource>

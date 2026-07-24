@@ -26,6 +26,7 @@ SOFTWARE.
 #define INXLIB_MEMORY_BLOCK_FACTORY_HPP
 
 #include <inxlib/inx.hpp>
+
 #include "area_factory.hpp"
 #include "factory_adaptor.hpp"
 

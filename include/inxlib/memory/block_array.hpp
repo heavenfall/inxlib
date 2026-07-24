@@ -25,9 +25,11 @@ SOFTWARE.
 #ifndef INXLIB_MEMORY_BLOCK_ARRAY_HPP
 #define INXLIB_MEMORY_BLOCK_ARRAY_HPP
 
-#include <bit>
 #include <inxlib/inx.hpp>
+
 #include <inxlib/util/iterator.hpp>
+
+#include <bit>
 #include <memory_resource>
 #include <ranges>
 

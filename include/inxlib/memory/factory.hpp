@@ -26,6 +26,8 @@ SOFTWARE.
 #define INXLIB_MEMORY_FACTORY_HPP
 
 #include <inxlib/inx.hpp>
+
+#include <concepts>
 #include <cstddef>
 
 namespace inx::memory {

@@ -26,7 +26,9 @@ SOFTWARE.
 #define INXLIB_MEMORY_SLICE_FACTORY_HPP
 
 #include <inxlib/inx.hpp>
+
 #include <inxlib/numeric/bits.hpp>
+
 #include <memory_resource>
 
 namespace inx::memory {

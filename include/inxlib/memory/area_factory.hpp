@@ -26,10 +26,13 @@ SOFTWARE.
 #define INXLIB_MEMORY_BUMP_FACTORY_HPP
 
 #include <inxlib/inx.hpp>
-#include <inxlib/numeric/bits.hpp>
+
 #include "factory.hpp"
 #include "factory_adaptor.hpp"
 #include "object.hpp"
+
+#include <inxlib/numeric/bits.hpp>
+
 #include <memory>
 
 namespace inx::memory {

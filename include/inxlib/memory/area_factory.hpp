@@ -124,11 +124,12 @@ public:
 	static consteval size_type item_size() noexcept { return Area::size(); }
 	static consteval size_type item_count() noexcept { return AreaCount; }
 
-	template <typename... T>
-	constexpr bool setup(T&&... args)
-	{
-		return Upstream::setup(std::forward<T>(args)...);
-	}
+	using Upstream::setup;
+	// template <typename... T>
+	// constexpr bool setup(T&&... args)
+	// {
+	// 	return Upstream::setup(std::forward<T>(args)...);
+	// }
 
 	pointer create() { return reinterpret_cast<pointer>(Upstream::allocate(element_size())); }
 	void destroy(pointer ptr)
@@ -241,8 +242,6 @@ public:
 	using Upstream::element_size;
 
 	~area_link_pattern() { release(factory_chain_free_release<Upstream>); }
-
-	using Upstream::setup;
 
 	pointer create()
 	{

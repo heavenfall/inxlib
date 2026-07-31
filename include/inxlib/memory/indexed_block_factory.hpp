@@ -22,35 +22,46 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#ifndef INXLIB_MEMORY_BLOCK_FACTORY_HPP
-#define INXLIB_MEMORY_BLOCK_FACTORY_HPP
+#ifndef INXLIB_MEMORY_INDEXED_BLOCK_FACTORY_HPP
+#define INXLIB_MEMORY_INDEXED_BLOCK_FACTORY_HPP
 
 #include "area_factory.hpp"
 #include "factory_adaptor.hpp"
 
 namespace inx::memory {
 
-/// @brief parameters for block_factory setup, when using
-struct block_factory_params
+/// @brief parameters for indexed_block_factory setup, when using
+struct indexed_block_factory_params
 {
-	constexpr block_factory_params(size_t l_size, size_t l_align)
-	  : size(l_size)
+	constexpr indexed_block_factory_params(size_t l_elements, size_t l_size, size_t l_align)
+	  : elements(l_elements)
+	  , size(l_size)
 	  , align(l_align)
 	{
 	}
-	size_t size;
-	size_t align;
+	size_t elements; ///< number of elements in each area, area must support elements*size within align
+	size_t size; ///< size of each single item
+	size_t align; ///< alignment of each single item
 };
 
 /**
  * SingleFactory that sections off area blocks into set sized allocations.
+ * Similar to block_factory, except this one is indexable by pointer to area buffers.
+ * Use resize() to change number of elements, or use create() to append one additional element.
+ * Use item(i) to select the ith element, only assert checks for range thus undefined if out-of-range.
+ * 
  * If Size == 0: size is dynamically determined through setup.
  * Otherwise: set size and align at compile time.
+ * Elements == 0 makes elements defined, setup() returns false if elements do not fit on area.
+ * 
+ * @tparam Overflow the memory source of pointer to areas once greater than AreaCount
+ * @tparam AreaCount the number of areas to store in-class, takes 8*AreaCount of class size, supports max
+ *         of AreaCount * Elements of elements before invoking overflow allocations.
  */
-template <AreaFactory Upstream, size_t Size = 0, size_t Align = 0>
-class block_factory : private area_link_pattern<Upstream>
+template <AreaFactory Upstream, ByteFactory Overflow = void_factory, size_t AreaCount = 0, size_t Elements = 0, size_t Size = 0, size_t Align = 0>
+class indexed_block_factory : private area_link_pattern<overflow_pattern<Upstream, Overflow>>
 {
-	using pattern = area_link_pattern<Upstream>;
+	using pattern = area_link_pattern<overflow_pattern<Upstream, Overflow>>;
 	using size_set = area_reshape<Upstream, Size, Align>;
 
 public:
@@ -66,12 +77,14 @@ public:
 	static consteval size_type alignment() noexcept { return Align; }
 	static consteval size_type element_size() noexcept { return Size; }
 
+	/// @brief setup(std::tuple<OverflowParams>, ...)
 	template <typename... T>
 	constexpr bool setup(T&&... args)
 	    requires(!size_set::dynamic)
 	{
 		return pattern::setup(std::forward<T>(args)...);
 	}
+	/// @brief setup(block_factory_params, std::tuple<OverflowParams>, ...)
 	template <typename... T>
 	constexpr bool setup(block_factory_params param, T&&... args)
 	    requires(size_set::dynamic)
@@ -96,8 +109,30 @@ public:
 	}
 	void destroy(pointer ptr) {}
 
-	using pattern::release;
-	using pattern::reclaim;
+	/// @brief only releases memory calimed for reuse
+	/// @param free_upstream destorys memory upstream
+	void release(bool free_upstream = true)
+	{
+		if (free_upstream) {
+			release_list(m_root);
+			pointer at = m_reuse;
+			while (at != nullptr) {
+				release_list(reinterpret_cast<pointer>(at->h[0].p64));
+				pointer next = reinterpret_cast<pointer>(at->h[1].p64);
+				Upstream::destroy(at);
+				at = next;
+			}
+		}
+		m_root = nullptr;
+		m_reuse = nullptr;
+	}
+	void reclaim()
+	{
+		if (m_root != nullptr) {
+			push_reuse_list(m_root);
+			m_root = nullptr;
+		}
+	}
 
 	upstream_factory& upstream() noexcept { return static_cast<upstream_factory&>(*this); }
 	const upstream_factory& upstream() const noexcept { return static_cast<const upstream_factory&>(*this); }
@@ -114,6 +149,7 @@ protected:
 	uint32_t m_currentPos = 0;
 	uint32_t m_currentLeft = 0;
 	[[no_unique_address]] size_set m_size;
+	std::array<pointer, 1+AreaCount> m_areas = {};
 };
 
 template <typename Upstream, typename T>
@@ -121,4 +157,4 @@ using block_factory_type = block_factory<Upstream, sizeof(T), alignof(T)>;
 
 } // namespace inx::memory
 
-#endif // INXLIB_MEMORY_BLOCK_FACTORY_HPP
+#endif // INXLIB_MEMORY_INDEXED_BLOCK_FACTORY_HPP

@@ -27,14 +27,28 @@ SOFTWARE.
 
 #include "factory.hpp"
 
+#include "factory_adaptor.hpp"
+
 #include <cstring>
 #include <memory>
 
 namespace inx::memory {
 
+/**
+ * @brief Converts an ArrayFactory into a SingleFactory allocator
+ * @tparam Upstream upstream factory to pull allocations from
+ * @tparam Elems number of upstream elements to use for single create(), for ByteFactory will be size of object.
+ * @tparam Alignment alignment of object to create.
+ * 
+ * Converts an allocate() syntax into a create() for single elements.
+ * Pass 0,0 for Elems and Alignment to create a dynamic (run-time) setting of Elems and Alignment,
+ * params set through setup().
+ */
 template <ArrayFactory Upstream, size_t Elems, size_t Alignment = alignof(max_align_t)>
 class single_factory : private Upstream
 {
+	using size_set = dynamic_size<Elems, Alignment>;
+
 public:
 	static_assert(Elems != 0 && Alignment != 0, "Elems and Alignment must not be 0.");
 	using upstream_factory = Upstream;
@@ -47,11 +61,24 @@ public:
 	constexpr size_type alignment() noexcept { return Alignment; }
 	constexpr size_type element_size() noexcept { return Upstream::element_size() * Elems; }
 
+	/// @brief setup(...)
 	template <typename... T>
 	constexpr bool setup(T&&... args)
+	    requires(!size_set::dynamic)
 	{
-		return Upstream::setup(std::forward<T>(args)...);
+		if (!Upstream::setup(std::forward<T>(args)...))
+			return false;
+		return m_size.set(upstream());
 	}
+	template <typename... T>
+	constexpr bool setup(dynamic_factory_params param, T&&... args)
+	    requires(size_set::dynamic)
+	{
+		if (!Upstream::setup(std::forward<T>(args)...))
+			return false;
+		return m_size.set(upstream(), param.size, param.align);
+	}
+	
 
 	[[nodiscard]] pointer create()
 	{
@@ -72,6 +99,9 @@ public:
 
 	upstream_factory& upstream() noexcept { return static_cast<upstream_factory&>(*this); }
 	const upstream_factory& upstream() const noexcept { return static_cast<const upstream_factory&>(*this); }
+
+private:
+	[[no_unique_address]] size_set m_size;
 };
 template <ByteFactory Upstream, typename T>
 using single_factory_type = single_factory<Upstream, sizeof(T), alignof(T)>;

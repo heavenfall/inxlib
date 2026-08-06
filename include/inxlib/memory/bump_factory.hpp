@@ -38,6 +38,7 @@ template <AreaFactory Upstream, ByteFactory Overflow = void_factory>
 class bump_factory : private overflow_pattern<Upstream, Overflow>
 {
 	using pattern = overflow_pattern<Upstream, Overflow>;
+	using size_set = area_reshape<Upstream, 1, alignof(std::max_align_t)>;
 
 public:
 	using upstream_factory = Upstream;
@@ -51,12 +52,12 @@ public:
 
 	static consteval uint32_t traits() noexcept { return FactoryOwn | FactoryNoFree; }
 
-	static consteval size_type alignment() noexcept { return area::align(); }
-	static consteval size_type element_size() noexcept { return Upstream::item_size(); }
+	static consteval size_type alignment() noexcept { return size_set::align(); }
+	static consteval size_type element_size() noexcept { return size_set::size(); }
 
 	using pattern::setup;
 
-	[[nodiscard]] pointer allocate(size_type elems) { return allocate(elems, area::align()); }
+	[[nodiscard]] pointer allocate(size_type elems) { return allocate(elems, alignment()); }
 	[[nodiscard]] pointer allocate(size_type elems, size_type align)
 	{
 		if (elems <= Upstream::item_count() * Upstream::item_size() / 2) [[likely]] {
@@ -136,11 +137,11 @@ protected:
 	pointer allocate_bump(size_type elems, size_type align)
 	{
 		assert(elems <= (pattern::item_count() >> 1) && std::popcount(align) == 1 && align <= area::align());
-		void* p = align_adjust(align, element_size() * elems, m_bumpPtr, m_bumpSize);
+		void* p = align_adjust(align, elems, m_bumpPtr, m_bumpSize);
 		if (p != nullptr) [[likely]]
 			return static_cast<pointer>(p);
 		new_area();
-		p = align_adjust(align, element_size() * elems, m_bumpPtr, m_bumpSize);
+		p = align_adjust(align, elems, m_bumpPtr, m_bumpSize);
 		assert(p != nullptr);
 		return static_cast<pointer>(p);
 	}

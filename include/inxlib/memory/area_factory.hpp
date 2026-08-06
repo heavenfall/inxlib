@@ -363,7 +363,7 @@ area_valid_elem_size(size_t size, size_t align) noexcept
 {
 	if (!(std::popcount(align) == 1 && align <= alignof(max_align_t)))
 		return false;
-	if (!(size > 0 && size % align == 0))
+	if (!(size > 0 && (size < align || size % align == 0)))
 		return false;
 	if (!(size % Area::size() == 0))
 		return false;
@@ -380,23 +380,23 @@ struct area_reshape
 {
 	static constexpr bool dynamic = false;
 	static_assert(std::popcount(Align) == 1 && Align <= alignof(max_align_t), "Must be a valid alignment");
-	static_assert(Size > 0 && Size % Align == 0, "Size must be a multiple of Align");
+	static_assert(Size > 0 && (Size < Align || Size % Align == 0), "Size must be less than or a multiple of Align");
 	static_assert(Size % Fact::value_type::size() == 0, "Size must be a mulitple of Area::size()");
-	constexpr size_t header() noexcept { return Fact::value_type::size_header(); }
-	constexpr size_t size() noexcept { return std::max(Size, MinSize); }
-	constexpr size_t align() noexcept { return Align; }
-	constexpr size_t count(const Fact& F) noexcept { return Fact::value_type::size() * F.item_count() / size(); }
+	static constexpr size_t header() noexcept { return Fact::value_type::size_header(); }
+	static constexpr size_t size() noexcept { return std::max(Size, MinSize); }
+	static constexpr size_t align() noexcept { return Align; }
+	static constexpr size_t count(const Fact& F) noexcept { return static_cast<size_t>(Fact::value_type::size()) * F.item_count() / size(); }
 };
 template <AreaFactory Fact, size_t MinSize>
 struct area_reshape<Fact, 0, 0, MinSize>
 {
 	static constexpr bool dynamic = true;
-	constexpr size_t header() noexcept { return Fact::value_type::size_header(); }
+	static constexpr size_t header() noexcept { return Fact::value_type::size_header(); }
 	constexpr size_t size() noexcept { return m_size; }
 	constexpr size_t align() noexcept { return m_align; }
-	constexpr size_t count(const Fact& F) noexcept { return Fact::value_type::size() * F.item_count() / m_size; }
+	constexpr size_t count(const Fact& F) noexcept { return static_cast<size_t>(Fact::value_type::size()) * F.item_count() / m_size; }
 
-	bool set(uint32_t l_size, uint32_t l_align) noexcept
+	constexpr bool set(uint32_t l_size, uint32_t l_align) noexcept
 	{
 		l_size = std::max(l_size, static_cast<uint32_t>(MinSize));
 		if (!area_valid_elem_size<typename Fact::value_type>(l_size, l_align))

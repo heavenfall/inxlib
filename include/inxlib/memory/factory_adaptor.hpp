@@ -330,57 +330,71 @@ protected:
 };
 
 /// @brief params for setting optional dynamic size, use 0,0 for compile-time
-/// @tparam Elems > 0 means compile-time size
-/// @tparam Align > 0 means compile-time size
-template <size_t Elems, size_t Align, size_t MinSize = 1>
+/// @tparam Elems number of elements to allocate from upstream; > 0 means compile-time
+/// @tparam Align in bytes; > 0 means compile-time size
+template <size_t Elems, size_t Align, size_t MinElems = 1>
 struct dynamic_size
 {
 	static constexpr bool dynamic = false;
 	static_assert(std::popcount(Align) == 1 && Align <= alignof(max_align_t), "Must be a valid alignment");
-	static_assert(Elems > 0 && Elems % Align == 0, "Size must be a multiple of Align");
-	static_assert(Elems % Fact::value_type::size() == 0, "Size must be a mulitple of Area::size()");
-	constexpr size_t size() noexcept { return std::max(Size, MinSize); }
-	constexpr size_t align() noexcept { return Align; }
+	static_assert(Elems > 0 && MinElems > 0, "Elems must be greater than 0");
+	constexpr uint32_t elements() noexcept { return std::max(Elems, MinElems); }
+	constexpr uint32_t align() noexcept { return Align; }
 
-	constexpr bool set(const auto ArrayFactory& upstream)
+	/// @brief mainly a check that array can support size an align
+	bool set(const ArrayFactory auto& upstream)
 	{
-		return ((Elems * upstream.element_size()) % Align == 0);
+		const uint32_t s = elements() * upstream.element_size();
+		return Align <= upstream.alignment() && s > 0 && (s <= Align || s % Align == 0);
 	}
 
 };
-template <size_t MinSize>
-struct dynamic_size<0, 0, MinSize>
+template <size_t Align, size_t MinElems>
+struct dynamic_size<0, Align, MinElems>
 {
 	static constexpr bool dynamic = true;
-	constexpr size_t size() noexcept { return m_size; }
-	constexpr size_t align() noexcept { return m_align; }
+	constexpr uint32_t elements() noexcept { return m_size; }
+	constexpr uint32_t align() noexcept requires (Align != 0) { return Align; }
+	constexpr uint32_t align() noexcept requires (Align == 0) { return m_align; }
 
-	constexpr bool set(uint32_t l_size, uint32_t l_align) noexcept
+	bool set(const ArrayFactory auto& upstream, uint32_t l_size, uint32_t l_align) noexcept
 	{
-		l_size = std::max(l_size, static_cast<uint32_t>(MinSize));
-		if (l_size % upstream.element_size() != 0)
+		l_size = std::max(l_size, static_cast<uint32_t>(MinElems));
+		const uint32_t s = l_size * upstream.element_size();
+		if constexpr (Align == 0) {
+			if (l_align == 0) {
+				l_align = upstream.alignment();
+			} else {
+				if (std::popcount(l_align) != 1 || l_align > alignof(max_align_t))
+					return false; // invalid align
+				if (l_align > upstream.alignment())
+					return false; // align must fit into upstream alignment
+			}
+			m_align = l_align;
+		} else {
+			if (l_align != 0)
+				return false; // must not be set
+		}
+		if (s == 0 || !(s <= l_align || s % l_align == 0))
 			return false; // invalid size
-		if (std::popcount(l_align) != 1 || l_align > alignof(max_align_t) || l_size % l_align != 0)
-			return false; // invalid align
 		m_size = l_size;
-		m_align = l_align;
 		return true;
 	}
 
 protected:
 	uint32_t m_size = 0;
-	uint32_t m_align = 0;
+	uint32_t m_align = 0; ///< only used if align==0
 };
 
 /// @brief parameters for block_factory setup, when using
 struct dynamic_factory_params
 {
-	constexpr dynamic_factory_params(size_t l_size, size_t l_align)
-	  : size(l_size)
+	constexpr dynamic_factory_params(size_t l_elems, size_t l_align)
+	  : elems(l_elems)
 	  , align(l_align)
 	{
 	}
-	size_t size;
+	size_t elems;
 	size_t align;
 };
 

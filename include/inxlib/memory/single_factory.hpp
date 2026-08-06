@@ -50,7 +50,7 @@ class single_factory : private Upstream
 	using size_set = dynamic_size<Elems, Alignment>;
 
 public:
-	static_assert(Elems != 0 && Alignment != 0, "Elems and Alignment must not be 0.");
+	static_assert(Alignment != 0 || (Elems == 0 && Alignment == 0), "Alignment can only be 0 if elements are 0 (for dynamic).");
 	using upstream_factory = Upstream;
 	using typename Upstream::pointer;
 	using typename Upstream::size_type;
@@ -58,8 +58,8 @@ public:
 
 	static consteval uint32_t traits() noexcept { return FactoryDefault; }
 
-	constexpr size_type alignment() noexcept { return Alignment; }
-	constexpr size_type element_size() noexcept { return Upstream::element_size() * Elems; }
+	constexpr size_type alignment() noexcept { return m_size.align(); }
+	constexpr size_type element_size() noexcept { return Upstream::element_size() * m_size.elements(); }
 
 	/// @brief setup(...)
 	template <typename... T>
@@ -76,7 +76,7 @@ public:
 	{
 		if (!Upstream::setup(std::forward<T>(args)...))
 			return false;
-		return m_size.set(upstream(), param.size, param.align);
+		return m_size.set(upstream(), param.elems, param.align);
 	}
 	
 
@@ -97,8 +97,8 @@ public:
 		}
 	}
 
-	upstream_factory& upstream() noexcept { return static_cast<upstream_factory&>(*this); }
-	const upstream_factory& upstream() const noexcept { return static_cast<const upstream_factory&>(*this); }
+	constexpr upstream_factory& upstream() noexcept { return static_cast<upstream_factory&>(*this); }
+	constexpr const upstream_factory& upstream() const noexcept { return static_cast<const upstream_factory&>(*this); }
 
 private:
 	[[no_unique_address]] size_set m_size;

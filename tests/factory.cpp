@@ -102,9 +102,16 @@ TEST_CASE( "Basic factory check", "[factory]" ) {
 		using bump_factory = bump_factory<area_factory<malloc_factory, 256>>;
 		static_assert(ArrayFactory<bump_factory>, "bump_factory must be ArrayFactory");
 		single_factory_type<bump_factory, memb> ba;
+		single_factory<bump_factory, 0, 0> bb;
 		REQUIRE( ba.setup() );
+		REQUIRE( ba.element_size() == sizeof(memb) );
+		REQUIRE( ba.alignment() >= alignof(memb) );
+		REQUIRE( bb.setup(dynamic_factory_params(sizeof(int32_t), alignof(int32_t))) );
+		REQUIRE( bb.element_size() == sizeof(int32_t) );
+		REQUIRE( bb.alignment() >= alignof(int32_t) );
 		std::vector<memb*> ref;
-		constexpr int32_t TOTAL = 1024;
+		std::vector<int32_t*> refb;
+		constexpr int32_t TOTAL = 1024 * 16;
 
 		auto* big = reinterpret_cast<int32_t*>( ba.upstream().allocate(TOTAL * sizeof(int32_t)) );
 		for (int32_t i = 0; i < TOTAL; ++i) {
@@ -115,12 +122,17 @@ TEST_CASE( "Basic factory check", "[factory]" ) {
 			ptr->a = i;
 			ptr->b = i*i;
 			ref.push_back(ptr);
+			int32_t* ptrb = reinterpret_cast<int32_t*>( bb.create() );
+			*ptrb = i + i/2;
+			refb.push_back(ptrb);
 		}
 		for (int32_t i = 0; i < TOTAL; ++i) {
 			REQUIRE(big[i] == -i);
 			auto* ptr = ref[i];
 			REQUIRE(ptr->a == i);
 			REQUIRE(ptr->b == i*i);
+			auto* ptrb = refb[i];
+			REQUIRE(*ptrb == i + i/2);
 		}
 	}
 

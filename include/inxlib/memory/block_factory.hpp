@@ -96,8 +96,20 @@ public:
 	}
 	void destroy(pointer ptr) {}
 
-	using pattern::release;
-	using pattern::reclaim;
+	/// @brief only releases memory calimed for reuse
+	/// @param free_upstream destorys memory upstream
+	void release(bool free_upstream = true)
+	{
+		pattern::release(free_upstream);
+		m_currentPos = 0;
+		m_currentLeft = 0;
+	}
+	void reclaim()
+	{
+		pattern::reclaim();
+		m_currentPos = 0;
+		m_currentLeft = 0;
+	}
 
 	upstream_factory& upstream() noexcept { return static_cast<upstream_factory&>(*this); }
 	const upstream_factory& upstream() const noexcept { return static_cast<const upstream_factory&>(*this); }

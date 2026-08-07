@@ -113,25 +113,15 @@ public:
 	/// @param free_upstream destorys memory upstream
 	void release(bool free_upstream = true)
 	{
-		if (free_upstream) {
-			release_list(m_root);
-			pointer at = m_reuse;
-			while (at != nullptr) {
-				release_list(reinterpret_cast<pointer>(at->h[0].p64));
-				pointer next = reinterpret_cast<pointer>(at->h[1].p64);
-				Upstream::destroy(at);
-				at = next;
-			}
-		}
-		m_root = nullptr;
-		m_reuse = nullptr;
+		pattern::release(free_upstream);
+		m_currentPos = 0;
+		m_currentLeft = 0;
 	}
 	void reclaim()
 	{
-		if (m_root != nullptr) {
-			push_reuse_list(m_root);
-			m_root = nullptr;
-		}
+		pattern::reclaim();
+		m_currentPos = 0;
+		m_currentLeft = 0;
 	}
 
 	upstream_factory& upstream() noexcept { return static_cast<upstream_factory&>(*this); }

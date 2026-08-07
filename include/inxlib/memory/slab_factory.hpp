@@ -22,8 +22,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#ifndef INXLIB_MEMORY_AREA_FACTORY_HPP
-#define INXLIB_MEMORY_AREA_FACTORY_HPP
+#ifndef INXLIB_MEMORY_SLAB_FACTORY_HPP
+#define INXLIB_MEMORY_SLAB_FACTORY_HPP
 
 #include "factory.hpp"
 #include "factory_adaptor.hpp"
@@ -35,11 +35,11 @@ SOFTWARE.
 
 namespace inx::memory {
 
-struct area_memory_header
+struct slab_memory_header
 {};
 
 template <size_t Size, size_t Align>
-struct alignas(max_align_t) area_memory : area_memory_header
+struct alignas(max_align_t) slab_memory : slab_memory_header
 {
 	static_assert(Size != 0, "Size must be greater than 0.");
 	static_assert(inx::numeric::popcount(Align) == 1 && Align <= alignof(max_align_t),
@@ -57,45 +57,45 @@ struct alignas(max_align_t) area_memory : area_memory_header
 	consteval static size_t size() noexcept { return Size; }
 	consteval static size_t align() noexcept { return Align; }
 
-	consteval static size_t size_header() noexcept { return offsetof(area_memory, data); }
+	consteval static size_t size_header() noexcept { return offsetof(slab_memory, data); }
 	constexpr static size_t size_n(size_t elems) noexcept
 	{
 		return pad_alignment(size_header() + elems * Size, alignof(max_align_t));
 	}
 
-	template <std::derived_from<area_memory_header> T>
+	template <std::derived_from<slab_memory_header> T>
 	constexpr T* cast() noexcept
 	{
-		return static_cast<T*>(static_cast<area_memory_header*>(this));
+		return static_cast<T*>(static_cast<slab_memory_header*>(this));
 	}
 };
 
 template <typename T>
-using area_memory_type = area_memory<sizeof(T), alignof(T)>;
-using area_memory_bytes = area_memory<1, alignof(max_align_t)>;
+using slab_memory_type = slab_memory<sizeof(T), alignof(T)>;
+using slab_memory_bytes = slab_memory<1, alignof(max_align_t)>;
 
-/// @brief Determine the size (in bytes) each area slab requires for number of Elements of Size in Area
-/// (area_memory_type,area_memory_bytes)
-/// @tparam Area
-template <size_t Size, typename Area = area_memory_bytes>
+/// @brief Determine the size (in bytes) each slab slab requires for number of Elements of Size in Slab
+/// (slab_memory_type,slab_memory_bytes)
+/// @tparam Slab
+template <size_t Size, typename Slab = slab_memory_bytes>
 constexpr size_t
-calc_area_size(size_t Elements) noexcept
+calc_slab_size(size_t Elements) noexcept
 {
-	return Area::size_n(Elements);
+	return Slab::size_n(Elements);
 }
 
-/// @brief Determine the size (in bytes) of area_memory_type<ElementType> with number of Elements
+/// @brief Determine the size (in bytes) of slab_memory_type<ElementType> with number of Elements
 template <typename ElementType>
 constexpr size_t
-calc_area_size_type(size_t Elements) noexcept
+calc_slab_size_type(size_t Elements) noexcept
 {
-	return area_memory_type<ElementType>::size_n(Elements);
+	return slab_memory_type<ElementType>::size_n(Elements);
 }
 
-struct area_factory_params
+struct slab_factory_params
 {
-	area_factory_params() = default;
-	area_factory_params(size_t l_count, bool l_use_size = false)
+	slab_factory_params() = default;
+	slab_factory_params(size_t l_count, bool l_use_size = false)
 	  : count(l_count)
 	  , use_size(l_use_size)
 	{
@@ -105,24 +105,24 @@ struct area_factory_params
 };
 
 /**
- * Factory that generates area blocks for area-based factories.
- * If AreaCount == 0, area_factory holds a dynamic size.
+ * Factory that generates slab blocks for slab-based factories.
+ * If SlabCount == 0, slab_factory holds a dynamic size.
  */
-template <ByteFactory Upstream, size_t AreaCount, typename Area = area_memory_bytes>
-class area_factory : private Upstream
+template <ByteFactory Upstream, size_t SlabCount, typename Slab = slab_memory_bytes>
+class slab_factory : private Upstream
 {
 public:
 	using upstream_factory = Upstream;
-	using value_type = Area;
+	using value_type = Slab;
 	using pointer = value_type*;
 	using size_type = size_t;
 
 	static consteval uint32_t traits() noexcept { return FactoryDefault; }
 
-	static consteval size_type alignment() noexcept { return Area::align(); }
-	static consteval size_type element_size() noexcept { return Area::size_n(AreaCount); }
-	static consteval size_type item_size() noexcept { return Area::size(); }
-	static consteval size_type item_count() noexcept { return AreaCount; }
+	static consteval size_type alignment() noexcept { return Slab::align(); }
+	static consteval size_type element_size() noexcept { return Slab::size_n(SlabCount); }
+	static consteval size_type item_size() noexcept { return Slab::size(); }
+	static consteval size_type item_count() noexcept { return SlabCount; }
 
 	using Upstream::setup;
 	// template <typename... T>
@@ -140,30 +140,30 @@ public:
 	upstream_factory& upstream() noexcept { return static_cast<upstream_factory&>(*this); }
 	const upstream_factory& upstream() const noexcept { return static_cast<const upstream_factory&>(*this); }
 };
-template <ByteFactory Upstream, typename Area>
-class area_factory<Upstream, 0, Area> : private Upstream
+template <ByteFactory Upstream, typename Slab>
+class slab_factory<Upstream, 0, Slab> : private Upstream
 {
 public:
 	using upstream_factory = Upstream;
-	using value_type = Area;
+	using value_type = Slab;
 	using pointer = value_type*;
 	using size_type = size_t;
 
 	static consteval uint32_t traits() noexcept { return FactoryDefault; }
 
-	static consteval size_type alignment() noexcept { return Area::align(); }
+	static consteval size_type alignment() noexcept { return Slab::align(); }
 	size_type element_size() const noexcept { return m_elementSize; }
-	static consteval size_type item_size() noexcept { return Area::size(); }
+	static consteval size_type item_size() noexcept { return Slab::size(); }
 	size_type item_count() noexcept { return m_elementCount; }
 
-	constexpr area_factory() noexcept
-	  : area_factory(1024)
+	constexpr slab_factory() noexcept
+	  : slab_factory(1024)
 	{
 	}
-	constexpr area_factory(size_type elem_size) noexcept { element_size(elem_size); }
+	constexpr slab_factory(size_type elem_size) noexcept { element_size(elem_size); }
 
 	template <typename... T>
-	bool setup(area_factory_params params, T&&... args)
+	bool setup(slab_factory_params params, T&&... args)
 	{
 		if (!Upstream::setup(std::forward<T>(args)...))
 			return false;
@@ -184,15 +184,15 @@ public:
 
 	void element_size(size_type size)
 	{
-		size = std::max(size, static_cast<size_type>(Area::size_n(2)));
-		m_elementCount = (size - Area::size_header()) / Area::size();
-		m_elementSize = Area::size_n(m_elementCount);
+		size = std::max(size, static_cast<size_type>(Slab::size_n(2)));
+		m_elementCount = (size - Slab::size_header()) / Slab::size();
+		m_elementSize = Slab::size_n(m_elementCount);
 	}
 	void element_count(size_type count)
 	{
 		count = std::max(count, static_cast<size_type>(0));
 		m_elementCount = count;
-		m_elementSize = Area::size_n(count);
+		m_elementSize = Slab::size_n(count);
 		if (m_elementSize < 64) {
 			// set to 64
 			element_size(64);
@@ -209,27 +209,27 @@ protected:
 
 namespace details {
 template <typename T>
-struct is_AreaFactor : std::bool_constant<false>
+struct is_SlabFactory : std::bool_constant<false>
 {};
-template <typename Upstream, size_t AreaCount, typename Area>
-struct is_AreaFactor<area_factory<Upstream, AreaCount, Area>> : std::bool_constant<true>
+template <typename Upstream, size_t SlabCount, typename Slab>
+struct is_SlabFactory<slab_factory<Upstream, SlabCount, Slab>> : std::bool_constant<true>
 {};
 template <typename Upstream>
     requires FactoryTraitAll<Upstream, FactoryPointer> && FactoryTraitNone<Upstream, FactorySource>
-struct is_AreaFactor<Upstream> : is_AreaFactor<typename Upstream::upstream_factory>
+struct is_SlabFactory<Upstream> : is_SlabFactory<typename Upstream::upstream_factory>
 {};
 }; // namespace details
 
 template <typename T>
-concept AreaFactory = details::is_AreaFactor<T>::value;
+concept SlabFactory = details::is_SlabFactory<T>::value;
 
-/// @brief Add support to area_factory to manage a forward list of areas.
+/// @brief Add support to slab_factory to manage a forward list of slabs.
 ///        O(1) reclaim operations.
-///        area.h[0] and area.h[1] are managed by this adaptor.
+///        slab.h[0] and slab.h[1] are managed by this adaptor.
 /// @tparam Upstream
-template <AreaFactory Upstream>
+template <SlabFactory Upstream>
     requires FactoryTraitNone<Upstream, FactoryOwn>
-class area_link_pattern : public Upstream
+class slab_link_pattern : public Upstream
 {
 public:
 	using typename Upstream::pointer;
@@ -241,7 +241,7 @@ public:
 	using Upstream::alignment;
 	using Upstream::element_size;
 
-	~area_link_pattern() { release(factory_chain_free_release<Upstream>); }
+	~slab_link_pattern() { release(factory_chain_free_release<Upstream>); }
 
 	pointer create()
 	{
@@ -357,38 +357,38 @@ protected:
 };
 
 namespace details {
-template <typename Area>
+template <typename Slab>
 constexpr bool
-area_valid_elem_size(size_t size, size_t align) noexcept
+slab_valid_elem_size(size_t size, size_t align) noexcept
 {
 	if (!(std::popcount(align) == 1 && align <= alignof(max_align_t)))
 		return false;
 	if (!(size > 0 && (size < align || size % align == 0)))
 		return false;
-	if (!(size % Area::size() == 0))
+	if (!(size % Slab::size() == 0))
 		return false;
 	return true;
 }
 } // namespace details
 
-/// @brief params for reshaping AreaFactory
+/// @brief params for reshaping SlabFactory
 /// @tparam Fact
 /// @tparam Size
 /// @tparam Align
-template <AreaFactory Fact, size_t Size, size_t Align, size_t MinSize = 1>
-struct area_reshape
+template <SlabFactory Fact, size_t Size, size_t Align, size_t MinSize = 1>
+struct slab_reshape
 {
 	static constexpr bool dynamic = false;
 	static_assert(std::popcount(Align) == 1 && Align <= alignof(max_align_t), "Must be a valid alignment");
 	static_assert(Size > 0 && (Size < Align || Size % Align == 0), "Size must be less than or a multiple of Align");
-	static_assert(Size % Fact::value_type::size() == 0, "Size must be a mulitple of Area::size()");
+	static_assert(Size % Fact::value_type::size() == 0, "Size must be a mulitple of Slab::size()");
 	static constexpr size_t header() noexcept { return Fact::value_type::size_header(); }
 	static constexpr size_t size() noexcept { return std::max(Size, MinSize); }
 	static constexpr size_t align() noexcept { return Align; }
 	static constexpr size_t count(const Fact& F) noexcept { return static_cast<size_t>(Fact::value_type::size()) * F.item_count() / size(); }
 };
-template <AreaFactory Fact, size_t MinSize>
-struct area_reshape<Fact, 0, 0, MinSize>
+template <SlabFactory Fact, size_t MinSize>
+struct slab_reshape<Fact, 0, 0, MinSize>
 {
 	static constexpr bool dynamic = true;
 	static constexpr size_t header() noexcept { return Fact::value_type::size_header(); }
@@ -399,7 +399,7 @@ struct area_reshape<Fact, 0, 0, MinSize>
 	constexpr bool set(uint32_t l_size, uint32_t l_align) noexcept
 	{
 		l_size = std::max(l_size, static_cast<uint32_t>(MinSize));
-		if (!area_valid_elem_size<typename Fact::value_type>(l_size, l_align))
+		if (!slab_valid_elem_size<typename Fact::value_type>(l_size, l_align))
 			return false;
 		m_size = l_size;
 		m_align = l_align;
@@ -413,4 +413,4 @@ protected:
 
 } // namespace inx::memory
 
-#endif // INXLIB_MEMORY_AREA_FACTORY_HPP
+#endif // INXLIB_MEMORY_SLAB_FACTORY_HPP

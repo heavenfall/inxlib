@@ -25,7 +25,7 @@ SOFTWARE.
 #ifndef INXLIB_MEMORY_BLOCK_FACTORY_HPP
 #define INXLIB_MEMORY_BLOCK_FACTORY_HPP
 
-#include "area_factory.hpp"
+#include "slab_factory.hpp"
 #include "factory_adaptor.hpp"
 
 namespace inx::memory {
@@ -47,11 +47,11 @@ struct block_factory_params
  * If Size == 0: size is dynamically determined through setup.
  * Otherwise: set size and align at compile time.
  */
-template <AreaFactory Upstream, size_t Size = 0, size_t Align = 0>
-class block_factory : private area_link_pattern<Upstream>
+template <SlabFactory Upstream, size_t Size = 0, size_t Align = 0>
+class block_factory : private slab_link_pattern<Upstream>
 {
-	using pattern = area_link_pattern<Upstream>;
-	using size_set = area_reshape<Upstream, Size, Align>;
+	using pattern = slab_link_pattern<Upstream>;
+	using size_set = slab_reshape<Upstream, Size, Align>;
 
 public:
 	using upstream_factory = Upstream;

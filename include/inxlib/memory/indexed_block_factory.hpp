@@ -25,7 +25,7 @@ SOFTWARE.
 #ifndef INXLIB_MEMORY_INDEXED_BLOCK_FACTORY_HPP
 #define INXLIB_MEMORY_INDEXED_BLOCK_FACTORY_HPP
 
-#include "area_factory.hpp"
+#include "_factory.hpp"
 #include "factory_adaptor.hpp"
 
 namespace inx::memory {
@@ -54,15 +54,15 @@ struct indexed_block_factory_params
  * Otherwise: set size and align at compile time.
  * Elements == 0 makes elements defined, setup() returns false if elements do not fit on area.
  * 
- * @tparam Overflow the memory source of pointer to areas once greater than AreaCount
- * @tparam AreaCount the number of areas to store in-class, takes 8*AreaCount of class size, supports max
- *         of AreaCount * Elements of elements before invoking overflow allocations.
+ * @tparam Overflow the memory source of pointer to areas once greater than SlabCount
+ * @tparam SlabCount the number of areas to store in-class, takes 8*SlabCount of class size, supports max
+ *         of SlabCount * Elements of elements before invoking overflow allocations.
  */
-template <AreaFactory Upstream, ByteFactory Overflow = void_factory, size_t AreaCount = 0, size_t Elements = 0, size_t Size = 0, size_t Align = 0>
-class indexed_block_factory : private area_link_pattern<overflow_pattern<Upstream, Overflow>>
+template <SlabFactory Upstream, ByteFactory Overflow = void_factory, size_t SlabCount = 0, size_t Elements = 0, size_t Size = 0, size_t Align = 0>
+class indexed_block_factory : private slab_link_pattern<overflow_pattern<Upstream, Overflow>>
 {
-	using pattern = area_link_pattern<overflow_pattern<Upstream, Overflow>>;
-	using size_set = area_reshape<Upstream, Size, Align>;
+	using pattern = slab_link_pattern<overflow_pattern<Upstream, Overflow>>;
+	using size_set = slab_reshape<Upstream, Size, Align>;
 
 public:
 	using upstream_factory = Upstream;
@@ -149,7 +149,7 @@ protected:
 	uint32_t m_currentPos = 0;
 	uint32_t m_currentLeft = 0;
 	[[no_unique_address]] size_set m_size;
-	std::array<pointer, 1+AreaCount> m_areas = {};
+	std::array<pointer, 1+SlabCount> m_areas = {};
 };
 
 template <typename Upstream, typename T>

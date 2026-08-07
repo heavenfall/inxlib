@@ -25,20 +25,20 @@ SOFTWARE.
 #ifndef INXLIB_MEMORY_BUMP_FACTORY_HPP
 #define INXLIB_MEMORY_BUMP_FACTORY_HPP
 
-#include "area_factory.hpp"
+#include "slab_factory.hpp"
 #include "factory_adaptor.hpp"
 
 namespace inx::memory {
 
 /**
  * Factory that generates area blocks for area-based factories.
- * If AreaCount == 0, area_factory holds a dynamic size.
+ * If SlabCount == 0, area_factory holds a dynamic size.
  */
-template <AreaFactory Upstream, ByteFactory Overflow = void_factory>
+template <SlabFactory Upstream, ByteFactory Overflow = void_factory>
 class bump_factory : private overflow_pattern<Upstream, Overflow>
 {
 	using pattern = overflow_pattern<Upstream, Overflow>;
-	using size_set = area_reshape<Upstream, 1, alignof(std::max_align_t)>;
+	using size_set = slab_reshape<Upstream, 1, alignof(std::max_align_t)>;
 
 public:
 	using upstream_factory = Upstream;
@@ -71,7 +71,7 @@ public:
 	void release(bool free_upstream = true)
 	{
 		if (free_upstream) {
-			area* a = m_currentArea;
+			area* a = m_currentSlab;
 			while (a != nullptr) {
 				area* anext = static_cast<area*>(a->h[1].p64);
 				delete_area_overflow(a);
@@ -80,11 +80,11 @@ public:
 		}
 		m_bumpPtr = nullptr;
 		m_bumpSize = 0;
-		m_currentArea = nullptr;
+		m_currentSlab = nullptr;
 	}
 	void reclaim()
 	{
-		area* a = m_currentArea;
+		area* a = m_currentSlab;
 		area* keep = nullptr;
 		while (a != nullptr) {
 			area* anext = reinterpret_cast<area*>(a->h[1].p64);
@@ -98,7 +98,7 @@ public:
 		}
 		m_bumpPtr = nullptr;
 		m_bumpSize = 0;
-		m_currentArea = keep;
+		m_currentSlab = keep;
 	}
 
 	upstream_factory& upstream() noexcept { return static_cast<upstream_factory&>(*this); }
@@ -111,8 +111,8 @@ protected:
 	{
 		area* a = pattern::create();
 		a->h[0].u64 = 0;
-		a->h[1].p64 = static_cast<void*>(m_currentArea);
-		m_currentArea = a;
+		a->h[1].p64 = static_cast<void*>(m_currentSlab);
+		m_currentSlab = a;
 		m_bumpPtr = static_cast<void*>(&a->data[0]);
 		m_bumpSize = pattern::item_count() * pattern::item_size();
 	}
@@ -121,8 +121,8 @@ protected:
 		assert(elems > (pattern::item_count() >> 1));
 		area* a = reinterpret_cast<area*>(pattern::overflow_allocate(area::size_n(elems)));
 		a->h[0].u64 = elems;
-		a->h[1].p64 = static_cast<void*>(m_currentArea);
-		m_currentArea = a;
+		a->h[1].p64 = static_cast<void*>(m_currentSlab);
+		m_currentSlab = a;
 		return a;
 	}
 	void delete_area_overflow(area* a)
@@ -156,7 +156,7 @@ protected:
 protected:
 	void* m_bumpPtr = nullptr;
 	size_t m_bumpSize = 0;
-	area* m_currentArea = nullptr;
+	area* m_currentSlab = nullptr;
 	[[no_unique_address]] Overflow m_overflow;
 };
 

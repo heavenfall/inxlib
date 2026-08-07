@@ -5,7 +5,7 @@
 #include <inxlib/memory/source_factory.hpp>
 #include <inxlib/memory/factory_pointer.hpp>
 #include <inxlib/memory/single_factory.hpp>
-#include <inxlib/memory/area_factory.hpp>
+#include <inxlib/memory/slab_factory.hpp>
 #include <inxlib/memory/block_factory.hpp>
 #include <inxlib/memory/bump_factory.hpp>
 
@@ -82,13 +82,13 @@ TEST_CASE( "Basic factory check", "[factory]" ) {
 	}
 
 	SECTION( "area factory" ) {
-		using base_bump_factory = bump_factory<area_factory<malloc_factory, 0>>;
+		using base_bump_factory = bump_factory<slab_factory<malloc_factory, 0>>;
 		static_assert(ArrayFactory<base_bump_factory>, "bump_factory must be ArrayFactory");
 		base_bump_factory ba;
-		area_factory< factory_pointer<base_bump_factory>, 128, area_memory_type<memb> > a1;
-		area_factory< factory_pointer<base_bump_factory>, 256, area_memory_type<memc> > a2;
+		slab_factory< factory_pointer<base_bump_factory>, 128, slab_memory_type<memb> > a1;
+		slab_factory< factory_pointer<base_bump_factory>, 256, slab_memory_type<memc> > a2;
 
-		REQUIRE( ba.setup(area_factory_params(1024 * 128)) );
+		REQUIRE( ba.setup(slab_factory_params(1024 * 128)) );
 		REQUIRE( a1.setup(ba) );
 		REQUIRE( a2.setup(ba) );
 
@@ -99,7 +99,7 @@ TEST_CASE( "Basic factory check", "[factory]" ) {
 	}
 
 	SECTION( "bump factory" ) {
-		using bump_factory = bump_factory<area_factory<malloc_factory, 256>>;
+		using bump_factory = bump_factory<slab_factory<malloc_factory, 256>>;
 		static_assert(ArrayFactory<bump_factory>, "bump_factory must be ArrayFactory");
 		single_factory_type<bump_factory, memb> ba;
 		single_factory<bump_factory, 0, 0> bb;
@@ -137,7 +137,7 @@ TEST_CASE( "Basic factory check", "[factory]" ) {
 	}
 
 	SECTION( "block factory" ) {
-		using area_fact = area_factory<malloc_factory, 1024>;
+		using area_fact = slab_factory<malloc_factory, 1024>;
 		using block_fact_static = block_factory_type<factory_pointer<area_fact>, memc>;
 		static_assert(SingleFactory<block_fact_static>, "block_factory must be SingleFactory");
 		area_fact pool;
@@ -215,7 +215,7 @@ TEST_CASE( "Basic factory check", "[factory]" ) {
 		}
 		REQUIRE( invalid == 0 );
 
-		using bfactory = bump_factory< area_factory<malloc_factory, 4096> >;
+		using bfactory = bump_factory< slab_factory<malloc_factory, 4096> >;
 		buffer_factory<1024, bfactory> factory_bump;
 		factory_bump.setup();
 		valid = 0, invalid = 0;

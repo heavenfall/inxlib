@@ -117,7 +117,7 @@ Use `single_factory_type` for this, though the upstream must be a `ByteFactory`.
 If not using a `ByteFactory` upstream, the allocated size would be `Elems` times
 the size of upstream `value_type`.
 
-The other major shaping are the `AreaFactory` concept of factories, in `area_factory.hpp`.
+The other major shaping are the `SlabFactory` concept of factories, in `slab_factory.hpp`.
 These are detailed in their own section.
 
 ## Adaptors and Patterns
@@ -173,32 +173,32 @@ the user would normally have to allocated `Src` sepretatly between two seperate 
 
 This setup will have `fact_int` and `fact_double` both share `src` as their upstream.
 
-## Area Factory
+## Slab Factory
 
-The `AreaFactory` concept is a pattern factory described in `inx/memory/area_factory.hpp`.
-The class `area_factory` is a `SingleFactory`, it and its `pointer_factory` are the only `AreaFactory`.
-The `area_factory` allocates static-sized blocked of RAM of template type `Area[]` from upstream.
-The size is `AreaCount` number of `Area` types, plus 16 bytes of linkage for factory use.
+The `SlabFactory` concept is a pattern factory described in `inx/memory/slab_factory.hpp`.
+The class `slab_factory` is a `SingleFactory`, it and its `pointer_factory` are the only `SlabFactory`.
+The `slab_factory` allocates static-sized blocked of RAM of template type `Slab[]` from upstream.
+The size is `SlabCount` number of `Slab` types, plus 16 bytes of linkage for factory use.
 It is intended to be used as a common type of other factories that stores in blocks.
-Giving an `AreaCount` of 0 makes this factory a dynamic sized `AreaCount`, specified at runtime
+Giving an `SlabCount` of 0 makes this factory a dynamic sized `SlabCount`, specified at runtime
 through the setup function.
 
-The `Area` defaults to `area_memory_bytes`, with element size of 1 and align of `max_align_t` (16).
-Using `area_memory_type<T>` for specific type is also usable; although using the default is recommended.
-Factories down the link can resahpe the type, thus `area_memory_bytes` works properly.
+The `Slab` defaults to `slab_memory_bytes`, with element size of 1 and align of `max_align_t` (16).
+Using `slab_memory_type<T>` for specific type is also usable; although using the default is recommended.
+Factories down the link can resahpe the type, thus `slab_memory_bytes` works properly.
 
-The `area_link_pattern` makes an `AreaFactory` be `FactoryOwn` and `FactoryReuse`.
+The `slab_link_pattern` makes an `SlabFactory` be `FactoryOwn` and `FactoryReuse`.
 This pattern manages the linkage space, though allows for `release` and `reclaim`.
 
-The most basic use of of an `AreaFactory` is the `bump_factory`, a `ReclaimFactory`.
-This uses the overflow pattern on the `AreaFactory`, and creates a `ByteFactory` that allocates
-to `Area` chunks.
+The most basic use of of an `SlabFactory` is the `bump_factory`, a `ReclaimFactory`.
+This uses the overflow pattern on the `SlabFactory`, and creates a `ByteFactory` that allocates
+to `Slab` chunks.
 New allocations are put on chucks, making allocations mainly a pointer update.
-Once an area is used up, a new area is created from upstream.
-Large allocations (at least half size of area) that do not fit in a chuck allocate from overflow.
+Once an slab is used up, a new slab is created from upstream.
+Large allocations (at least half size of slab) that do not fit in a chuck allocate from overflow.
 
-The `block_factory` in `inx/memory/block_factory.hpp` takes an `AreaFactory` upstream,
-and similar to the `bump_factory`, splits those areas to its underlying type, except
+The `block_factory` in `inx/memory/block_factory.hpp` takes an `SlabFactory` upstream,
+and similar to the `bump_factory`, splits those slabs to its underlying type, except
 this is `SingleFactory` that allocates with `Size` and `Align`.
 
 # Example Usage
@@ -206,13 +206,13 @@ this is `SingleFactory` that allocates with `Size` and `Align`.
 An advance usage is a program having allocations from a common memory pool.
 This can be achived efficently from pointer allocations on a common `bump_factory`.
 
-	// area factory with support of 4MB of allocation chunks
-	using top_factory = bump_factory< area_factory<malloc_factory, 4 * 1024 * 1024> >;
+	// slab factory with support of 4MB of allocation chunks
+	using top_factory = bump_factory< slab_factory<malloc_factory, 4 * 1024 * 1024> >;
 	using top_pointer = factory_pointer<top_factory>;
 	
 	// new bump allocates that support 1008 byte blocks (16 reserved for pointer)
-	using byte_1024 = bump_factory< area_factory<top_pointer, 1024-16> >;
-	// a SingleFactory that allocates std::string_view, up to 512 per area block
+	using byte_1024 = bump_factory< slab_factory<top_pointer, 1024-16> >;
+	// a SingleFactory that allocates std::string_view, up to 512 per slab block
 	using sv_512 = block_factory_type<top_pointer, std::string_view>;
 
 	// setup factory

@@ -268,8 +268,6 @@ template <Factory Upstream, ByteFactory Overflow = void_factory>
 class overflow_pattern : public Upstream
 {
 public:
-	using typename Upstream::pointer;
-	using typename Upstream::size_type;
 	using overflow_type = Overflow;
 
 	template <Tuple OverflowTuple, typename... T>
@@ -288,8 +286,8 @@ public:
 	const overflow_type& overflow() const noexcept { return m_overflow; }
 
 protected:
-	constexpr pointer overflow_allocate(size_type elems) { return m_overflow.allocate(elems); }
-	constexpr void overflow_deallocate(pointer ptr, size_type elems) { return m_overflow.deallocate(ptr, elems); }
+	constexpr typename Overflow::pointer overflow_allocate(typename Overflow::size_type elems) { return m_overflow.allocate(elems); }
+	constexpr void overflow_deallocate(typename Overflow::pointer ptr, typename Overflow::size_type elems) { return m_overflow.deallocate(ptr, elems); }
 
 protected:
 	[[no_unique_address]] Overflow m_overflow;
@@ -300,9 +298,6 @@ template <Factory Upstream, ByteFactory Overflow>
 class overflow_pattern<Upstream, Overflow> : public Upstream
 {
 public:
-	using typename Upstream::pointer;
-	using typename Upstream::size_type;
-
 	using Upstream::Upstream;
 
 protected:
@@ -322,8 +317,8 @@ public:
 	const overflow_type& overflow() const noexcept { return overflow_upstream(Upstream::upstream()); }
 
 protected:
-	constexpr std::byte* overflow_allocate(size_type elems) { return overflow().allocate(elems); }
-	constexpr void overflow_deallocate(std::byte* ptr, size_type elems) { return overflow().deallocate(ptr, elems); }
+	constexpr typename Overflow::pointer overflow_allocate(typename Overflow::size_type elems) { return overflow().allocate(elems); }
+	constexpr void overflow_deallocate(typename Overflow::pointer ptr, typename Overflow::size_type elems) { return overflow().deallocate(ptr, elems); }
 
 protected:
 	[[no_unique_address]] Overflow m_overflow;

@@ -31,6 +31,7 @@ SOFTWARE.
 
 #include <inxlib/numeric/bits.hpp>
 
+#include <concepts>
 #include <memory>
 
 namespace inx::memory {
@@ -385,6 +386,10 @@ struct slab_reshape
 	static constexpr size_t header() noexcept { return Fact::value_type::size_header(); }
 	static constexpr size_t size() noexcept { return std::max(Size, MinSize); }
 	static constexpr size_t align() noexcept { return Align; }
+
+	static constexpr size_t count() noexcept
+		requires requires { Fact::item_count(); }
+	{ return static_cast<size_t>(Fact::value_type::size()) * Fact::item_count() / size(); }
 	static constexpr size_t count(const Fact& F) noexcept { return static_cast<size_t>(Fact::value_type::size()) * F.item_count() / size(); }
 };
 template <SlabFactory Fact, size_t MinSize>
@@ -392,14 +397,14 @@ struct slab_reshape<Fact, 0, 0, MinSize>
 {
 	static constexpr bool dynamic = true;
 	static constexpr size_t header() noexcept { return Fact::value_type::size_header(); }
-	constexpr size_t size() noexcept { return m_size; }
-	constexpr size_t align() noexcept { return m_align; }
-	constexpr size_t count(const Fact& F) noexcept { return static_cast<size_t>(Fact::value_type::size()) * F.item_count() / m_size; }
+	constexpr size_t size() const noexcept { return m_size; }
+	constexpr size_t align() const noexcept { return m_align; }
+	constexpr size_t count(const Fact& F) const noexcept { return static_cast<size_t>(Fact::value_type::size()) * F.item_count() / m_size; }
 
 	constexpr bool set(uint32_t l_size, uint32_t l_align) noexcept
 	{
 		l_size = std::max(l_size, static_cast<uint32_t>(MinSize));
-		if (!slab_valid_elem_size<typename Fact::value_type>(l_size, l_align))
+		if (!details::slab_valid_elem_size<typename Fact::value_type>(l_size, l_align))
 			return false;
 		m_size = l_size;
 		m_align = l_align;
@@ -409,6 +414,49 @@ struct slab_reshape<Fact, 0, 0, MinSize>
 protected:
 	uint32_t m_size = 0;
 	uint32_t m_align = 0;
+};
+
+namespace details
+{
+
+template <typename Reshape>
+concept SlabReshapeCountConstexpr = requires(Reshape re) {
+	requires !Reshape::dynamic;
+	{ Reshape::count() } -> std::convertible_to<size_t>;
+	typename std::integral_constant<size_t, Reshape::count()>;
+};
+
+} // namespace details
+
+/// @brief cache the Reshape.count() value, for consteval stores no value
+template <typename Reshape, typename Fact>
+struct ReshapeCountCache
+{
+	void set(const Reshape& re, const Fact& fact) noexcept
+	{
+		m_val = static_cast<uint32_t>(re.count(fact));
+	}
+
+	uint32_t operator*() const noexcept
+	{
+		assert(m_val != 0);
+		return m_val;
+	}
+
+	uint32_t m_val = 0;
+};
+
+template <details::SlabReshapeCountConstexpr Reshape, typename Fact>
+struct ReshapeCountCache<Reshape, Fact>
+{
+	/// @brief does nothing
+	constexpr void set(const Reshape& re, const Fact& fact) noexcept
+	{ }
+
+	constexpr uint32_t operator*() const noexcept
+	{
+		return Reshape::count();
+	}
 };
 
 } // namespace inx::memory

@@ -25,7 +25,7 @@ SOFTWARE.
 #ifndef INXLIB_MEMORY_INDEXED_BLOCK_FACTORY_HPP
 #define INXLIB_MEMORY_INDEXED_BLOCK_FACTORY_HPP
 
-#include "_factory.hpp"
+#include "factory.hpp"
 #include "factory_adaptor.hpp"
 
 namespace inx::memory {
@@ -33,16 +33,16 @@ namespace inx::memory {
 /// @brief parameters for indexed_block_factory setup, when using
 struct indexed_block_factory_params
 {
-	constexpr indexed_block_factory_params(size_t l_elements, size_t l_size, size_t l_align)
-	  : elements(l_elements)
-	  , size(l_size)
+	constexpr indexed_block_factory_params(size_t l_size, size_t l_align) noexcept
+	  : size(l_size)
 	  , align(l_align)
 	{
 	}
-	size_t elements; ///< number of elements in each area, area must support elements*size within align
 	size_t size; ///< size of each single item
 	size_t align; ///< alignment of each single item
 };
+template <typename T>
+constexpr indexed_block_factory_params indexed_block_factory_params_type = indexed_block_factory_params(sizeof(T), alignof(T));
 
 /**
  * SingleFactory that sections off area blocks into set sized allocations.
@@ -56,9 +56,9 @@ struct indexed_block_factory_params
  * 
  * @tparam Overflow the memory source of pointer to areas once greater than SlabCount
  * @tparam SlabCount the number of areas to store in-class, takes 8*SlabCount of class size, supports max
- *         of SlabCount * Elements of elements before invoking overflow allocations.
+ *         of SlabCount slabs before invoking overflow allocations.
  */
-template <SlabFactory Upstream, ByteFactory Overflow = void_factory, size_t SlabCount = 0, size_t Elements = 0, size_t Size = 0, size_t Align = 0>
+template <SlabFactory Upstream, ByteFactory Overflow = void_factory, size_t SlabCount = 0, size_t Size = 0, size_t Align = 0>
 class indexed_block_factory : private slab_link_pattern<overflow_pattern<Upstream, Overflow>>
 {
 	using pattern = slab_link_pattern<overflow_pattern<Upstream, Overflow>>;
@@ -72,6 +72,11 @@ public:
 	using area = upstream_factory::value_type;
 
 public:
+	~indexed_block_factory()
+	{
+		release();
+	}
+
 	static consteval uint32_t traits() noexcept { return FactoryOwn | FactoryNoFree; }
 
 	static consteval size_type alignment() noexcept { return Align; }
@@ -82,17 +87,29 @@ public:
 	constexpr bool setup(T&&... args)
 	    requires(!size_set::dynamic)
 	{
-		return pattern::setup(std::forward<T>(args)...);
+		if (!pattern::setup(std::forward<T>(args)...))
+			return false;
+		m_slabCount.set(m_slabSet, upstream());
+		m_slabs[0] = reinterpret_cast<pointer>(&m_slabs[1]);
+		m_size = 0;
+		m_slabSize = 0;
+		m_slabCapacity = SlabCount;
+		return true;
 	}
 	/// @brief setup(block_factory_params, std::tuple<OverflowParams>, ...)
 	template <typename... T>
-	constexpr bool setup(block_factory_params param, T&&... args)
+	constexpr bool setup(indexed_block_factory_params param, T&&... args)
 	    requires(size_set::dynamic)
 	{
 		if (!pattern::setup(std::forward<T>(args)...))
 			return false;
-		if (!m_size.set(param.size, param.align))
+		if (!m_slabSet.set(param.size, param.align))
 			return false;
+		m_slabCount.set(m_slabSet, upstream());
+		m_slabs[0] = reinterpret_cast<pointer>(&m_slabs[1]);
+		m_size = 0;
+		m_slabSize = 0;
+		m_slabCapacity = SlabCount;
 		return true;
 	}
 
@@ -103,8 +120,9 @@ public:
 		}
 		assert(m_currentLeft > 0);
 		pointer ptr = reinterpret_cast<pointer>(pattern::root()) + m_currentPos;
-		m_currentPos += m_size.size();
+		m_currentPos += m_slabSet.size();
 		m_currentLeft -= 1;
+		m_size += 1;
 		return ptr;
 	}
 	void destroy(pointer ptr) {}
@@ -113,37 +131,136 @@ public:
 	/// @param free_upstream destorys memory upstream
 	void release(bool free_upstream = true)
 	{
-		pattern::release(free_upstream);
+		if (m_slabSize > SlabCount)
+		{
+			pattern::overflow_deallocate(m_slabs[0], sizeof(pointer) * m_slabCapacity);
+		}
 		m_currentPos = 0;
 		m_currentLeft = 0;
+		m_size = 0;
+		m_slabSize = 0;
+		m_slabs = {};
+		m_slabs[0] = reinterpret_cast<pointer>(&m_slabs[1]);
+		pattern::release(free_upstream);
 	}
 	void reclaim()
 	{
-		pattern::reclaim();
 		m_currentPos = 0;
 		m_currentLeft = 0;
+		m_size = 0;
+		m_slabSize = 0;
+		pattern::reclaim();
+	}
+
+	size_type size() const noexcept { return m_size; }
+
+	void resize(size_type items) noexcept
+	{
+		const uint32_t sc = *m_slabCount;
+		uint32_t slab_id = (items + (sc-1)) / sc;
+		uint32_t slab_index = items % sc;
+		slab_resize(slab_id);
+		m_size = items;
+		m_currentPos = size_set::header() + slab_index * m_slabSet.size();
+		m_currentLeft = *m_slabCount - slab_index;
+	}
+
+	/// @brief get element by index without checking, undefined if index > size()
+	pointer get(size_type index) const noexcept
+	{
+		uint32_t slab_id = index / *m_slabCount;
+		uint32_t slab_index = index % *m_slabCount;
+		assert(slab_id < m_slabCapacity);
+		return get_slabs()[slab_id] + slab_index * m_slabSet.size();
+	}
+	pointer get_if(size_type index) const noexcept
+	{
+		uint32_t slab_id = index / *m_slabCount;
+		uint32_t slab_index = index % *m_slabCount;
+		if (slab_id < m_slabCapacity) {
+			return get_slabs()[slab_id] + slab_index * m_slabSet.size();
+		} else {
+			return nullptr;
+		}
+	}
+	pointer at(size_type index) const
+	{
+		uint32_t slab_id = index / *m_slabCount;
+		uint32_t slab_index = index % *m_slabCount;
+		if (slab_id < m_slabCapacity) {
+			return get_slabs()[slab_id] + slab_index * m_slabSet.size();
+		} else {
+			throw std::out_of_range("index");
+		}
 	}
 
 	upstream_factory& upstream() noexcept { return static_cast<upstream_factory&>(*this); }
 	const upstream_factory& upstream() const noexcept { return static_cast<const upstream_factory&>(*this); }
 
 protected:
+	pointer* get_slabs() const noexcept
+	{
+		return reinterpret_cast<pointer*>(m_slabs[0]);
+	}
+
+	/// @brief allocate slabs 
+	/// @param amount 
+	void slab_resize(uint32_t amount)
+	{
+		if (amount >= m_slabCapacity)
+		{
+			// update m_slabs to new size
+			uint32_t new_cap = std::max(amount, uint32_t(m_slabCapacity*2));
+			assert(new_cap > SlabCount);
+			pointer* new_ptr = reinterpret_cast<pointer*>( pattern::overflow_allocate(sizeof(pointer) * new_cap) );
+			std::copy_n(get_slabs(), m_slabSize, new_ptr);
+			// fill zero
+			std::fill(new_ptr + m_slabSize, new_ptr + new_cap, nullptr);
+			// delete old allocation
+			if (m_slabCapacity > SlabCount) // if not stored in heap, deallocate
+			{
+				assert(get_slabs() != nullptr);
+				pattern::overflow_deallocate(m_slabs[0], sizeof(pointer) * m_slabCapacity);
+			}
+			// create new slabs
+			m_slabCapacity = new_cap;
+			m_slabs[0] = reinterpret_cast<pointer>(new_ptr);
+		}
+		pointer* slabs = get_slabs();
+		if (amount > m_slabSize) {
+			// create new slabs
+			for (uint32_t i = m_slabSize; i < amount; ++i) {
+				slabs[i] = reinterpret_cast<pointer>(pattern::create()) + size_set::header();
+			}
+		} else if (amount < m_slabSize) {
+			// destroy old slabs
+			for (uint32_t i = m_slabSize; i > amount; --i) {
+				pattern::destroy( reinterpret_cast<typename pattern::pointer>(std::exchange(slabs[--i], nullptr)) );
+			}
+		}
+		m_slabSize = amount;
+	}
+
 	void new_root() noexcept
 	{
-		pattern::create();
-		m_currentPos = m_size.header();
-		m_currentLeft = m_size.count(upstream());
+		slab_resize(m_slabSize + 1);
+		m_currentPos = size_set::header();
+		m_currentLeft = *m_slabCount;
 	}
 
 protected:
+	uint32_t m_size = 0;
+	uint32_t m_slabSize = 0;
+	uint32_t m_slabCapacity = 0;
 	uint32_t m_currentPos = 0;
 	uint32_t m_currentLeft = 0;
-	[[no_unique_address]] size_set m_size;
-	std::array<pointer, 1+SlabCount> m_areas = {};
+	[[no_unique_address]] ReshapeCountCache<size_set, upstream_factory> m_slabCount = {};
+	[[no_unique_address]] size_set m_slabSet;
+	std::array<pointer, 1+SlabCount> m_slabs = {};
 };
 
-template <typename Upstream, typename T>
-using block_factory_type = block_factory<Upstream, sizeof(T), alignof(T)>;
+template <typename T, SlabFactory Upstream, ByteFactory Overflow = void_factory, size_t SlabCount = 0>
+using indexed_block_factory_type = indexed_block_factory<Upstream, Overflow, SlabCount, sizeof(T), alignof(T)>;
 
 } // namespace inx::memory
 

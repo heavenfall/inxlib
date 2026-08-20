@@ -8,6 +8,7 @@
 #include <inxlib/memory/slab_factory.hpp>
 #include <inxlib/memory/block_factory.hpp>
 #include <inxlib/memory/bump_factory.hpp>
+#include <inxlib/memory/indexed_block_factory.hpp>
 
 #include <string_view>
 #include <vector>
@@ -138,7 +139,7 @@ TEST_CASE( "Basic factory check", "[factory]" ) {
 
 	SECTION( "block factory" ) {
 		using area_fact = slab_factory<malloc_factory, 1024>;
-		using block_fact_static = block_factory_type<factory_pointer<area_fact>, memc>;
+		using block_fact_static = block_factory_type<memc, factory_pointer<area_fact>>;
 		static_assert(SingleFactory<block_fact_static>, "block_factory must be SingleFactory");
 		area_fact pool;
 		REQUIRE( pool.setup() );
@@ -238,6 +239,96 @@ TEST_CASE( "Basic factory check", "[factory]" ) {
 				invalid += 1;
 		}
 		REQUIRE( invalid == 0 );
+	}
+
+	SECTION( "indexed block factory" ) {
+		using area_fact = slab_factory<malloc_factory, 1024>;
+		using indexed_fact = indexed_block_factory_type<memc, factory_pointer<area_fact>>;
+		static_assert(SingleFactory<indexed_fact>, "block_factory must be SingleFactory");
+		area_fact pool;
+		REQUIRE( pool.setup() );
+		indexed_fact ba;
+		REQUIRE( ba.setup(pool) );
+		std::vector<memc*> ref;
+		constexpr int32_t TOTAL = 1024;
+		std::set<memc*> alloc;
+
+		// allocate inital 1024 elements one-at-a-time
+		for (int32_t i = 0; i < TOTAL; ++i) {
+			memc* v = reinterpret_cast<memc*>(ba.create());
+			v->a = i;
+			v->b = i*i;
+			REQUIRE_FALSE( alloc.contains(v) );
+			alloc.insert(v);
+			ref.push_back(v);
+		}
+		REQUIRE( ba.size() == TOTAL );
+		// check previous allocations
+		for (int32_t i = 0; i < TOTAL; ++i) {
+			memc* v = reinterpret_cast<memc*>(ba.get_if(i));
+			REQUIRE( v == ref[i] );
+			REQUIRE( v->a == i );
+			REQUIRE( v->b == (i*i) );
+		}
+		constexpr int32_t TOTAL2 = 10 * TOTAL;
+		ba.resize(TOTAL2);
+		for (int32_t i = 0; i < TOTAL; ++i) {
+			memc* v = reinterpret_cast<memc*>(ba.get_if(i));
+			REQUIRE( v == ref[i] );
+		}
+		for (int32_t i = TOTAL; i < TOTAL2; ++i) {
+			memc* v = reinterpret_cast<memc*>(ba.get_if(i));
+			v->a = i;
+			v->b = i*i;
+			REQUIRE_FALSE( alloc.contains(v) );
+			alloc.insert(v);
+			ref.push_back(v);
+		}
+	}
+
+	SECTION( "runtime indexed block factory" ) {
+		using area_fact = slab_factory<malloc_factory, 1024>;
+		using indexed_fact = indexed_block_factory<factory_pointer<area_fact>, malloc_factory>;
+		static_assert(SingleFactory<indexed_fact>, "block_factory must be SingleFactory");
+		area_fact pool;
+		REQUIRE( pool.setup() );
+		indexed_fact ba;
+		REQUIRE( ba.setup(indexed_block_factory_params_type<memc>, std::tuple<>(), pool) );
+		std::vector<memc*> ref;
+		constexpr int32_t TOTAL = 1024;
+		std::set<memc*> alloc;
+
+		// allocate inital 1024 elements one-at-a-time
+		for (int32_t i = 0; i < TOTAL; ++i) {
+			memc* v = reinterpret_cast<memc*>(ba.create());
+			v->a = i;
+			v->b = i*i;
+			REQUIRE_FALSE( alloc.contains(v) );
+			alloc.insert(v);
+			ref.push_back(v);
+		}
+		REQUIRE( ba.size() == TOTAL );
+		// check previous allocations
+		for (int32_t i = 0; i < TOTAL; ++i) {
+			memc* v = reinterpret_cast<memc*>(ba.get_if(i));
+			REQUIRE( v == ref[i] );
+			REQUIRE( v->a == i );
+			REQUIRE( v->b == (i*i) );
+		}
+		constexpr int32_t TOTAL2 = 10 * TOTAL;
+		ba.resize(TOTAL2);
+		for (int32_t i = 0; i < TOTAL; ++i) {
+			memc* v = reinterpret_cast<memc*>(ba.get_if(i));
+			REQUIRE( v == ref[i] );
+		}
+		for (int32_t i = TOTAL; i < TOTAL2; ++i) {
+			memc* v = reinterpret_cast<memc*>(ba.get_if(i));
+			v->a = i;
+			v->b = i*i;
+			REQUIRE_FALSE( alloc.contains(v) );
+			alloc.insert(v);
+			ref.push_back(v);
+		}
 	}
 }
 

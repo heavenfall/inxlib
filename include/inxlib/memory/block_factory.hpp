@@ -41,6 +41,8 @@ struct block_factory_params
 	size_t size;
 	size_t align;
 };
+template <typename T>
+constexpr block_factory_params block_factory_params_type = block_factory_params(sizeof(T), alignof(T));
 
 /**
  * SingleFactory that sections off area blocks into set sized allocations.
@@ -128,7 +130,7 @@ protected:
 	[[no_unique_address]] size_set m_size;
 };
 
-template <typename Upstream, typename T>
+template <typename T, typename Upstream>
 using block_factory_type = block_factory<Upstream, sizeof(T), alignof(T)>;
 
 } // namespace inx::memory

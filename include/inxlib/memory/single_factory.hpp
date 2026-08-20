@@ -39,7 +39,7 @@ namespace inx::memory {
  * @tparam Upstream upstream factory to pull allocations from
  * @tparam Elems number of upstream elements to use for single create(), for ByteFactory will be size of object.
  * @tparam Alignment alignment of object to create.
- * 
+ *
  * Converts an allocate() syntax into a create() for single elements.
  * Pass 0,0 for Elems and Alignment to create a dynamic (run-time) setting of Elems and Alignment,
  * params set through setup().
@@ -50,7 +50,8 @@ class single_factory : private Upstream
 	using size_set = dynamic_size<Elems, Alignment>;
 
 public:
-	static_assert(Alignment != 0 || (Elems == 0 && Alignment == 0), "Alignment can only be 0 if elements are 0 (for dynamic).");
+	static_assert(Alignment != 0 || (Elems == 0 && Alignment == 0),
+	              "Alignment can only be 0 if elements are 0 (for dynamic).");
 	using upstream_factory = Upstream;
 	using typename Upstream::pointer;
 	using typename Upstream::size_type;
@@ -78,7 +79,6 @@ public:
 			return false;
 		return m_size.set(upstream(), param.elems, param.align);
 	}
-	
 
 	[[nodiscard]] pointer create()
 	{

@@ -25,8 +25,8 @@ SOFTWARE.
 #ifndef INXLIB_MEMORY_BLOCK_FACTORY_HPP
 #define INXLIB_MEMORY_BLOCK_FACTORY_HPP
 
-#include "slab_factory.hpp"
 #include "factory_adaptor.hpp"
+#include "slab_factory.hpp"
 
 namespace inx::memory {
 

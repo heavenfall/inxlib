@@ -286,8 +286,14 @@ public:
 	const overflow_type& overflow() const noexcept { return m_overflow; }
 
 protected:
-	constexpr typename Overflow::pointer overflow_allocate(typename Overflow::size_type elems) { return m_overflow.allocate(elems); }
-	constexpr void overflow_deallocate(typename Overflow::pointer ptr, typename Overflow::size_type elems) { return m_overflow.deallocate(ptr, elems); }
+	constexpr typename Overflow::pointer overflow_allocate(typename Overflow::size_type elems)
+	{
+		return m_overflow.allocate(elems);
+	}
+	constexpr void overflow_deallocate(typename Overflow::pointer ptr, typename Overflow::size_type elems)
+	{
+		return m_overflow.deallocate(ptr, elems);
+	}
 
 protected:
 	[[no_unique_address]] Overflow m_overflow;
@@ -317,8 +323,14 @@ public:
 	const overflow_type& overflow() const noexcept { return overflow_upstream(Upstream::upstream()); }
 
 protected:
-	constexpr typename Overflow::pointer overflow_allocate(typename Overflow::size_type elems) { return overflow().allocate(elems); }
-	constexpr void overflow_deallocate(typename Overflow::pointer ptr, typename Overflow::size_type elems) { return overflow().deallocate(ptr, elems); }
+	constexpr typename Overflow::pointer overflow_allocate(typename Overflow::size_type elems)
+	{
+		return overflow().allocate(elems);
+	}
+	constexpr void overflow_deallocate(typename Overflow::pointer ptr, typename Overflow::size_type elems)
+	{
+		return overflow().deallocate(ptr, elems);
+	}
 
 protected:
 	[[no_unique_address]] Overflow m_overflow;
@@ -342,15 +354,22 @@ struct dynamic_size
 		const uint32_t s = elements() * upstream.element_size();
 		return Align <= upstream.alignment() && s > 0 && (s <= Align || s % Align == 0);
 	}
-
 };
 template <size_t Align, size_t MinElems>
 struct dynamic_size<0, Align, MinElems>
 {
 	static constexpr bool dynamic = true;
 	constexpr uint32_t elements() noexcept { return m_size; }
-	constexpr uint32_t align() noexcept requires (Align != 0) { return Align; }
-	constexpr uint32_t align() noexcept requires (Align == 0) { return m_align; }
+	constexpr uint32_t align() noexcept
+	    requires(Align != 0)
+	{
+		return Align;
+	}
+	constexpr uint32_t align() noexcept
+	    requires(Align == 0)
+	{
+		return m_align;
+	}
 
 	bool set(const ArrayFactory auto& upstream, uint32_t l_size, uint32_t l_align) noexcept
 	{

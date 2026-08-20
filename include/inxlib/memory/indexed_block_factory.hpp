@@ -38,27 +38,32 @@ struct indexed_block_factory_params
 	  , align(l_align)
 	{
 	}
-	size_t size; ///< size of each single item
+	size_t size;  ///< size of each single item
 	size_t align; ///< alignment of each single item
 };
 template <typename T>
-constexpr indexed_block_factory_params indexed_block_factory_params_type = indexed_block_factory_params(sizeof(T), alignof(T));
+constexpr indexed_block_factory_params indexed_block_factory_params_type =
+  indexed_block_factory_params(sizeof(T), alignof(T));
 
 /**
  * SingleFactory that sections off area blocks into set sized allocations.
  * Similar to block_factory, except this one is indexable by pointer to area buffers.
  * Use resize() to change number of elements, or use create() to append one additional element.
  * Use item(i) to select the ith element, only assert checks for range thus undefined if out-of-range.
- * 
+ *
  * If Size == 0: size is dynamically determined through setup.
  * Otherwise: set size and align at compile time.
  * Elements == 0 makes elements defined, setup() returns false if elements do not fit on area.
- * 
+ *
  * @tparam Overflow the memory source of pointer to areas once greater than SlabCount
  * @tparam SlabCount the number of areas to store in-class, takes 8*SlabCount of class size, supports max
  *         of SlabCount slabs before invoking overflow allocations.
  */
-template <SlabFactory Upstream, ByteFactory Overflow = void_factory, size_t SlabCount = 0, size_t Size = 0, size_t Align = 0>
+template <SlabFactory Upstream,
+          ByteFactory Overflow = void_factory,
+          size_t SlabCount = 0,
+          size_t Size = 0,
+          size_t Align = 0>
 class indexed_block_factory : private slab_link_pattern<overflow_pattern<Upstream, Overflow>>
 {
 	using pattern = slab_link_pattern<overflow_pattern<Upstream, Overflow>>;
@@ -72,10 +77,7 @@ public:
 	using area = upstream_factory::value_type;
 
 public:
-	~indexed_block_factory()
-	{
-		release();
-	}
+	~indexed_block_factory() { release(); }
 
 	static consteval uint32_t traits() noexcept { return FactoryOwn | FactoryNoFree; }
 
@@ -131,8 +133,7 @@ public:
 	/// @param free_upstream destorys memory upstream
 	void release(bool free_upstream = true)
 	{
-		if (m_slabSize > SlabCount)
-		{
+		if (m_slabSize > SlabCount) {
 			pattern::overflow_deallocate(m_slabs[0], sizeof(pointer) * m_slabCapacity);
 		}
 		m_currentPos = 0;
@@ -157,7 +158,7 @@ public:
 	void resize(size_type items) noexcept
 	{
 		const uint32_t sc = *m_slabCount;
-		uint32_t slab_id = (items + (sc-1)) / sc;
+		uint32_t slab_id = (items + (sc - 1)) / sc;
 		uint32_t slab_index = items % sc;
 		slab_resize(slab_id);
 		m_size = items;
@@ -198,21 +199,17 @@ public:
 	const upstream_factory& upstream() const noexcept { return static_cast<const upstream_factory&>(*this); }
 
 protected:
-	pointer* get_slabs() const noexcept
-	{
-		return reinterpret_cast<pointer*>(m_slabs[0]);
-	}
+	pointer* get_slabs() const noexcept { return reinterpret_cast<pointer*>(m_slabs[0]); }
 
-	/// @brief allocate slabs 
-	/// @param amount 
+	/// @brief allocate slabs
+	/// @param amount
 	void slab_resize(uint32_t amount)
 	{
-		if (amount >= m_slabCapacity)
-		{
+		if (amount >= m_slabCapacity) {
 			// update m_slabs to new size
-			uint32_t new_cap = std::max(amount, uint32_t(m_slabCapacity*2));
+			uint32_t new_cap = std::max(amount, uint32_t(m_slabCapacity * 2));
 			assert(new_cap > SlabCount);
-			pointer* new_ptr = reinterpret_cast<pointer*>( pattern::overflow_allocate(sizeof(pointer) * new_cap) );
+			pointer* new_ptr = reinterpret_cast<pointer*>(pattern::overflow_allocate(sizeof(pointer) * new_cap));
 			std::copy_n(get_slabs(), m_slabSize, new_ptr);
 			// fill zero
 			std::fill(new_ptr + m_slabSize, new_ptr + new_cap, nullptr);
@@ -235,7 +232,7 @@ protected:
 		} else if (amount < m_slabSize) {
 			// destroy old slabs
 			for (uint32_t i = m_slabSize; i > amount; --i) {
-				pattern::destroy( reinterpret_cast<typename pattern::pointer>(std::exchange(slabs[--i], nullptr)) );
+				pattern::destroy(reinterpret_cast<typename pattern::pointer>(std::exchange(slabs[--i], nullptr)));
 			}
 		}
 		m_slabSize = amount;
@@ -256,7 +253,7 @@ protected:
 	uint32_t m_currentLeft = 0;
 	[[no_unique_address]] ReshapeCountCache<size_set, upstream_factory> m_slabCount = {};
 	[[no_unique_address]] size_set m_slabSet;
-	std::array<pointer, 1+SlabCount> m_slabs = {};
+	std::array<pointer, 1 + SlabCount> m_slabs = {};
 };
 
 template <typename T, SlabFactory Upstream, ByteFactory Overflow = void_factory, size_t SlabCount = 0>

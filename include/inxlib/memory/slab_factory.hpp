@@ -388,9 +388,14 @@ struct slab_reshape
 	static constexpr size_t align() noexcept { return Align; }
 
 	static constexpr size_t count() noexcept
-		requires requires { Fact::item_count(); }
-	{ return static_cast<size_t>(Fact::value_type::size()) * Fact::item_count() / size(); }
-	static constexpr size_t count(const Fact& F) noexcept { return static_cast<size_t>(Fact::value_type::size()) * F.item_count() / size(); }
+	    requires requires { Fact::item_count(); }
+	{
+		return static_cast<size_t>(Fact::value_type::size()) * Fact::item_count() / size();
+	}
+	static constexpr size_t count(const Fact& F) noexcept
+	{
+		return static_cast<size_t>(Fact::value_type::size()) * F.item_count() / size();
+	}
 };
 template <SlabFactory Fact, size_t MinSize>
 struct slab_reshape<Fact, 0, 0, MinSize>
@@ -399,7 +404,10 @@ struct slab_reshape<Fact, 0, 0, MinSize>
 	static constexpr size_t header() noexcept { return Fact::value_type::size_header(); }
 	constexpr size_t size() const noexcept { return m_size; }
 	constexpr size_t align() const noexcept { return m_align; }
-	constexpr size_t count(const Fact& F) const noexcept { return static_cast<size_t>(Fact::value_type::size()) * F.item_count() / m_size; }
+	constexpr size_t count(const Fact& F) const noexcept
+	{
+		return static_cast<size_t>(Fact::value_type::size()) * F.item_count() / m_size;
+	}
 
 	constexpr bool set(uint32_t l_size, uint32_t l_align) noexcept
 	{
@@ -416,8 +424,7 @@ protected:
 	uint32_t m_align = 0;
 };
 
-namespace details
-{
+namespace details {
 
 template <typename Reshape>
 concept SlabReshapeCountConstexpr = requires(Reshape re) {
@@ -432,10 +439,7 @@ concept SlabReshapeCountConstexpr = requires(Reshape re) {
 template <typename Reshape, typename Fact>
 struct ReshapeCountCache
 {
-	void set(const Reshape& re, const Fact& fact) noexcept
-	{
-		m_val = static_cast<uint32_t>(re.count(fact));
-	}
+	void set(const Reshape& re, const Fact& fact) noexcept { m_val = static_cast<uint32_t>(re.count(fact)); }
 
 	uint32_t operator*() const noexcept
 	{
@@ -450,13 +454,9 @@ template <details::SlabReshapeCountConstexpr Reshape, typename Fact>
 struct ReshapeCountCache<Reshape, Fact>
 {
 	/// @brief does nothing
-	constexpr void set(const Reshape& re, const Fact& fact) noexcept
-	{ }
+	constexpr void set(const Reshape& re, const Fact& fact) noexcept {}
 
-	constexpr uint32_t operator*() const noexcept
-	{
-		return Reshape::count();
-	}
+	constexpr uint32_t operator*() const noexcept { return Reshape::count(); }
 };
 
 } // namespace inx::memory

@@ -224,7 +224,153 @@ struct is_SlabFactory<Upstream> : is_SlabFactory<typename Upstream::upstream_fac
 template <typename T>
 concept SlabFactory = details::is_SlabFactory<T>::value;
 
-/// @brief Add utility support
+template <typename Slab = slab_memory_bytes>
+struct slab_link_fn
+{
+	using pointer = Slab*;
+
+	/// @return the next slab as stored in slab (h[0].p64)
+	/// @pre slab != nullptr
+	static pointer get_next(pointer slab) noexcept
+	{
+		return reinterpret_cast<pointer>(slab->h[0].p64);
+	}
+	/// @brief sets the next slab in slab to next_slab
+	/// @pre slab != nullptr
+	static void set_next(pointer slab, pointer next_slab) noexcept
+	{
+		slab->h[0].p64 = next_slab;
+	}
+
+	/// @return the next slab as stored in slab (h[1].p64)
+	/// @pre slab != nullptr
+	static pointer get_prev(pointer slab) noexcept
+	{
+		return reinterpret_cast<pointer>(slab->h[1].p64);
+	}
+	/// @brief sets the next slab in slab to next_slab
+	/// @pre slab != nullptr
+	static void set_prev(pointer slab, pointer next_slab) noexcept
+	{
+		slab->h[1].p64 = next_slab;
+	}
+
+	/// @return list attached to current chain link
+	/// @pre link != nullptr
+	static pointer get_chain_list(pointer link) noexcept
+	{
+		return reinterpret_cast<pointer>(link->h[0].p64);
+	}
+
+	/// @return list attached to current chain link
+	/// @pre link != nullptr
+	static pointer get_chain_link(pointer link) noexcept
+	{
+		return reinterpret_cast<pointer>(link->h[1].p64);
+	}
+
+	/// @brief add a detached slab to a forward list of slab
+	/// @param head current head(root) of list, can be null
+	/// @param detached_slab slab to add to list
+	/// @return new head (always detached_slab)
+	/// @pre detached_slab != nullptr && detached_slab != head
+	static pointer list_push_detached(pointer head, pointer detached_slab) noexcept
+	{
+		assert(detached_slab != nullptr && detached_slab != head);
+		set_prev(detached_slab, nullptr);
+		set_next(detached_slab, head);
+		if (head) [[likely]]
+			set_prev(head, detached_slab);
+		return detached_slab;
+	}
+
+	/// @brief detach a slab from a forward
+	/// @param slab the slab to detach (does not update pointers in slab)
+	/// @return the next slab (or null) of slab
+	/// @pre slab != nullptr
+	static pointer list_detach(pointer slab) noexcept
+	{
+		assert(slab != nullptr);
+		// not root thus aprev is not null
+		pointer anext = get_next(slab);
+		pointer aprev = get_prev(slab);
+		if (aprev)
+			set_next(aprev, anext);
+		if (anext)
+			set_prev(anext, aprev);
+		return anext;
+	}
+
+	/// @brief detach a slab from list and return new head
+	/// @param slab the slab to detach (does not update pointers in slab)
+	/// @return the new head (if changed), or null if last element in list
+	/// @pre slab != nullptr && head != nullptr
+	static pointer list_detach(pointer head, pointer slab) noexcept
+	{
+		assert(slab != nullptr && head != nullptr);
+		if (slab == head) [[unlikely]] {
+			// slab is root
+			pointer anext = get_next(slab);
+			head = anext;
+			if (anext)
+				set_prev(anext, nullptr);
+		} else {
+			// not root thus aprev is not null
+			pointer anext = get_next(slab);
+			pointer aprev = get_prev(slab);
+			assert(aprev != nullptr); // this is not root
+			if (anext)
+				set_prev(anext, aprev);
+		}
+		return head;
+	}
+
+	/// @brief push a detached slab onto a chain
+	/// @param head chain head (can be null)
+	/// @param detached_slab slab to push to chain
+	/// @return new head (detached_slab)
+	static pointer chain_push_detached(pointer head, pointer detached_slab) noexcept
+	{
+		assert(detached_slab != nullptr && detached_slab != head);
+		set_prev(detached_slab, head); // prev is next chain
+		set_next(detached_slab, nullptr); // is not list thus next is null
+		return detached_slab;
+	}
+
+	/// @brief push a list (from list_push_detached) to chain
+	/// @param head chain head
+	/// @param list_head list head to push
+	/// @return new head (list_head)
+	static pointer chain_push_list(pointer head, pointer list_head) noexcept
+	{
+		assert(list_head != nullptr && list_head != head);
+		set_prev(list_head, head); // prev is next chain
+		return list_head;
+	}
+
+	/// @brief detached (pop) a single slab from chain head
+	/// @param head head of the chain to detach
+	/// @return pair, first => new head, second => detached slab
+	static std::pair<pointer, pointer> chain_pop_detach(pointer head) noexcept
+	{
+		assert(head != nullptr);
+		pointer list_head = get_next(head);
+		if (list_head != nullptr) {
+			// is list
+			// not root thus aprev is not null
+			pointer anext = get_next(list_head);
+			set_next(list_head, anext);
+			return {head, list_head};
+		} else {
+			// not list
+			pointer rlist = get_prev(head);
+			return {rlist, head};
+		}
+	}
+};
+
+
+/// @brief Add support to slab_factory to manage a forward list of slabs.
 ///        O(1) reclaim operations.
 ///        slab.h[0] and slab.h[1] are managed by this adaptor.
 /// @tparam Upstream
@@ -237,139 +383,10 @@ public:
 	using typename Upstream::size_type;
 	using typename Upstream::value_type;
 
-	static consteval uint32_t traits() noexcept { return FactoryReuse; }
-
-	using Upstream::alignment;
-	using Upstream::element_size;
-
-	~slab_link_pattern() { release(factory_chain_free_release<Upstream>); }
-
-	pointer create()
-	{
-		pointer res;
-		if (m_reuse) {
-			res = pop_reuse();
-		} else {
-			// allocate new
-			res = Upstream::create();
-		}
-		push_front(res);
-		return res;
-	}
-	void destroy(pointer ptr)
-	{
-		// reuse for later
-		remove_from_list(ptr);
-		push_reuse(ptr);
-	}
-
-	/// @brief only releases memory calimed for reuse
-	/// @param free_upstream destorys memory upstream
-	void release(bool free_upstream = true)
-	{
-		if (free_upstream) {
-			release_list(m_root);
-			pointer at = m_reuse;
-			while (at != nullptr) {
-				release_list(reinterpret_cast<pointer>(at->h[0].p64));
-				pointer next = reinterpret_cast<pointer>(at->h[1].p64);
-				Upstream::destroy(at);
-				at = next;
-			}
-		}
-		m_root = nullptr;
-		m_reuse = nullptr;
-	}
-	void reclaim()
-	{
-		if (m_root != nullptr) {
-			push_reuse_list(m_root);
-			m_root = nullptr;
-		}
-	}
-
 protected:
-	pointer root() noexcept { return m_root; }
-	void push_front(pointer at) noexcept
-	{
-		if (m_root) [[likely]] {
-			at->h[0].p64 = m_root;
-			m_root->h[1].p64 = at;
-		} else {
-			at->h[0].p64 = nullptr;
-		}
-		at->h[1].p64 = nullptr;
-		m_root = at;
-	}
-	void remove_from_list(pointer at) noexcept
-	{
-		if (at == m_root) [[unlikely]] {
-			pointer anext = reinterpret_cast<pointer>(at->h[0].p64);
-			m_root = anext;
-			if (anext)
-				anext->h[1].p64 = nullptr;
-		} else {
-			// double link
-			pointer anext = reinterpret_cast<pointer>(at->h[0].p64);
-			pointer aprev = reinterpret_cast<pointer>(at->h[1].p64);
-			assert(aprev != nullptr); // this is not root
-			aprev->h[0].p64 = anext;
-			if (anext)
-				anext->h[1].p64 = aprev;
-		}
-	}
-	void push_reuse(pointer at) noexcept
-	{
-		at->h[0].p64 = nullptr;
-		at->h[1].p64 = m_reuse;
-		m_reuse = at;
-	}
-	void push_reuse_list(pointer front) noexcept
-	{
-		front->h[1].p64 = m_reuse;
-		m_reuse = front;
-	}
-	[[nodiscard]] pointer pop_reuse() noexcept
-	{
-		assert(m_reuse != nullptr);
-		// reuse
-		pointer res = m_reuse;
-		if (pointer rnext = reinterpret_cast<pointer>(res->h[0].p64); rnext != nullptr) {
-			// move next to reuse
-			rnext->h[1].p64 = res->h[1].p64;
-			m_reuse = rnext;
-		} else {
-			m_reuse = reinterpret_cast<pointer>(res->h[1].p64);
-		}
-		return res;
-	}
-	void release_list(pointer at)
-	{
-		while (at != nullptr) {
-			pointer next = reinterpret_cast<pointer>(at->h[0].p64);
-			Upstream::destroy(at);
-			at = next;
-		}
-	}
+	using link_fn = slab_link_fn<std::remove_pointer_t<pointer>>;
 
-protected:
-	pointer m_root = nullptr;
-	pointer m_reuse = nullptr;
-};
-
-
-/// @brief Add support to slab_factory to manage a forward list of slabs.
-///        O(1) reclaim operations.
-///        slab.h[0] and slab.h[1] are managed by this adaptor.
-/// @tparam Upstream
-template <SlabFactory Upstream>
-    requires FactoryTraitNone<Upstream, FactoryOwn>
-class slab_rooted_link_pattern : public Upstream
-{
 public:
-	using typename Upstream::pointer;
-	using typename Upstream::size_type;
-	using typename Upstream::value_type;
 
 	static consteval uint32_t traits() noexcept { return FactoryOwn | FactoryReuse; }
 
@@ -405,9 +422,8 @@ public:
 			release_list(m_root);
 			pointer at = m_reuse;
 			while (at != nullptr) {
-				release_list(reinterpret_cast<pointer>(at->h[0].p64));
-				pointer next = reinterpret_cast<pointer>(at->h[1].p64);
-				Upstream::destroy(at);
+				pointer next = link_fn::get_chain_link(at);
+				release_list(at);
 				at = next;
 			}
 		}
@@ -426,61 +442,32 @@ protected:
 	pointer root() noexcept { return m_root; }
 	void push_front(pointer at) noexcept
 	{
-		if (m_root) [[likely]] {
-			at->h[0].p64 = m_root;
-			m_root->h[1].p64 = at;
-		} else {
-			at->h[0].p64 = nullptr;
-		}
-		at->h[1].p64 = nullptr;
-		m_root = at;
+		m_root = link_fn::list_push_detached(m_root, at);
 	}
 	void remove_from_list(pointer at) noexcept
 	{
-		if (at == m_root) [[unlikely]] {
-			pointer anext = reinterpret_cast<pointer>(at->h[0].p64);
-			m_root = anext;
-			if (anext)
-				anext->h[1].p64 = nullptr;
-		} else {
-			// double link
-			pointer anext = reinterpret_cast<pointer>(at->h[0].p64);
-			pointer aprev = reinterpret_cast<pointer>(at->h[1].p64);
-			assert(aprev != nullptr); // this is not root
-			aprev->h[0].p64 = anext;
-			if (anext)
-				anext->h[1].p64 = aprev;
-		}
+		m_root = link_fn::list_detach(m_root, at);
 	}
 	void push_reuse(pointer at) noexcept
 	{
-		at->h[0].p64 = nullptr;
-		at->h[1].p64 = m_reuse;
-		m_reuse = at;
+		m_reuse = link_fn::chain_push_detached(m_reuse, at);
 	}
 	void push_reuse_list(pointer front) noexcept
 	{
-		front->h[1].p64 = m_reuse;
-		m_reuse = front;
+		m_reuse = link_fn::chain_push_list(m_reuse, front);
 	}
 	[[nodiscard]] pointer pop_reuse() noexcept
 	{
 		assert(m_reuse != nullptr);
 		// reuse
-		pointer res = m_reuse;
-		if (pointer rnext = reinterpret_cast<pointer>(res->h[0].p64); rnext != nullptr) {
-			// move next to reuse
-			rnext->h[1].p64 = res->h[1].p64;
-			m_reuse = rnext;
-		} else {
-			m_reuse = reinterpret_cast<pointer>(res->h[1].p64);
-		}
-		return res;
+		auto [reuse, elem] = link_fn::chain_pop_detach(m_reuse);
+		m_reuse = reuse;
+		return elem;
 	}
 	void release_list(pointer at)
 	{
 		while (at != nullptr) {
-			pointer next = reinterpret_cast<pointer>(at->h[0].p64);
+			pointer next = link_fn::get_next(at);
 			Upstream::destroy(at);
 			at = next;
 		}

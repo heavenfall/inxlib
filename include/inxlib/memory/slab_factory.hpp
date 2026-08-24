@@ -224,13 +224,147 @@ struct is_SlabFactory<Upstream> : is_SlabFactory<typename Upstream::upstream_fac
 template <typename T>
 concept SlabFactory = details::is_SlabFactory<T>::value;
 
-/// @brief Add support to slab_factory to manage a forward list of slabs.
+/// @brief Add utility support
 ///        O(1) reclaim operations.
 ///        slab.h[0] and slab.h[1] are managed by this adaptor.
 /// @tparam Upstream
 template <SlabFactory Upstream>
     requires FactoryTraitNone<Upstream, FactoryOwn>
 class slab_link_pattern : public Upstream
+{
+public:
+	using typename Upstream::pointer;
+	using typename Upstream::size_type;
+	using typename Upstream::value_type;
+
+	static consteval uint32_t traits() noexcept { return FactoryReuse; }
+
+	using Upstream::alignment;
+	using Upstream::element_size;
+
+	~slab_link_pattern() { release(factory_chain_free_release<Upstream>); }
+
+	pointer create()
+	{
+		pointer res;
+		if (m_reuse) {
+			res = pop_reuse();
+		} else {
+			// allocate new
+			res = Upstream::create();
+		}
+		push_front(res);
+		return res;
+	}
+	void destroy(pointer ptr)
+	{
+		// reuse for later
+		remove_from_list(ptr);
+		push_reuse(ptr);
+	}
+
+	/// @brief only releases memory calimed for reuse
+	/// @param free_upstream destorys memory upstream
+	void release(bool free_upstream = true)
+	{
+		if (free_upstream) {
+			release_list(m_root);
+			pointer at = m_reuse;
+			while (at != nullptr) {
+				release_list(reinterpret_cast<pointer>(at->h[0].p64));
+				pointer next = reinterpret_cast<pointer>(at->h[1].p64);
+				Upstream::destroy(at);
+				at = next;
+			}
+		}
+		m_root = nullptr;
+		m_reuse = nullptr;
+	}
+	void reclaim()
+	{
+		if (m_root != nullptr) {
+			push_reuse_list(m_root);
+			m_root = nullptr;
+		}
+	}
+
+protected:
+	pointer root() noexcept { return m_root; }
+	void push_front(pointer at) noexcept
+	{
+		if (m_root) [[likely]] {
+			at->h[0].p64 = m_root;
+			m_root->h[1].p64 = at;
+		} else {
+			at->h[0].p64 = nullptr;
+		}
+		at->h[1].p64 = nullptr;
+		m_root = at;
+	}
+	void remove_from_list(pointer at) noexcept
+	{
+		if (at == m_root) [[unlikely]] {
+			pointer anext = reinterpret_cast<pointer>(at->h[0].p64);
+			m_root = anext;
+			if (anext)
+				anext->h[1].p64 = nullptr;
+		} else {
+			// double link
+			pointer anext = reinterpret_cast<pointer>(at->h[0].p64);
+			pointer aprev = reinterpret_cast<pointer>(at->h[1].p64);
+			assert(aprev != nullptr); // this is not root
+			aprev->h[0].p64 = anext;
+			if (anext)
+				anext->h[1].p64 = aprev;
+		}
+	}
+	void push_reuse(pointer at) noexcept
+	{
+		at->h[0].p64 = nullptr;
+		at->h[1].p64 = m_reuse;
+		m_reuse = at;
+	}
+	void push_reuse_list(pointer front) noexcept
+	{
+		front->h[1].p64 = m_reuse;
+		m_reuse = front;
+	}
+	[[nodiscard]] pointer pop_reuse() noexcept
+	{
+		assert(m_reuse != nullptr);
+		// reuse
+		pointer res = m_reuse;
+		if (pointer rnext = reinterpret_cast<pointer>(res->h[0].p64); rnext != nullptr) {
+			// move next to reuse
+			rnext->h[1].p64 = res->h[1].p64;
+			m_reuse = rnext;
+		} else {
+			m_reuse = reinterpret_cast<pointer>(res->h[1].p64);
+		}
+		return res;
+	}
+	void release_list(pointer at)
+	{
+		while (at != nullptr) {
+			pointer next = reinterpret_cast<pointer>(at->h[0].p64);
+			Upstream::destroy(at);
+			at = next;
+		}
+	}
+
+protected:
+	pointer m_root = nullptr;
+	pointer m_reuse = nullptr;
+};
+
+
+/// @brief Add support to slab_factory to manage a forward list of slabs.
+///        O(1) reclaim operations.
+///        slab.h[0] and slab.h[1] are managed by this adaptor.
+/// @tparam Upstream
+template <SlabFactory Upstream>
+    requires FactoryTraitNone<Upstream, FactoryOwn>
+class slab_rooted_link_pattern : public Upstream
 {
 public:
 	using typename Upstream::pointer;

@@ -345,8 +345,8 @@ struct dynamic_size
 	static constexpr bool dynamic = false;
 	static_assert(std::popcount(Align) == 1 && Align <= alignof(max_align_t), "Must be a valid alignment");
 	static_assert(Elems > 0 && MinElems > 0, "Elems must be greater than 0");
-	constexpr uint32_t elements() noexcept { return std::max(Elems, MinElems); }
-	constexpr uint32_t align() noexcept { return Align; }
+	constexpr uint32_t elements() const noexcept { return std::max(Elems, MinElems); }
+	constexpr uint32_t align() const noexcept { return Align; }
 
 	/// @brief mainly a check that array can support size an align
 	bool set(const ArrayFactory auto& upstream)
@@ -359,13 +359,13 @@ template <size_t Align, size_t MinElems>
 struct dynamic_size<0, Align, MinElems>
 {
 	static constexpr bool dynamic = true;
-	constexpr uint32_t elements() noexcept { return m_size; }
-	constexpr uint32_t align() noexcept
+	constexpr uint32_t elements() const noexcept { return m_size; }
+	constexpr uint32_t align() const noexcept
 	    requires(Align != 0)
 	{
 		return Align;
 	}
-	constexpr uint32_t align() noexcept
+	constexpr uint32_t align() const noexcept
 	    requires(Align == 0)
 	{
 		return m_align;

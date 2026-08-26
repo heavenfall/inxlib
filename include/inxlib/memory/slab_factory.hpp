@@ -224,6 +224,15 @@ struct is_SlabFactory<Upstream> : is_SlabFactory<typename Upstream::upstream_fac
 template <typename T>
 concept SlabFactory = details::is_SlabFactory<T>::value;
 
+/// @tparam Slab type of slab to link
+///
+/// Utility functions to link slab, uses inbuilt h[0] & h[1].
+/// Supports three types of link strategy:
+/// link: forward link using h[0] only, FIFO.
+/// dlink: double link list using h[0] & h[1], supports removal from middle.
+/// chain: link lists h[0] and other chains h[1] together.
+///
+/// Detached slabs have an invalid h[*] set, will be set by push_detached.
 template <typename Slab = slab_memory_bytes>
 struct slab_link_fn
 {
@@ -277,6 +286,28 @@ struct slab_link_fn
 	static pointer list_push_detached(pointer head, pointer detached_slab) noexcept
 	{
 		assert(detached_slab != nullptr && detached_slab != head);
+		set_next(detached_slab, head);
+		return detached_slab;
+	}
+
+	/// @brief detached (pop) a single slab from list head
+	/// @param head head of list to detach (fifo)
+	/// @return pair, first => new head, second => detached slab
+	static std::pair<pointer, pointer> list_pop_detach(pointer head) noexcept
+	{
+		assert(head != nullptr);
+		pointer anext = get_next(head);
+		return {anext, head};
+	}
+
+	/// @brief add a detached slab to a double list of slab
+	/// @param head current head(root) of list, can be null
+	/// @param detached_slab slab to add to list
+	/// @return new head (always detached_slab)
+	/// @pre detached_slab != nullptr && detached_slab != head
+	static pointer dlist_push_detached(pointer head, pointer detached_slab) noexcept
+	{
+		assert(detached_slab != nullptr && detached_slab != head);
 		set_prev(detached_slab, nullptr);
 		set_next(detached_slab, head);
 		if (head) [[likely]]
@@ -284,11 +315,11 @@ struct slab_link_fn
 		return detached_slab;
 	}
 
-	/// @brief detach a slab from a forward
+	/// @brief detach a slab from a double list of slab
 	/// @param slab the slab to detach (does not update pointers in slab)
 	/// @return the next slab (or null) of slab
 	/// @pre slab != nullptr
-	static pointer list_detach(pointer slab) noexcept
+	static pointer dlist_detach(pointer slab) noexcept
 	{
 		assert(slab != nullptr);
 		// not root thus aprev is not null
@@ -301,11 +332,12 @@ struct slab_link_fn
 		return anext;
 	}
 
-	/// @brief detach a slab from list and return new head
+	/// @brief detach a slab from double list and return new head
+	/// @param head the current head of double list
 	/// @param slab the slab to detach (does not update pointers in slab)
 	/// @return the new head (if changed), or null if last element in list
 	/// @pre slab != nullptr && head != nullptr
-	static pointer list_detach(pointer head, pointer slab) noexcept
+	static pointer dlist_detach(pointer head, pointer slab) noexcept
 	{
 		assert(slab != nullptr && head != nullptr);
 		if (slab == head) [[unlikely]] {
@@ -359,7 +391,7 @@ struct slab_link_fn
 			// is list
 			// not root thus aprev is not null
 			pointer anext = get_next(list_head);
-			set_next(list_head, anext);
+			set_next(head, anext);
 			return {head, list_head};
 		} else {
 			// not list
@@ -442,11 +474,11 @@ protected:
 	pointer root() noexcept { return m_root; }
 	void push_front(pointer at) noexcept
 	{
-		m_root = link_fn::list_push_detached(m_root, at);
+		m_root = link_fn::dlist_push_detached(m_root, at);
 	}
 	void remove_from_list(pointer at) noexcept
 	{
-		m_root = link_fn::list_detach(m_root, at);
+		m_root = link_fn::dlist_detach(m_root, at);
 	}
 	void push_reuse(pointer at) noexcept
 	{
@@ -560,6 +592,8 @@ concept SlabReshapeCountConstexpr = requires(Reshape re) {
 template <typename Reshape, typename Fact>
 struct ReshapeCountCache
 {
+	static constexpr bool dynamic = true;
+
 	void set(const Reshape& re, const Fact& fact) noexcept { m_val = static_cast<uint32_t>(re.count(fact)); }
 
 	uint32_t operator*() const noexcept
@@ -574,6 +608,8 @@ struct ReshapeCountCache
 template <details::SlabReshapeCountConstexpr Reshape, typename Fact>
 struct ReshapeCountCache<Reshape, Fact>
 {
+	static constexpr bool dynamic = false;
+	
 	/// @brief does nothing
 	constexpr void set(const Reshape& re, const Fact& fact) noexcept {}
 

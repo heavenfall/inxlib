@@ -81,8 +81,8 @@ public:
 
 	static consteval uint32_t traits() noexcept { return FactoryOwn | FactoryNoFree; }
 
-	static consteval size_type alignment() noexcept { return Align; }
-	static consteval size_type element_size() noexcept { return Size; }
+	constexpr size_type alignment() const noexcept { return m_slabSet.align(); }
+	constexpr size_type element_size() const noexcept { return Upstream::element_size() * m_slabSet.elements(); }
 
 	/// @brief setup(std::tuple<OverflowParams>, ...)
 	template <typename... T>
@@ -92,7 +92,7 @@ public:
 		if (!pattern::setup(std::forward<T>(args)...))
 			return false;
 		m_slabCount.set(m_slabSet, upstream());
-		m_slabs[0] = reinterpret_cast<pointer>(&m_slabs[1]);
+		m_slabs[0] = reinterpret_cast<pointer>(m_slabs.data() + 1);
 		m_size = 0;
 		m_slabSize = 0;
 		m_slabCapacity = SlabCount;
@@ -108,7 +108,7 @@ public:
 		if (!m_slabSet.set(param.size, param.align))
 			return false;
 		m_slabCount.set(m_slabSet, upstream());
-		m_slabs[0] = reinterpret_cast<pointer>(&m_slabs[1]);
+		m_slabs[0] = reinterpret_cast<pointer>(m_slabs.data() + 1);
 		m_size = 0;
 		m_slabSize = 0;
 		m_slabCapacity = SlabCount;
@@ -141,7 +141,7 @@ public:
 		m_size = 0;
 		m_slabSize = 0;
 		m_slabs = {};
-		m_slabs[0] = reinterpret_cast<pointer>(&m_slabs[1]);
+		m_slabs[0] = reinterpret_cast<pointer>(m_slabs.data() + 1);
 		pattern::release(free_upstream);
 	}
 	void reclaim()

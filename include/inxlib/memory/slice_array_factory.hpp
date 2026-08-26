@@ -27,8 +27,51 @@ SOFTWARE.
 
 #include "factory.hpp"
 #include "factory_adaptor.hpp"
+#include "slab_factory.hpp"
 
 namespace inx::memory {
+
+struct slice_array_factory_params
+{
+	constexpr slice_array_factory_params(size_t l_size, size_t l_align) noexcept
+	  : size(l_size)
+	  , align(l_align)
+	{
+	}
+	size_t size;  ///< size of each single item
+	size_t align; ///< alignment of each single item
+};
+template <typename T>
+constexpr slice_array_factory_params slice_array_factory_params_type =
+  slice_array_factory_params(sizeof(T), alignof(T));
+
+/// @brief cache the Reshape.count() value, for consteval stores no value
+template <typename Reshape, typename Fact, size_t Max2k>
+struct ReshapeSlice2kCache
+{
+	static constexpr bool dynamic = true;
+
+	void set(const Reshape& re, const Fact& fact) noexcept { m_val = std::min( (uint32_t)std::bit_width( static_cast<uint32_t>(re.count(fact)) - 1 ), (uint32_t)Max2k ); }
+
+	uint32_t operator*() const noexcept
+	{
+		assert(m_val != 0);
+		return m_val;
+	}
+
+	uint32_t m_val = 0;
+};
+
+template <details::SlabReshapeCountConstexpr Reshape, typename Fact, size_t Max2k>
+struct ReshapeSlice2kCache<Reshape, Fact, Max2k>
+{
+	static constexpr bool dynamic = false;
+
+	/// @brief does nothing
+	constexpr void set(const Reshape& re, const Fact& fact) noexcept {}
+
+	constexpr uint32_t operator*() const noexcept { return std::min( (uint32_t)std::bit_width( Reshape::count() - 1 ), (uint32_t)Max2k ); }
+};
 
 /**
  * SingleFactory that sections off area blocks into set sized allocations.
@@ -46,13 +89,17 @@ namespace inx::memory {
  */
 template <SlabFactory Upstream,
           ByteFactory Overflow = void_factory,
-          size_t Min = 0,
+		  size_t Max2k = 16,
+          size_t Min2k = 4,
           size_t Size = 0,
           size_t Align = 0>
-class slice : private slab_link_pattern<overflow_pattern<Upstream, Overflow>>
+class slice_array_factory : private overflow_pattern<Upstream, Overflow>
 {
-	using pattern = slab_link_pattern<overflow_pattern<Upstream, Overflow>>;
+	using pattern = overflow_pattern<Upstream, Overflow>;
 	using size_set = slab_reshape<Upstream, Size, Align>;
+
+	static_assert(Min2k >= 3, "Min2k must be at least 4, large enough for");
+	static_assert(Max2k > Min2k, "Max2k must be strictly larger than Min2k");
 
 public:
 	using upstream_factory = Upstream;
@@ -60,14 +107,34 @@ public:
 	using pointer = value_type*;
 	using size_type = size_t;
 	using area = upstream_factory::value_type;
+	using overflow_area = slab_memory_bytes;
+
+protected:
+	using link_fn = slab_link_fn<area>;
+	using overflow_fn = slab_link_fn<overflow_area>;
+
+	struct Slab2k
+	{
+		area* l; ///< list of slabs in use
+		pointer re_elem; ///< first reuse element
+	};
 
 public:
-	~indexed_block_factory() { release(); }
+	~slice_array_factory() { release(); }
 
-	static consteval uint32_t traits() noexcept { return FactoryOwn | FactoryNoFree; }
+	static consteval uint32_t traits() noexcept { return FactoryOwn | FactoryReuse; }
 
-	static consteval size_type alignment() noexcept { return Align; }
-	static consteval size_type element_size() noexcept { return Size; }
+	constexpr size_type alignment() const noexcept { return m_slabSet.align(); }
+	constexpr size_type element_size() const noexcept { return Upstream::element_size() * m_slabSet.elements(); }
+
+	constexpr uint32_t max2k() const noexcept { return *m_slab2kMax; }
+
+	constexpr uint32_t size2k(size_type elems) const noexcept
+	{
+		assert(elems > 0);
+		[[assume(elems > 0)]];
+		return std::bit_width( (uint32_t)(elems - 1) );
+	}
 
 	/// @brief setup(std::tuple<OverflowParams>, ...)
 	template <typename... T>
@@ -76,16 +143,13 @@ public:
 	{
 		if (!pattern::setup(std::forward<T>(args)...))
 			return false;
-		m_slabCount.set(m_slabSet, upstream());
-		m_slabs[0] = reinterpret_cast<pointer>(&m_slabs[1]);
-		m_size = 0;
-		m_slabSize = 0;
-		m_slabCapacity = SlabCount;
-		return true;
+		m_slab2kMax.set(m_slabSet, upstream());
+
+		return mak2k() >= Min2k;
 	}
 	/// @brief setup(block_factory_params, std::tuple<OverflowParams>, ...)
 	template <typename... T>
-	constexpr bool setup(indexed_block_factory_params param, T&&... args)
+	constexpr bool setup(slice_array_factory_params param, T&&... args)
 	    requires(size_set::dynamic)
 	{
 		if (!pattern::setup(std::forward<T>(args)...))
@@ -93,152 +157,182 @@ public:
 		if (!m_slabSet.set(param.size, param.align))
 			return false;
 		m_slabCount.set(m_slabSet, upstream());
-		m_slabs[0] = reinterpret_cast<pointer>(&m_slabs[1]);
-		m_size = 0;
-		m_slabSize = 0;
-		m_slabCapacity = SlabCount;
-		return true;
+
+		return mak2k() >= Min2k;
 	}
 
-	[[nodiscard]] pointer create()
+	[[nodiscard]] pointer allocate(size_type elems)
 	{
-		if (m_currentLeft == 0) [[unlikely]] {
-			new_root();
-		}
-		assert(m_currentLeft > 0);
-		pointer ptr = reinterpret_cast<pointer>(pattern::root()) + m_currentPos;
-		m_currentPos += m_slabSet.size();
-		m_currentLeft -= 1;
-		m_size += 1;
-		return ptr;
+		return allocate_array(elems).first;
 	}
-	void destroy(pointer ptr) {}
+	void deallocate(pointer ptr, size_type elems)
+	{
+		deallocate_array(ptr, elems);
+	}
+
+	std::pair<pointer, size_type> allocate_array(size_type min_elems)
+	{
+		if (min_elems == 0)
+			return {nullptr, 0};
+		uint32_t bucket2k = size2k(min_elems);
+		if (bucket2k > max2k()) [[unlikely]] {
+			// overflow
+			return {elem_over_new(min_elems), min_elems};
+		}
+		bucket2k = std::max(bucket2k, (uint32_t)Min2k);
+		assert(Min2k <= bucket2k && bucket2k <= max2k());
+		return { elem2k_new(bucket2k), 1ull << bucket2k };
+
+	}
+	void deallocate_array(pointer ptr, size_type elems)
+	{
+		if (ptr == nullptr || elems == 0)
+			return;
+		uint32_t bucket2k = size2k(min_elems);
+		if (bucket2k > max2k()) [[unlikely]] {
+			// overflow
+			elem_over_del(ptr);
+			return;
+		}
+		bucket2k = std::max(bucket2k, (uint32_t)Min2k);
+		assert(Min2k <= bucket2k && bucket2k <= max2k());
+		elem2k_del(bucket2k, ptr);
+	}
 
 	/// @brief only releases memory calimed for reuse
 	/// @param free_upstream destorys memory upstream
 	void release(bool free_upstream = true)
 	{
-		if (m_slabSize > SlabCount) {
-			pattern::overflow_deallocate(m_slabs[0], sizeof(pointer) * m_slabCapacity);
+		elem_over_release();
+		for (Slab2k& sk : m_slabs)
+		{
+			slab_free_list(sk.l);
 		}
-		m_currentPos = 0;
-		m_currentLeft = 0;
-		m_size = 0;
-		m_slabSize = 0;
 		m_slabs = {};
-		m_slabs[0] = reinterpret_cast<pointer>(&m_slabs[1]);
-		pattern::release(free_upstream);
+		slab_free_reuse();
 	}
 	void reclaim()
 	{
-		m_currentPos = 0;
-		m_currentLeft = 0;
-		m_size = 0;
-		m_slabSize = 0;
-		pattern::reclaim();
-	}
-
-	size_type size() const noexcept { return m_size; }
-
-	void resize(size_type items) noexcept
-	{
-		const uint32_t sc = *m_slabCount;
-		uint32_t slab_id = (items + (sc - 1)) / sc;
-		uint32_t slab_index = items % sc;
-		slab_resize(slab_id);
-		m_size = items;
-		m_currentPos = size_set::header() + slab_index * m_slabSet.size();
-		m_currentLeft = *m_slabCount - slab_index;
-	}
-
-	/// @brief get element by index without checking, undefined if index > size()
-	pointer get(size_type index) const noexcept
-	{
-		uint32_t slab_id = index / *m_slabCount;
-		uint32_t slab_index = index % *m_slabCount;
-		assert(slab_id < m_slabCapacity);
-		return get_slabs()[slab_id] + slab_index * m_slabSet.size();
-	}
-	pointer get_if(size_type index) const noexcept
-	{
-		uint32_t slab_id = index / *m_slabCount;
-		uint32_t slab_index = index % *m_slabCount;
-		if (slab_id < m_slabCapacity) {
-			return get_slabs()[slab_id] + slab_index * m_slabSet.size();
-		} else {
-			return nullptr;
-		}
-	}
-	pointer at(size_type index) const
-	{
-		uint32_t slab_id = index / *m_slabCount;
-		uint32_t slab_index = index % *m_slabCount;
-		if (slab_id < m_slabCapacity) {
-			return get_slabs()[slab_id] + slab_index * m_slabSet.size();
-		} else {
-			throw std::out_of_range("index");
-		}
+		elem_over_release();
+		slab_reclaim();
 	}
 
 	upstream_factory& upstream() noexcept { return static_cast<upstream_factory&>(*this); }
 	const upstream_factory& upstream() const noexcept { return static_cast<const upstream_factory&>(*this); }
 
 protected:
-	pointer* get_slabs() const noexcept { return reinterpret_cast<pointer*>(m_slabs[0]); }
 
-	/// @brief allocate slabs
-	/// @param amount
-	void slab_resize(uint32_t amount)
+	// handle slabs
+
+	[[nodiscard]] area* slab_new()
 	{
-		if (amount >= m_slabCapacity) {
-			// update m_slabs to new size
-			uint32_t new_cap = std::max(amount, uint32_t(m_slabCapacity * 2));
-			assert(new_cap > SlabCount);
-			pointer* new_ptr = reinterpret_cast<pointer*>(pattern::overflow_allocate(sizeof(pointer) * new_cap));
-			std::copy_n(get_slabs(), m_slabSize, new_ptr);
-			// fill zero
-			std::fill(new_ptr + m_slabSize, new_ptr + new_cap, nullptr);
-			// delete old allocation
-			if (m_slabCapacity > SlabCount) // if not stored in heap, deallocate
-			{
-				assert(get_slabs() != nullptr);
-				pattern::overflow_deallocate(m_slabs[0], sizeof(pointer) * m_slabCapacity);
-			}
-			// create new slabs
-			m_slabCapacity = new_cap;
-			m_slabs[0] = reinterpret_cast<pointer>(new_ptr);
+		if (m_slabReuse) {
+			// reuse existing slab
+			auto [h, s] = link_fn::list_pop_detach(m_slabReuse);
+			m_slabReuse = h;
+			return s;
+		} else {
+			// create new slab
+			return upstream_factory::create();
 		}
-		pointer* slabs = get_slabs();
-		if (amount > m_slabSize) {
-			// create new slabs
-			for (uint32_t i = m_slabSize; i < amount; ++i) {
-				slabs[i] = reinterpret_cast<pointer>(pattern::create()) + size_set::header();
-			}
-		} else if (amount < m_slabSize) {
-			// destroy old slabs
-			for (uint32_t i = m_slabSize; i > amount; --i) {
-				pattern::destroy(reinterpret_cast<typename pattern::pointer>(std::exchange(slabs[--i], nullptr)));
-			}
-		}
-		m_slabSize = amount;
 	}
 
-	void new_root() noexcept
+	void slab_reclaim()
 	{
-		slab_resize(m_slabSize + 1);
-		m_currentPos = size_set::header();
-		m_currentLeft = *m_slabCount;
+		for (Slab2k& sk : m_slabs)
+		{
+			if (sk.l) {
+				m_slabReuse = link_fn::chain_push_list(m_slabReuse, sk.l);
+				sk.l = nullptr;
+				sk.re_elem = nullptr;
+			}
+		}
+	}
+
+	void slab_free_list(area* slab)
+	{
+		while (slab != nullptr)
+		{
+			area* snext = link_fn::get_next(slab);
+			upstream_factory::destroy(slab);
+			slab = snext;
+		}
+	}
+
+	void slab_free_reuse()
+	{
+		for (area* slab = m_slabReuse; slab != nullptr; )
+		{
+			area* snext = link_fn::get_chain_link(slab);
+			slab_free_list(link_fn::get_chain_list(slab));
+			slab = snext;
+		}
+		m_slabReuse = nullptr;
+	}
+
+	// handle 2k elements and slabs
+
+	pointer elem2k_new(uint32_t i)
+	{
+		assert(Min2k <= i && i <= max2k());
+		Slab2k& s = m_slabs[i-Min2k];
+		if (s.re_elem) {
+			pointer ret = s.re_elem;
+			s.re_elem = *reinterpret_cast<area**>(ret);
+			return ret;
+		}
+		// new element
+		if (s.l == nullptr || s.l->h[1].u64 >= (1ull << max2k())) [[unlikely]]
+		{
+			// new slab
+			area* slab = slab_new();
+			s.l = link_fn::list_push_detached(s.l, slab);
+			slab->h[1].u64 = 0;
+		}
+		pointer ret = reinterpret_cast<pointer>( s.l->data.data() + slab->h[1].u64 * element_size() );
+		slab->h[1].u64 += 1ull << i;
+	}
+
+	void elem2k_del(uint32_t i, pointer p)
+	{
+		assert(Min2k <= i && i <= max2k());
+		pointer ret = m_slabs[i-Min2k].re_elem;
+		*reinterpret_cast<area**>(p) = ret;
+		m_slabs[i-Min2k].re_elem = p;
+	}
+
+	pointer* elem_over_new(size_type elems)
+	{
+		static_assert(overflow_area::align() >= sizeof(uint32_t));
+		size_type over_size = overflow_area::size_n(elems * element_size() + overflow_area::align());
+		overflow_area* a = reinterpret_cast<overflow_area*>( overflow_allocate(over_size) );
+		m_slabOverflow = overflow_fn::dlist_push_detached(m_slabOverflow, a);
+		*reinterpret_cast<uint32_t*>(a->data.data()) = over_size;
+		return a->data.data() + overflow_area::align();
+	}
+	void elem_over_del(pointer p)
+	{
+		size_type over_size = overflow_area::size_n(min_elems);
+		overflow_area* a = reinterpret_cast<overflow_area*>( p - (overflow_area::size_header() + overflow_area::align() ) );
+		m_slabOverflow = overflow_fn::dlist_detach(m_slabOverflow, a);
+		overflow_deallocate(reinterpret_cast<pointer*>(a), *reinterpret_cast<uint32_t*>(a->data.data()));
+	}
+	void elem_over_release()
+	{
+		for (overflow_area* a = m_slabOverflow; a != nullptr; )
+		{
+			overflow_area* anext = overflow_fn::get_next(a);
+			overflow_deallocate(reinterpret_cast<pointer*>(a), *reinterpret_cast<uint32_t*>(a->data.data()));
+			a = anext;
+		}
 	}
 
 protected:
-	uint32_t m_size = 0;
-	uint32_t m_slabSize = 0;
-	uint32_t m_slabCapacity = 0;
-	uint32_t m_currentPos = 0;
-	uint32_t m_currentLeft = 0;
-	[[no_unique_address]] ReshapeCountCache<size_set, upstream_factory> m_slabCount = {};
+	area* m_slabReuse = nullptr;
+	overflow_area* m_slabOverflow = nullptr;
 	[[no_unique_address]] size_set m_slabSet;
-	std::array<pointer, 1 + SlabCount> m_slabs = {};
+	[[no_unique_address]] ReshapeSlice2kCache<size_set, upstream_factory> m_slab2kMax = {};
+	std::array<Slab2k, Max2k - Min2k + 1> m_slabs = {};
 };
 
 template <typename T, SlabFactory Upstream, ByteFactory Overflow = void_factory, size_t SlabCount = 0>

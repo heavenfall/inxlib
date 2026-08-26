@@ -53,7 +53,7 @@ struct factory_pointer<Fact>
 	{
 		return Fact::alignment();
 	}
-	constexpr size_type alignment() noexcept
+	constexpr size_type alignment() const noexcept
 	    requires(!requires { Fact::alignment(); })
 	{
 		return m_factoryBase->alignment();
@@ -63,7 +63,7 @@ struct factory_pointer<Fact>
 	{
 		return Fact::element_size();
 	}
-	constexpr size_type element_size() noexcept
+	constexpr size_type element_size() const noexcept
 	    requires(!requires { Fact::element_size(); })
 	{
 		return m_factoryBase->element_size();

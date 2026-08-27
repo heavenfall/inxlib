@@ -31,8 +31,8 @@ SOFTWARE.
 namespace inx::memory {
 
 /**
- * Factory that generates area blocks for area-based factories.
- * If SlabCount == 0, area_factory holds a dynamic size.
+ * Factory that allocates arrays that bump a single pointer forward.
+ * Overflow handles allocations that are larger than a slab.
  */
 template <SlabFactory Upstream, ByteFactory Overflow = void_factory>
 class bump_factory : private overflow_pattern<Upstream, Overflow>

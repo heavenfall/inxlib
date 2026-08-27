@@ -1,5 +1,6 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/generators/catch_generators.hpp>
+#include <catch2/generators/catch_generators_random.hpp>
 
 #include <inxlib/memory/factory.hpp>
 #include <inxlib/memory/source_factory.hpp>
@@ -9,10 +10,12 @@
 #include <inxlib/memory/block_factory.hpp>
 #include <inxlib/memory/bump_factory.hpp>
 #include <inxlib/memory/indexed_block_factory.hpp>
+#include <inxlib/memory/slice_array_factory.hpp>
 
 #include <string_view>
 #include <vector>
 #include <set>
+#include <unordered_set>
 
 using namespace std::string_view_literals;
 
@@ -249,6 +252,9 @@ TEST_CASE( "Basic factory check", "[factory]" ) {
 		REQUIRE( pool.setup() );
 		indexed_fact ba;
 		REQUIRE( ba.setup(pool) );
+		CHECK( ba.element_size() == sizeof(memc) );
+		CHECK( ba.alignment() >= alignof(memc) );
+
 		std::vector<memc*> ref;
 		constexpr int32_t TOTAL = 1024;
 		std::set<memc*> alloc;
@@ -294,6 +300,9 @@ TEST_CASE( "Basic factory check", "[factory]" ) {
 		REQUIRE( pool.setup() );
 		indexed_fact ba;
 		REQUIRE( ba.setup(indexed_block_factory_params_type<memc>, std::tuple<>(), pool) );
+		CHECK( ba.element_size() == sizeof(memc) );
+		CHECK( ba.alignment() >= alignof(memc) );
+
 		std::vector<memc*> ref;
 		constexpr int32_t TOTAL = 1024;
 		std::set<memc*> alloc;
@@ -329,6 +338,84 @@ TEST_CASE( "Basic factory check", "[factory]" ) {
 			alloc.insert(v);
 			ref.push_back(v);
 		}
+	}
+
+	SECTION( "slice array check" ) {
+		using area_fact_base = bump_factory<slab_factory<malloc_factory, 1024*1024>>;
+		using area_fact = slab_factory<area_fact_base, 1040>;
+
+		using slice_fact = slice_array_factory_type<memb, factory_pointer<area_fact>, void_factory, 6, 0>;
+		using slice_fact_d = slice_array_factory<factory_pointer<area_fact>, void_factory, 6, 2>;
+		static_assert(ArrayFactory<slice_fact>, "slice_array_factory_type must be ArrayFactory");
+		static_assert(ArrayFactory<slice_fact_d>, "slice_array_factory_type must be ArrayFactory");
+		area_fact pool;
+		REQUIRE( pool.setup() );
+		slice_fact ba;
+		REQUIRE( ba.setup(pool) );
+		CHECK( ba.element_size() == sizeof(memb) );
+		CHECK( ba.alignment() >= alignof(memb) );
+		slice_fact_d bb;
+		REQUIRE( bb.setup(slice_array_factory_params_type<memc>, pool) );
+		CHECK( bb.element_size() == sizeof(memc) );
+		CHECK( bb.alignment() >= alignof(memc) );
+
+		const uint32_t TOTAL_R = 8 * 1024;
+		std::vector<std::pair<void*,int>> val;
+		val.reserve(TOTAL_R+12);
+		std::unordered_set<void*> ref;
+		std::unordered_set<void*> ref_d;
+		for (uint32_t i = 0; i < TOTAL_R; ++i)
+		{
+			int s = i % 6;
+			int s1 = (1 << s) + GENERATE(random(0, 1<<6)) % (1 << s);
+			auto p = ba.allocate_array(s1);
+			REQUIRE( p.first != nullptr );
+			REQUIRE( !ref.contains(p.first) );
+			REQUIRE( p.second >= s1 );
+			REQUIRE( p.second == 1 << s );
+			val.push_back(p);
+			ref.insert(p.first);
+			
+			auto p_d = bb.allocate_array(s1);
+			REQUIRE( p_d.first != nullptr );
+			REQUIRE( !ref_d.contains(p_d.first) );
+			REQUIRE( p_d.second >= s1 );
+			REQUIRE( p_d.second == std::max((int)(1 << s), 2) );
+			ref_d.insert(p_d.first);
+		}
+		for (uint32_t i = 0; i < 16; ++i) {
+			auto p = ba.allocate(GENERATE(random(1<<7, 1<<8)));
+			REQUIRE(p != nullptr);
+			auto p_d = bb.allocate(GENERATE(random(1<<7, 1<<8)));
+			REQUIRE(p_d != nullptr);
+		}
+		{
+			auto p = ba.allocate(1<<16);
+			CHECK( p != nullptr );
+			auto p_d = bb.allocate(1<<16);
+			CHECK( p_d != nullptr );
+		}
+
+		// realloc
+		std::unordered_set<void*> ref2;
+		for (uint32_t i = 0; i < TOTAL_R/2; ++i)
+		{
+			ba.deallocate_array(reinterpret_cast<std::byte*>(val[i].first), val[i].second);
+			ref2.insert(val[i].first);
+		}
+		bb.reclaim();
+		// allocate, should reuse memory
+		int count_c = 0;
+		for (uint32_t i = 0; i < TOTAL_R/2; ++i) {
+			int s = i % 6;
+			int s1 = (1 << s) + GENERATE(random(0, 1<<6)) % (1 << s);
+			auto p = ba.allocate(s1);
+			CHECK( ref2.erase(p) == 1 );
+			
+			auto p_d = bb.allocate(s1);
+			count_c += (int)ref_d.contains(p_d);
+		}
+		REQUIRE( count_c > 0 );
 	}
 }
 

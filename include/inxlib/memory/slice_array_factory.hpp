@@ -98,7 +98,6 @@ class slice_array_factory : private overflow_pattern<Upstream, Overflow>
 	using pattern = overflow_pattern<Upstream, Overflow>;
 	using size_set = slab_reshape<Upstream, Size, Align>;
 
-	static_assert(Min2k >= 3, "Min2k must be at least 4, large enough for");
 	static_assert(Max2k > Min2k, "Max2k must be strictly larger than Min2k");
 
 public:
@@ -125,7 +124,7 @@ public:
 	static consteval uint32_t traits() noexcept { return FactoryOwn | FactoryReuse; }
 
 	constexpr size_type alignment() const noexcept { return m_slabSet.align(); }
-	constexpr size_type element_size() const noexcept { return Upstream::element_size() * m_slabSet.elements(); }
+	constexpr size_type element_size() const noexcept { return m_slabSet.size(); }
 
 	constexpr uint32_t max2k() const noexcept { return *m_slab2kMax; }
 
@@ -144,8 +143,10 @@ public:
 		if (!pattern::setup(std::forward<T>(args)...))
 			return false;
 		m_slab2kMax.set(m_slabSet, upstream());
+		if ((1ull << Min2k) * element_size() < sizeof(pointer))
+			return false;
 
-		return mak2k() >= Min2k;
+		return max2k() >= Min2k;
 	}
 	/// @brief setup(block_factory_params, std::tuple<OverflowParams>, ...)
 	template <typename... T>
@@ -156,9 +157,11 @@ public:
 			return false;
 		if (!m_slabSet.set(param.size, param.align))
 			return false;
-		m_slabCount.set(m_slabSet, upstream());
+		if ((1ull << Min2k) * element_size() < sizeof(pointer))
+			return false;
+		m_slab2kMax.set(m_slabSet, upstream());
 
-		return mak2k() >= Min2k;
+		return max2k() >= Min2k;
 	}
 
 	[[nodiscard]] pointer allocate(size_type elems)
@@ -188,7 +191,7 @@ public:
 	{
 		if (ptr == nullptr || elems == 0)
 			return;
-		uint32_t bucket2k = size2k(min_elems);
+		uint32_t bucket2k = size2k(elems);
 		if (bucket2k > max2k()) [[unlikely]] {
 			// overflow
 			elem_over_del(ptr);
@@ -278,7 +281,7 @@ protected:
 		Slab2k& s = m_slabs[i-Min2k];
 		if (s.re_elem) {
 			pointer ret = s.re_elem;
-			s.re_elem = *reinterpret_cast<area**>(ret);
+			s.re_elem = *reinterpret_cast<pointer*>(ret);
 			return ret;
 		}
 		// new element
@@ -289,40 +292,40 @@ protected:
 			s.l = link_fn::list_push_detached(s.l, slab);
 			slab->h[1].u64 = 0;
 		}
-		pointer ret = reinterpret_cast<pointer>( s.l->data.data() + slab->h[1].u64 * element_size() );
-		slab->h[1].u64 += 1ull << i;
+		pointer ret = reinterpret_cast<pointer>( +s.l->data + s.l->h[1].u64 * element_size() );
+		s.l->h[1].u64 += 1ull << i;
+		return ret;
 	}
 
 	void elem2k_del(uint32_t i, pointer p)
 	{
 		assert(Min2k <= i && i <= max2k());
 		pointer ret = m_slabs[i-Min2k].re_elem;
-		*reinterpret_cast<area**>(p) = ret;
+		*reinterpret_cast<pointer*>(p) = ret;
 		m_slabs[i-Min2k].re_elem = p;
 	}
 
-	pointer* elem_over_new(size_type elems)
+	pointer elem_over_new(size_type elems)
 	{
 		static_assert(overflow_area::align() >= sizeof(uint32_t));
 		size_type over_size = overflow_area::size_n(elems * element_size() + overflow_area::align());
-		overflow_area* a = reinterpret_cast<overflow_area*>( overflow_allocate(over_size) );
+		overflow_area* a = reinterpret_cast<overflow_area*>( pattern::overflow_allocate(over_size) );
 		m_slabOverflow = overflow_fn::dlist_push_detached(m_slabOverflow, a);
-		*reinterpret_cast<uint32_t*>(a->data.data()) = over_size;
-		return a->data.data() + overflow_area::align();
+		*reinterpret_cast<uint32_t*>(+a->data) = over_size;
+		return reinterpret_cast<pointer>(+a->data) + overflow_area::align();
 	}
 	void elem_over_del(pointer p)
 	{
-		size_type over_size = overflow_area::size_n(min_elems);
 		overflow_area* a = reinterpret_cast<overflow_area*>( p - (overflow_area::size_header() + overflow_area::align() ) );
 		m_slabOverflow = overflow_fn::dlist_detach(m_slabOverflow, a);
-		overflow_deallocate(reinterpret_cast<pointer*>(a), *reinterpret_cast<uint32_t*>(a->data.data()));
+		pattern::overflow_deallocate(reinterpret_cast<pointer>(a), *reinterpret_cast<uint32_t*>(+a->data));
 	}
 	void elem_over_release()
 	{
 		for (overflow_area* a = m_slabOverflow; a != nullptr; )
 		{
 			overflow_area* anext = overflow_fn::get_next(a);
-			overflow_deallocate(reinterpret_cast<pointer*>(a), *reinterpret_cast<uint32_t*>(a->data.data()));
+			pattern::overflow_deallocate(reinterpret_cast<pointer>(a), *reinterpret_cast<uint32_t*>(+a->data));
 			a = anext;
 		}
 	}
@@ -331,12 +334,15 @@ protected:
 	area* m_slabReuse = nullptr;
 	overflow_area* m_slabOverflow = nullptr;
 	[[no_unique_address]] size_set m_slabSet;
-	[[no_unique_address]] ReshapeSlice2kCache<size_set, upstream_factory> m_slab2kMax = {};
+	[[no_unique_address]] ReshapeSlice2kCache<size_set, upstream_factory, Max2k> m_slab2kMax = {};
 	std::array<Slab2k, Max2k - Min2k + 1> m_slabs = {};
 };
 
-template <typename T, SlabFactory Upstream, ByteFactory Overflow = void_factory, size_t SlabCount = 0>
-using indexed_block_factory_type = indexed_block_factory<Upstream, Overflow, SlabCount, sizeof(T), alignof(T)>;
+template <typename T, SlabFactory Upstream,
+          ByteFactory Overflow = void_factory,
+		  size_t Max2k = 16,
+          size_t Min2k = 4>
+using slice_array_factory_type = slice_array_factory<Upstream, Overflow, Max2k, Min2k, sizeof(T), alignof(T)>;
 
 } // namespace inx::memory
 

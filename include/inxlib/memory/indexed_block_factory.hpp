@@ -82,7 +82,7 @@ public:
 	static consteval uint32_t traits() noexcept { return FactoryOwn | FactoryNoFree; }
 
 	constexpr size_type alignment() const noexcept { return m_slabSet.align(); }
-	constexpr size_type element_size() const noexcept { return Upstream::element_size() * m_slabSet.elements(); }
+	constexpr size_type element_size() const noexcept { return m_slabSet.size(); }
 
 	/// @brief setup(std::tuple<OverflowParams>, ...)
 	template <typename... T>

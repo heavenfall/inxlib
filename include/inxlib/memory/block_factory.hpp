@@ -66,7 +66,7 @@ public:
 	static consteval uint32_t traits() noexcept { return FactoryOwn | FactoryNoFree; }
 
 	constexpr size_type alignment() const noexcept { return m_size.align(); }
-	constexpr size_type element_size() const noexcept { return Upstream::element_size() * m_size.elements(); }
+	constexpr size_type element_size() const noexcept { return m_size.size(); }
 
 	template <typename... T>
 	constexpr bool setup(T&&... args)

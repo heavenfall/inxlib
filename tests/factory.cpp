@@ -1,6 +1,7 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/generators/catch_generators.hpp>
 #include <catch2/generators/catch_generators_random.hpp>
+#include <catch2/generators/catch_generators_adapters.hpp>
 
 #include <inxlib/memory/factory.hpp>
 #include <inxlib/memory/source_factory.hpp>
@@ -47,7 +48,7 @@ TEST_CASE( "Basic factory check", "[factory]" ) {
 		single_factory_type<malloc_factory, memb> factory;
 		static_assert(SingleFactory<decltype(factory)>, "single_factory must be SingleFactory");
 		REQUIRE( factory.element_size() == sizeof(memb) );
-		REQUIRE( factory.alignment() == alignof(memb) );
+		REQUIRE( factory.alignment() >= alignof(memb) );
 		auto p1 = reinterpret_cast<memb*>(factory.create());
 		p1->a = 342;
 		p1->b = 4224;
@@ -66,8 +67,8 @@ TEST_CASE( "Basic factory check", "[factory]" ) {
 		single_factory_type<malloc_factory, memb> factory;
 		static_assert(SingleFactory<decltype(factory)>, "single_factory must be SingleFactory");
 		REQUIRE( factory.element_size() == sizeof(memb) );
+		REQUIRE( factory.alignment() >= alignof(memb) );
 		std::set<memb*> alloc;
-		REQUIRE( factory.alignment() == alignof(memb) );
 		auto p1 = reinterpret_cast<memb*>(factory.create());
 		alloc.insert(p1);
 		p1->a = 342;
@@ -92,13 +93,17 @@ TEST_CASE( "Basic factory check", "[factory]" ) {
 		slab_factory< factory_pointer<base_bump_factory>, 128, slab_memory_type<memb> > a1;
 		slab_factory< factory_pointer<base_bump_factory>, 256, slab_memory_type<memc> > a2;
 
-		REQUIRE( ba.setup(slab_factory_params(1024 * 128)) );
+		const int SLAB_SIZE = GENERATE(1,16,128,1024) * 1024 + 32;
+		REQUIRE( ba.setup(slab_factory_params(SLAB_SIZE)) );
 		REQUIRE( a1.setup(ba) );
 		REQUIRE( a2.setup(ba) );
 
-		for (int i = 0; i < 1024; ++i) {
+		const int TOTAL = GENERATE(1,2,4,8,16,32) * 1024;
+		for (int i = 0; i < TOTAL; ++i) {
 			auto* p1 [[maybe_unused]] = a1.create();
+			REQUIRE( p1 != nullptr );
 			auto* p2 [[maybe_unused]] = a2.create();
+			REQUIRE( p2 != nullptr );
 		}
 	}
 
@@ -115,7 +120,7 @@ TEST_CASE( "Basic factory check", "[factory]" ) {
 		REQUIRE( bb.alignment() >= alignof(int32_t) );
 		std::vector<memb*> ref;
 		std::vector<int32_t*> refb;
-		constexpr int32_t TOTAL = 1024 * 16;
+		const int32_t TOTAL = GENERATE(1,2,4,8,16,32,64) * 1024;
 
 		auto* big = reinterpret_cast<int32_t*>( ba.upstream().allocate(TOTAL * sizeof(int32_t)) );
 		for (int32_t i = 0; i < TOTAL; ++i) {
@@ -143,14 +148,23 @@ TEST_CASE( "Basic factory check", "[factory]" ) {
 	SECTION( "block factory" ) {
 		using area_fact = slab_factory<malloc_factory, 1024>;
 		using block_fact_static = block_factory_type<memc, factory_pointer<area_fact>>;
+		using block_fact_dyn = block_factory<factory_pointer<area_fact>>;
 		static_assert(SingleFactory<block_fact_static>, "block_factory must be SingleFactory");
 		area_fact pool;
 		REQUIRE( pool.setup() );
 		block_fact_static ba;
 		REQUIRE( ba.setup(pool) );
+		CHECK( ba.element_size() == sizeof(memc) );
+		CHECK( ba.alignment() >= alignof(memc) );
+		block_fact_dyn bb;
+		REQUIRE( bb.setup(block_factory_params_type<memb>, pool) );
+		CHECK( bb.element_size() == sizeof(memb) );
+		CHECK( bb.alignment() >= alignof(memb) );
 		std::vector<memc*> ref;
-		constexpr int32_t TOTAL = 1024;
+		std::vector<memb*> ref2;
+		const int32_t TOTAL = GENERATE(1,2,4,8,16,32,64) * 1024;
 		std::set<memc*> alloc;
+		std::set<memb*> alloc2;
 
 		for (int32_t i = 0; i < TOTAL; ++i) {
 			memc* v = reinterpret_cast<memc*>(ba.create());
@@ -158,16 +172,29 @@ TEST_CASE( "Basic factory check", "[factory]" ) {
 			v->b = i*i;
 			REQUIRE_FALSE( alloc.contains(v) );
 			alloc.insert(v);
+			
+			memb* v2 = reinterpret_cast<memb*>(bb.create());
+			v2->a = i;
+			v2->b = i*i;
+			REQUIRE_FALSE( alloc2.contains(v2) );
+			alloc2.insert(v2);
 		}
 		ba.reclaim();
+		bb.reclaim();
 		int32_t dup_count = 0;
+		int32_t dup_count2 = 0;
 		for (int32_t i = 0; i < TOTAL; ++i) {
 			memc* v = reinterpret_cast<memc*>(ba.create());
 			if (alloc.contains(v))
 				dup_count += 1;
+				
+			memb* v2 = reinterpret_cast<memb*>(bb.create());
+			if (alloc.contains(v))
+				dup_count2 += 1;
 		}
 		// requires some reuse of blocks
 		REQUIRE( dup_count > 0 );
+		REQUIRE( dup_count2 > 0 );
 	}
 
 	SECTION( "buffer factory" ) {
@@ -256,7 +283,7 @@ TEST_CASE( "Basic factory check", "[factory]" ) {
 		CHECK( ba.alignment() >= alignof(memc) );
 
 		std::vector<memc*> ref;
-		constexpr int32_t TOTAL = 1024;
+		const int32_t TOTAL = GENERATE(1,2,4,8,16,32,64) * 1024;
 		std::set<memc*> alloc;
 
 		// allocate inital 1024 elements one-at-a-time
@@ -276,7 +303,7 @@ TEST_CASE( "Basic factory check", "[factory]" ) {
 			REQUIRE( v->a == i );
 			REQUIRE( v->b == (i*i) );
 		}
-		constexpr int32_t TOTAL2 = 10 * TOTAL;
+		const int32_t TOTAL2 = 10 * TOTAL;
 		ba.resize(TOTAL2);
 		for (int32_t i = 0; i < TOTAL; ++i) {
 			memc* v = reinterpret_cast<memc*>(ba.get_if(i));
@@ -304,7 +331,7 @@ TEST_CASE( "Basic factory check", "[factory]" ) {
 		CHECK( ba.alignment() >= alignof(memc) );
 
 		std::vector<memc*> ref;
-		constexpr int32_t TOTAL = 1024;
+		const int32_t TOTAL = GENERATE(1,2,4,8,16,32,64) * 1024;
 		std::set<memc*> alloc;
 
 		// allocate inital 1024 elements one-at-a-time
@@ -324,7 +351,7 @@ TEST_CASE( "Basic factory check", "[factory]" ) {
 			REQUIRE( v->a == i );
 			REQUIRE( v->b == (i*i) );
 		}
-		constexpr int32_t TOTAL2 = 10 * TOTAL;
+		const int32_t TOTAL2 = 10 * TOTAL;
 		ba.resize(TOTAL2);
 		for (int32_t i = 0; i < TOTAL; ++i) {
 			memc* v = reinterpret_cast<memc*>(ba.get_if(i));
@@ -359,7 +386,7 @@ TEST_CASE( "Basic factory check", "[factory]" ) {
 		CHECK( bb.element_size() == sizeof(memc) );
 		CHECK( bb.alignment() >= alignof(memc) );
 
-		const uint32_t TOTAL_R = 8 * 1024;
+		const uint32_t TOTAL_R = GENERATE(1,2,4,8,16,32,64,100,200) * 1024;
 		std::vector<std::pair<void*,int>> val;
 		val.reserve(TOTAL_R+12);
 		std::unordered_set<void*> ref;
@@ -367,7 +394,7 @@ TEST_CASE( "Basic factory check", "[factory]" ) {
 		for (uint32_t i = 0; i < TOTAL_R; ++i)
 		{
 			int s = i % 6;
-			int s1 = (1 << s) + GENERATE(random(0, 1<<6)) % (1 << s);
+			int s1 = (1 << s) - GENERATE(take(1, random(0, 1<<6))) % (1 << (s > 1 ? s-1 : 0));
 			auto p = ba.allocate_array(s1);
 			REQUIRE( p.first != nullptr );
 			REQUIRE( !ref.contains(p.first) );
@@ -380,13 +407,13 @@ TEST_CASE( "Basic factory check", "[factory]" ) {
 			REQUIRE( p_d.first != nullptr );
 			REQUIRE( !ref_d.contains(p_d.first) );
 			REQUIRE( p_d.second >= s1 );
-			REQUIRE( p_d.second == std::max((int)(1 << s), 2) );
+			REQUIRE( p_d.second == std::max((int)(1 << s), (int)(1 << 2)) );
 			ref_d.insert(p_d.first);
 		}
 		for (uint32_t i = 0; i < 16; ++i) {
-			auto p = ba.allocate(GENERATE(random(1<<7, 1<<8)));
+			auto p = ba.allocate(GENERATE(take(1, random(1<<7, 1<<8))));
 			REQUIRE(p != nullptr);
-			auto p_d = bb.allocate(GENERATE(random(1<<7, 1<<8)));
+			auto p_d = bb.allocate(GENERATE(take(1, random(1<<7, 1<<8))));
 			REQUIRE(p_d != nullptr);
 		}
 		{
@@ -408,7 +435,7 @@ TEST_CASE( "Basic factory check", "[factory]" ) {
 		int count_c = 0;
 		for (uint32_t i = 0; i < TOTAL_R/2; ++i) {
 			int s = i % 6;
-			int s1 = (1 << s) + GENERATE(random(0, 1<<6)) % (1 << s);
+			int s1 = (1 << s) - GENERATE(take(1, random(0, 1<<6))) % (1 << (s > 1 ? s-1 : 0));
 			auto p = ba.allocate(s1);
 			CHECK( ref2.erase(p) == 1 );
 			

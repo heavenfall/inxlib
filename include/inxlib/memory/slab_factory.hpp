@@ -240,43 +240,25 @@ struct slab_link_fn
 
 	/// @return the next slab as stored in slab (h[0].p64)
 	/// @pre slab != nullptr
-	static pointer get_next(pointer slab) noexcept
-	{
-		return reinterpret_cast<pointer>(slab->h[0].p64);
-	}
+	static pointer get_next(pointer slab) noexcept { return reinterpret_cast<pointer>(slab->h[0].p64); }
 	/// @brief sets the next slab in slab to next_slab
 	/// @pre slab != nullptr
-	static void set_next(pointer slab, pointer next_slab) noexcept
-	{
-		slab->h[0].p64 = next_slab;
-	}
+	static void set_next(pointer slab, pointer next_slab) noexcept { slab->h[0].p64 = next_slab; }
 
 	/// @return the next slab as stored in slab (h[1].p64)
 	/// @pre slab != nullptr
-	static pointer get_prev(pointer slab) noexcept
-	{
-		return reinterpret_cast<pointer>(slab->h[1].p64);
-	}
+	static pointer get_prev(pointer slab) noexcept { return reinterpret_cast<pointer>(slab->h[1].p64); }
 	/// @brief sets the next slab in slab to next_slab
 	/// @pre slab != nullptr
-	static void set_prev(pointer slab, pointer next_slab) noexcept
-	{
-		slab->h[1].p64 = next_slab;
-	}
+	static void set_prev(pointer slab, pointer next_slab) noexcept { slab->h[1].p64 = next_slab; }
 
 	/// @return list attached to current chain link
 	/// @pre link != nullptr
-	static pointer get_chain_list(pointer link) noexcept
-	{
-		return reinterpret_cast<pointer>(link->h[0].p64);
-	}
+	static pointer get_chain_list(pointer link) noexcept { return reinterpret_cast<pointer>(link->h[0].p64); }
 
 	/// @return list attached to current chain link
 	/// @pre link != nullptr
-	static pointer get_chain_link(pointer link) noexcept
-	{
-		return reinterpret_cast<pointer>(link->h[1].p64);
-	}
+	static pointer get_chain_link(pointer link) noexcept { return reinterpret_cast<pointer>(link->h[1].p64); }
 
 	/// @brief add a detached slab to a forward list of slab
 	/// @param head current head(root) of list, can be null
@@ -364,7 +346,7 @@ struct slab_link_fn
 	static pointer chain_push_detached(pointer head, pointer detached_slab) noexcept
 	{
 		assert(detached_slab != nullptr && detached_slab != head);
-		set_prev(detached_slab, head); // prev is next chain
+		set_prev(detached_slab, head);    // prev is next chain
 		set_next(detached_slab, nullptr); // is not list thus next is null
 		return detached_slab;
 	}
@@ -401,7 +383,6 @@ struct slab_link_fn
 	}
 };
 
-
 /// @brief Add support to slab_factory to manage a forward list of slabs.
 ///        O(1) reclaim operations.
 ///        slab.h[0] and slab.h[1] are managed by this adaptor.
@@ -419,7 +400,6 @@ protected:
 	using link_fn = slab_link_fn<std::remove_pointer_t<pointer>>;
 
 public:
-
 	static consteval uint32_t traits() noexcept { return FactoryOwn | FactoryReuse; }
 
 	using Upstream::alignment;
@@ -472,22 +452,10 @@ public:
 
 protected:
 	pointer root() noexcept { return m_root; }
-	void push_front(pointer at) noexcept
-	{
-		m_root = link_fn::dlist_push_detached(m_root, at);
-	}
-	void remove_from_list(pointer at) noexcept
-	{
-		m_root = link_fn::dlist_detach(m_root, at);
-	}
-	void push_reuse(pointer at) noexcept
-	{
-		m_reuse = link_fn::chain_push_detached(m_reuse, at);
-	}
-	void push_reuse_list(pointer front) noexcept
-	{
-		m_reuse = link_fn::chain_push_list(m_reuse, front);
-	}
+	void push_front(pointer at) noexcept { m_root = link_fn::dlist_push_detached(m_root, at); }
+	void remove_from_list(pointer at) noexcept { m_root = link_fn::dlist_detach(m_root, at); }
+	void push_reuse(pointer at) noexcept { m_reuse = link_fn::chain_push_detached(m_reuse, at); }
+	void push_reuse_list(pointer front) noexcept { m_reuse = link_fn::chain_push_list(m_reuse, front); }
 	[[nodiscard]] pointer pop_reuse() noexcept
 	{
 		assert(m_reuse != nullptr);
@@ -609,7 +577,7 @@ template <details::SlabReshapeCountConstexpr Reshape, typename Fact>
 struct ReshapeCountCache<Reshape, Fact>
 {
 	static constexpr bool dynamic = false;
-	
+
 	/// @brief does nothing
 	constexpr void set(const Reshape& re, const Fact& fact) noexcept {}
 

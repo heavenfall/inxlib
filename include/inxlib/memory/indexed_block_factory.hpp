@@ -27,6 +27,9 @@ SOFTWARE.
 
 #include "factory.hpp"
 #include "factory_adaptor.hpp"
+#include "slab_factory.hpp"
+
+#include <algorithm>
 
 namespace inx::memory {
 

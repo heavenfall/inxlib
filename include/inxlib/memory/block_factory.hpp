@@ -63,6 +63,8 @@ public:
 	using area = upstream_factory::value_type;
 
 public:
+	~block_factory() { release(factory_chain_free_release<pattern>); }
+
 	static consteval uint32_t traits() noexcept { return FactoryOwn | FactoryNoFree; }
 
 	constexpr size_type alignment() const noexcept { return m_size.align(); }

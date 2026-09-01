@@ -400,12 +400,12 @@ protected:
 	using link_fn = slab_link_fn<std::remove_pointer_t<pointer>>;
 
 public:
+	~slab_link_pattern() { release(factory_chain_free_release<Upstream>); }
+
 	static consteval uint32_t traits() noexcept { return FactoryOwn | FactoryReuse; }
 
 	using Upstream::alignment;
 	using Upstream::element_size;
-
-	~slab_link_pattern() { release(factory_chain_free_release<Upstream>); }
 
 	pointer create()
 	{

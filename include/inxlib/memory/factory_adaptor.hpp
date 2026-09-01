@@ -124,7 +124,6 @@ public:
 protected:
 	static pointer reuse_get(pointer p) noexcept
 	{
-		assert(element_size() >= sizeof(pointer));
 		// handle unaligned access
 		pointer value;
 		std::memcpy(&value, p, sizeof(pointer));
@@ -132,13 +131,12 @@ protected:
 	}
 	static void reuse_set(pointer p, pointer value) noexcept
 	{
-		assert(element_size() >= sizeof(pointer));
 		// handle unaligned access
 		std::memcpy(p, &value, sizeof(pointer));
 	}
 
 protected:
-	pointer* m_reuse = nullptr;
+	pointer m_reuse = nullptr;
 };
 
 template <ByteFactory Upstream>
@@ -269,6 +267,7 @@ class overflow_pattern : public Upstream
 {
 public:
 	using overflow_type = Overflow;
+	static consteval bool overflow_is_pointer() noexcept { return FactoryTraitAny<overflow_type, FactoryPointer>; }
 
 	template <Tuple OverflowTuple, typename... T>
 	constexpr bool setup(OverflowTuple&& setup_overflow, T&&... args)
@@ -317,8 +316,22 @@ protected:
 		}
 	}
 
+	template <Factory Fact>
+	static consteval bool overflow_is_pointer_upstream() noexcept
+	{
+		if constexpr (FactoryTraitAny<Fact, FactoryPointer>) {
+			return true;
+		} else if constexpr (ByteFactory<Fact>) {
+			return false;
+		} else {
+			return overflow_is_pointer_upstream<typename Fact::upstream_factory>();
+		}
+	}
+
 public:
 	using overflow_type = std::remove_cvref_t<decltype(overflow_upstream(std::declval<Upstream>().upstream()))>;
+	static consteval bool overflow_is_pointer() noexcept { return overflow_is_pointer_upstream<Upstream>; }
+
 	overflow_type& overflow() noexcept { return overflow_upstream(Upstream::upstream()); }
 	const overflow_type& overflow() const noexcept { return overflow_upstream(Upstream::upstream()); }
 

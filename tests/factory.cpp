@@ -64,8 +64,8 @@ TEST_CASE( "Basic factory check", "[factory]" ) {
 	}
 
 	SECTION( "reuse factory" ) {
-		single_factory_type<malloc_factory, memb> factory;
-		static_assert(SingleFactory<decltype(factory)>, "single_factory must be SingleFactory");
+		reuse_adaptor<single_factory_type<malloc_factory, memb>> factory;
+		static_assert(SingleFactory<decltype(factory)>, "factory must be SingleFactory");
 		REQUIRE( factory.element_size() == sizeof(memb) );
 		REQUIRE( factory.alignment() >= alignof(memb) );
 		std::set<memb*> alloc;
@@ -92,6 +92,8 @@ TEST_CASE( "Basic factory check", "[factory]" ) {
 		base_bump_factory ba;
 		slab_factory< factory_pointer<base_bump_factory>, 128, slab_memory_type<memb> > a1;
 		slab_factory< factory_pointer<base_bump_factory>, 256, slab_memory_type<memc> > a2;
+		static_assert(SlabFactory<decltype(a1)>, "must be SlabFactory");
+		static_assert(SlabFactory<decltype(a2)>, "must be SlabFactory");
 
 		const int SLAB_SIZE = GENERATE(1,16,128,1024) * 1024 + 32;
 		REQUIRE( ba.setup(slab_factory_params(SLAB_SIZE)) );
@@ -149,7 +151,8 @@ TEST_CASE( "Basic factory check", "[factory]" ) {
 		using area_fact = slab_factory<malloc_factory, 1024>;
 		using block_fact_static = block_factory_type<memc, factory_pointer<area_fact>>;
 		using block_fact_dyn = block_factory<factory_pointer<area_fact>>;
-		static_assert(SingleFactory<block_fact_static>, "block_factory must be SingleFactory");
+		static_assert(SingleFactory<block_fact_static>, "block_fact_static must be SingleFactory");
+		static_assert(SingleFactory<block_fact_dyn>, "block_fact_dyn must be SingleFactory");
 		area_fact pool;
 		REQUIRE( pool.setup() );
 		block_fact_static ba;
@@ -199,6 +202,7 @@ TEST_CASE( "Basic factory check", "[factory]" ) {
 
 	SECTION( "buffer factory" ) {
 		buffer_factory<1024> factory_void;
+		static_assert(ByteFactory<decltype(factory_void)>, "factory_void must be ByteFactory");
 		factory_void.setup();
 		int valid = 0, invalid = 0;
 		for (int i = 0; i < 16; i++) {
@@ -225,6 +229,7 @@ TEST_CASE( "Basic factory check", "[factory]" ) {
 		CHECK( invalid >= 8 );
 
 		buffer_factory<1024, malloc_factory> factory_malloc;
+		static_assert(ByteFactory<decltype(factory_malloc)>, "factory_malloc must be ByteFactory");
 		factory_malloc.setup();
 		valid = 0, invalid = 0;
 		for (int i = 0; i < 64; i++) {
@@ -248,6 +253,7 @@ TEST_CASE( "Basic factory check", "[factory]" ) {
 
 		using bfactory = bump_factory< slab_factory<malloc_factory, 4096> >;
 		buffer_factory<1024, bfactory> factory_bump;
+		static_assert(ByteFactory<decltype(factory_bump)>, "factory_malloc must be ByteFactory");
 		factory_bump.setup();
 		valid = 0, invalid = 0;
 		for (int i = 0; i < 1024; i++) {

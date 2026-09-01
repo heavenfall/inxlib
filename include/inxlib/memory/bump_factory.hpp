@@ -48,7 +48,7 @@ public:
 	using area = typename pattern::value_type;
 	using typename pattern::overflow_type;
 
-	~bump_factory() { release(factory_chain_free_release<Upstream>); }
+	~bump_factory() { release(); }
 
 	static consteval uint32_t traits() noexcept { return FactoryOwn | FactoryNoFree; }
 

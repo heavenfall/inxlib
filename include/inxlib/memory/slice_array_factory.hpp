@@ -80,18 +80,18 @@ struct ReshapeSlice2kCache<Reshape, Fact, Max2k>
 };
 
 /**
- * SingleFactory that sections off area blocks into set sized allocations.
- * Similar to block_factory, except this one is indexable by pointer to area buffers.
- * Use resize() to change number of elements, or use create() to append one additional element.
- * Use item(i) to select the ith element, only assert checks for range thus undefined if out-of-range.
+ * ArrayFactory that allows general purpose allocation and re-allocation of arrays.
+ * Allocates elements to buffers of size 2^k, where k=ceil(log_2(n)).
+ * Normal allocate just allocates the smallest 2^k array that fits n.
+ * Use allocate_array to also get the array size (in elements Size).
  *
- * If Size == 0: size is dynamically determined through setup.
- * Otherwise: set size and align at compile time.
- * Elements == 0 makes elements defined, setup() returns false if elements do not fit on area.
+ * If Size == 0 && Align == 0: size is given to setup(slice_array_factory_params).
+ * Otherwise: set size and align at compile time..
  *
- * @tparam Overflow the memory source of pointer to areas once greater than SlabCount
- * @tparam SlabCount the number of areas to store in-class, takes 8*SlabCount of class size, supports max
- *         of SlabCount slabs before invoking overflow allocations.
+ * @tparam Overflow the alternative memory allocation when array is large, these allocations are not reused.
+ * @tparam Max2k the maximum number of k, also limited by the slab size to fit 2^k * Size.
+ * @tparam Size size of individual elements.
+ * @tparam Align alignment of individual elements.
  */
 template <SlabFactory Upstream,
           ByteFactory Overflow = void_factory,
@@ -312,15 +312,21 @@ protected:
 		overflow_area* a =
 		  reinterpret_cast<overflow_area*>(p - (overflow_area::size_header() + overflow_area::align()));
 		m_slabOverflow = overflow_fn::dlist_detach(m_slabOverflow, a);
-		pattern::overflow_deallocate(reinterpret_cast<pointer>(a), *reinterpret_cast<uint32_t*>(+a->data));
+		if constexpr (FactoryTraitNone<typename pattern::overflow_type, FactoryNoFree>) {
+			pattern::overflow_deallocate(reinterpret_cast<pointer>(a), *reinterpret_cast<uint32_t*>(+a->data));
+		}
 	}
 	void elem_over_release()
 	{
-		for (overflow_area* a = m_slabOverflow; a != nullptr;) {
-			overflow_area* anext = overflow_fn::get_next(a);
-			pattern::overflow_deallocate(reinterpret_cast<pointer>(a), *reinterpret_cast<uint32_t*>(+a->data));
-			a = anext;
+		if constexpr (FactoryTraitNone<typename pattern::overflow_type, FactoryNoFree>) {
+			// only free overflow if it is supported, otherwise memory is wasted until released upstream
+			for (overflow_area* a = m_slabOverflow; a != nullptr;) {
+				overflow_area* anext = overflow_fn::get_next(a);
+				pattern::overflow_deallocate(reinterpret_cast<pointer>(a), *reinterpret_cast<uint32_t*>(+a->data));
+				a = anext;
+			}
 		}
+		m_slabOverflow = nullptr;
 	}
 
 protected:

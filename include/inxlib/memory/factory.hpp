@@ -144,8 +144,8 @@ concept FactoryTraitNone = Factory<Fact> && (Fact::traits() & T) == 0;
 // upstream is FactoryNoFree OR (upstream is FactoryOwn AND upstream is not FactoryPointer)
 template <Factory Fact>
 inline constexpr bool factory_chain_free_release =
-  !((Fact::traits() & FactoryNoFree) != 0 ||
-    ((Fact::traits() & FactoryOwn) != 0 && (Fact::traits() & FactoryPointer) == 0));
+  FactoryTraitNone<Fact, FactoryNoFree> ||
+  (FactoryTraitNone<Fact, FactoryOwn> && FactoryTraitAny<Fact, FactoryPointer>);
 
 /**
  * Class is a byte factory.  Provides allocation for byte object.

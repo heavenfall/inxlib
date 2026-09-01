@@ -34,6 +34,9 @@ SOFTWARE.
 
 namespace inx::memory {
 
+/**
+ * Source factory uses malloc to source generate ByteFactory allocations.
+ */
 class malloc_factory
 {
 public:
@@ -58,6 +61,9 @@ public:
 
 static_assert(ByteFactory<malloc_factory>, "malloc_factory must be a valid Factory");
 
+/**
+ * Source factory uses std::pmr::memory_resource* to source generate ByteFactory allocations.
+ */
 class memory_resource_factory
 {
 public:
@@ -124,6 +130,15 @@ struct BufferOverflowData<void_factory>
 
 } // namespace details
 
+/**
+ * Source factory uses a stack-sized buffer to source ByteFactory allocations.
+ * Once buffer is full, will source from Upstream in slabs of size UpstreamSize.
+ * If no upstream is set, allocation will fail and return nullptr.
+ *
+ * @tparam Buffer the size (in bytes) of the buffer to store within class.
+ * @tparam Upstream upstream factory once buffer is full, if not set to void.
+ * @tparam UpstreamSize the slab size from Upstream to allocate at a time.
+ */
 template <size_t Buffer, ByteFactory Upstream = void_factory, size_t UpstreamSize = 0>
 class buffer_factory : private Upstream
 {
@@ -137,7 +152,7 @@ public:
 	static_assert(UpstreamSize == 0 || UpstreamSize >= alignof(max_align_t),
 	              "Upstream size must fit max alignment (or 0).");
 
-	static consteval uint32_t traits() noexcept { return FactoryOwn | FactoryReuse | FactoryNoFree; }
+	static consteval uint32_t traits() noexcept { return FactoryOwn | FactoryNoFree; }
 
 private:
 	static constexpr bool overflow_buffer = !VoidFactory<Upstream>;

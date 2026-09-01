@@ -12,7 +12,7 @@ TEST_CASE( "String variable parsing", "[var]") {
 		auto ps = "@name1@"sv;
 		auto p = util::parse_varname(ps);
 		CHECK(bool{p.first} == true);
-		CHECK(p.first.cls() == util::VarClass::Global);
+		CHECK(p.first.cls() == util::VarClass::Local);
 		CHECK(p.first.op() == util::VarOp::Name);
 		CHECK(p.first.group() == ""sv);
 		CHECK(p.first.name() == "name1"sv);
@@ -21,7 +21,7 @@ TEST_CASE( "String variable parsing", "[var]") {
 		ps = "@group.name2@"sv;
 		p = util::parse_varname(ps);
 		CHECK(bool{p.first} == true);
-		CHECK(p.first.cls() == util::VarClass::Global);
+		CHECK(p.first.cls() == util::VarClass::Local);
 		CHECK(p.first.op() == util::VarOp::Name);
 		CHECK(p.first.group() == "group"sv);
 		CHECK(p.first.name() == "name2"sv);
@@ -30,34 +30,34 @@ TEST_CASE( "String variable parsing", "[var]") {
 		ps = "@group.1.name2@"sv;
 		p = util::parse_varname(ps);
 		CHECK(bool{p.first} == true);
-		CHECK(p.first.cls() == util::VarClass::Global);
+		CHECK(p.first.cls() == util::VarClass::Local);
 		CHECK(p.first.op() == util::VarOp::Name);
 		CHECK(p.first.group() == "group.1"sv);
 		CHECK(p.first.name() == "name2"sv);
 		CHECK(p.second == ps.size());
 
-		ps = "@$name3@"sv;
+		ps = "@+name3@"sv;
 		p = util::parse_varname(ps);
 		CHECK(bool{p.first} == true);
-		CHECK(p.first.cls() == util::VarClass::Local);
+		CHECK(p.first.cls() == util::VarClass::Global);
 		CHECK(p.first.op() == util::VarOp::Name);
 		CHECK(p.first.group() == ""sv);
 		CHECK(p.first.name() == "name3"sv);
 		CHECK(p.second == ps.size());
 
-		ps = "@$gsd.name4@"sv;
+		ps = "@+gsd.name4@"sv;
 		p = util::parse_varname(ps);
 		CHECK(bool{p.first} == true);
-		CHECK(p.first.cls() == util::VarClass::Local);
+		CHECK(p.first.cls() == util::VarClass::Global);
 		CHECK(p.first.op() == util::VarOp::Name);
 		CHECK(p.first.group() == "gsd"sv);
 		CHECK(p.first.name() == "name4"sv);
 		CHECK(p.second == ps.size());
 
-		ps = "@$gsd.md3.name5@"sv;
+		ps = "@+gsd.md3.name5@"sv;
 		p = util::parse_varname(ps);
 		CHECK(bool{p.first} == true);
-		CHECK(p.first.cls() == util::VarClass::Local);
+		CHECK(p.first.cls() == util::VarClass::Global);
 		CHECK(p.first.op() == util::VarOp::Name);
 		CHECK(p.first.group() == "gsd.md3"sv);
 		CHECK(p.first.name() == "name5"sv);
@@ -68,7 +68,7 @@ TEST_CASE( "String variable parsing", "[var]") {
 		auto ps = "name1"sv;
 		auto p = util::parse_varname(ps);
 		CHECK(bool{p.first} == true);
-		CHECK(p.first.cls() == util::VarClass::Global);
+		CHECK(p.first.cls() == util::VarClass::Local);
 		CHECK(p.first.op() == util::VarOp::Name);
 		CHECK(p.first.group() == ""sv);
 		CHECK(p.first.name() == "name1"sv);
@@ -77,22 +77,22 @@ TEST_CASE( "String variable parsing", "[var]") {
 		ps = "@name2"sv;
 		p = util::parse_varname(ps);
 		CHECK(bool{p.first} == true);
-		CHECK(p.first.cls() == util::VarClass::Global);
+		CHECK(p.first.cls() == util::VarClass::Local);
 		CHECK(p.first.op() == util::VarOp::Name);
 		CHECK(p.first.group() == ""sv);
 		CHECK(p.first.name() == "name2"sv);
 		CHECK(p.second == ps.size());
 
-		ps = "%$qx.name3"sv;
+		ps = "%+qx.name3"sv;
 		p = util::parse_varname(ps);
 		CHECK(bool{p.first} == true);
-		CHECK(p.first.cls() == util::VarClass::Local);
+		CHECK(p.first.cls() == util::VarClass::Global);
 		CHECK(p.first.op() == util::VarOp::Print);
 		CHECK(p.first.group() == "qx"sv);
 		CHECK(p.first.name() == "name3"sv);
 		CHECK(p.second == ps.size());
 
-		ps = "%$qx.name3@"sv;
+		ps = "%+qx.name3@"sv;
 		p = util::parse_varname(ps);
 		CHECK(bool{p.first} == false);
 	}
@@ -135,7 +135,7 @@ TEST_CASE( "String variable parsing", "[var]") {
 			CHECK(bool{p.first} == false);
 		} else {
 			CHECK(bool{p.first} == true);
-			CHECK(p.first.cls() == util::VarClass::Global);
+			CHECK(p.first.cls() == util::VarClass::Local);
 			CHECK(p.first.op() == util::VarOp::Name);
 			CHECK(p.first.group() == group);
 			CHECK(p.first.name() == "xyz");
@@ -148,7 +148,7 @@ TEST_CASE( "String variable parsing", "[var]") {
 			CHECK(bool{p.first} == false);
 		} else {
 			CHECK(bool{p.first} == true);
-			CHECK(p.first.cls() == util::VarClass::Global);
+			CHECK(p.first.cls() == util::VarClass::Local);
 			CHECK(p.first.op() == util::VarOp::Name);
 			CHECK(p.first.group() == "abc");
 			CHECK(p.first.name() == name);
@@ -161,7 +161,7 @@ TEST_CASE( "String variable parsing", "[var]") {
 			CHECK(bool{p.first} == false);
 		} else {
 			CHECK(bool{p.first} == true);
-			CHECK(p.first.cls() == util::VarClass::Global);
+			CHECK(p.first.cls() == util::VarClass::Local);
 			CHECK(p.first.op() == util::VarOp::Name);
 			CHECK(p.first.group() == group);
 			CHECK(p.first.name() == name);

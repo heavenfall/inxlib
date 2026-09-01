@@ -27,48 +27,12 @@ SOFTWARE.
 
 #include <inxlib/inx.hpp>
 
-namespace inx::numeric
-{
+namespace inx::numeric {
 
 #ifdef __SIZEOF_INT128__
 #define INX_INT128
 using int128 = __int128;
 // using uint128 = unsigned __int128;
-#else
-#if 0
-struct int128
-{
-	uint64_t part1;
-	int64_t part2;
-	constexpr int128& operator=(const int128&) noexcept = default;
-	template <std::signed_integral T>
-	constexpr int128& operator=(T v) noexcept
-	{
-		part1 = static_cast<uint64_t>(static_cast<int64_t>(v));
-		part2 = v >= 0 ? 0ll : ~0ll;
-	}
-	template <std::unsigned_integral T>
-	constexpr int128& operator=(T v) noexcept
-	{
-		part1 = static_cast<uint64_t>(v);
-		part2 = 0;
-	}
-
-	template <std::integral T>
-	constexpr operator T() const noexcept
-	{
-		return static_cast<T>(parts[0]);
-	}
-};
-
-constexpr int128& operator+=(int128& lhs, int128 rhs) noexcept
-{
-	int64_t overflow = lhs.parts[0] + rhs.parts[0];
-}
-
-int128& operator>>=(size_t v);
-#else
-using int128 = int64_t;
 #endif
 
 } // namespace inx::numeric

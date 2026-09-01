@@ -29,12 +29,40 @@ SOFTWARE.
 
 namespace inx {
 
+namespace details {
+template <typename T>
+struct TypeTemplate : std::false_type
+{};
+template <template <typename...> typename T, typename... Ts>
+struct TypeTemplate<T<Ts...>> : std::true_type
+{};
+template <typename T>
+struct TypeTemplateSize : std::integral_constant<size_t, 0>
+{};
+template <template <typename...> typename T, typename... Ts>
+struct TypeTemplateSize<T<Ts...>> : std::integral_constant<size_t, sizeof...(Ts)>
+{};
+template <typename T>
+struct TupleType : std::false_type
+{};
+template <typename... Ts>
+struct TupleType<std::tuple<Ts...>> : std::true_type
+{};
+} // namespace details
+
 template <typename T>
 concept Plain = !std::is_void_v<T> && !std::is_reference_v<T> && !std::is_volatile_v<T>;
 template <typename T>
 concept ConstPlain = Plain<T> && std::is_const_v<T>;
 template <typename T>
 concept NonConstPlain = Plain<T> && !std::is_const_v<T>;
+
+template <typename T>
+concept TypeTemplate = details::TypeTemplate<T>::value;
+template <typename T>
+constexpr size_t TypeTemplateSize = details::TypeTemplateSize<T>::value;
+template <typename T>
+concept Tuple = details::TupleType<T>::value;
 
 } // namespace inx
 

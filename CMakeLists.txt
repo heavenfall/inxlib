@@ -5,7 +5,7 @@ project(INXlib
 	VERSION 0.5.0
 	LANGUAGES CXX C)
 
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 
 set(InxIsTopProject OFF)
@@ -25,26 +25,12 @@ target_include_directories(inxlib_lib INTERFACE
 	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 	$<INSTALL_INTERFACE:include>
 )
-target_sources(inxlib_lib PUBLIC include/inxlib/inx.hpp
-# find include/inxlib/*/ -type f | sort
-include/inxlib/data/binary_tree.hpp
-include/inxlib/data/bit_table.hpp
-include/inxlib/data/mary_tree.hpp
-include/inxlib/data/redblack_tree.hpp
-include/inxlib/io/null.hpp
-include/inxlib/io/transformers.hpp
-include/inxlib/memory/block_array.hpp
-include/inxlib/memory/factory.hpp
-include/inxlib/memory/object.hpp
-include/inxlib/memory/slice_array.hpp
-include/inxlib/memory/slice_factory.hpp
-include/inxlib/util/bits.hpp
-include/inxlib/util/functions.hpp
-include/inxlib/util/iterator.hpp
-include/inxlib/util/math.hpp
-include/inxlib/util/numeric_types.hpp
-include/inxlib/util/virtual_pointer.hpp
-include/inxlib/util/xoshiro256.hpp
+
+include(cmake/headers.cmake)
+list(TRANSFORM INXLIB_HEADERS PREPEND "include/" OUTPUT_VARIABLE INXLIB_SOURCES_HEADERS)
+
+target_sources(inxlib_lib INTERFACE
+${INXLIB_SOURCES_HEADERS}
 )
 
 if(InxIsTopProject)

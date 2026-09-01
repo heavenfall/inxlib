@@ -26,7 +26,9 @@ SOFTWARE.
 #define INXLIB_MEMORY_SLICE_FACTORY_HPP
 
 #include <inxlib/inx.hpp>
-#include <inxlib/util/bits.hpp>
+
+#include <inxlib/numeric/bits.hpp>
+
 #include <memory_resource>
 
 namespace inx::memory {
@@ -64,11 +66,11 @@ public:
 	constexpr static size_t slab_min_level() noexcept
 	{
 		return std::max(static_cast<size_t>(slice_size() < padding1()
-		                                      ? util::clz_index((slice_size() + padding1() - 1) / padding1())
+		                                      ? numeric::clz_index((slice_size() + padding1() - 1) / padding1())
 		                                      : 0),
 		                SlabMinLevel);
 	}
-	constexpr static size_t slab_max_level() noexcept { return util::clz_index(init_slab_count()); }
+	constexpr static size_t slab_max_level() noexcept { return numeric::clz_index(init_slab_count()); }
 
 	struct SlabCtrl
 	{
@@ -266,6 +268,6 @@ public:
 template <typename ValueType, size_t N, size_t SlabMinLevel = 0>
 using SliceFactoryN = SliceFactory<ValueType, N * sizeof(ValueType), SlabMinLevel>;
 
-} // namespace inx::data
+} // namespace inx::memory
 
 #endif // INXLIB_MEMORY_SLICE_FACTORY_HPP

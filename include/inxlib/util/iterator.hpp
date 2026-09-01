@@ -25,8 +25,9 @@ SOFTWARE.
 #ifndef INXLIB_UTIL_ITERATOR_HPP
 #define INXLIB_UTIL_ITERATOR_HPP
 
-#include <concepts>
 #include <inxlib/inx.hpp>
+
+#include <concepts>
 
 namespace inx::util {
 

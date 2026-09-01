@@ -26,6 +26,7 @@ SOFTWARE.
 #define INXLIB_IO_NULL_HPP
 
 #include <inxlib/inx.hpp>
+
 #include <iostream>
 #include <streambuf>
 

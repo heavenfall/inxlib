@@ -1,7 +1,7 @@
 /*
 MIT License
 
-Copyright (c) 2024 Ryan Hechenberger
+Copyright (c) 2026 Ryan Hechenberger
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -25,278 +25,202 @@ SOFTWARE.
 #ifndef INXLIB_MEMORY_FACTORY_HPP
 #define INXLIB_MEMORY_FACTORY_HPP
 
-#include <forward_list>
 #include <inxlib/inx.hpp>
-#include <memory_resource>
+
+#include <concepts>
+#include <cstddef>
 
 namespace inx::memory {
 
-namespace details {
-template <typename T, bool IsTrivial>
-struct FactoryPoolDelete
+enum factory_traits : uint32_t
 {
-	using obj_type = std::array<T*, 512>;
-	using obj_list = std::forward_list<obj_type>;
-	static constexpr uint32 size() noexcept { return std::tuple_size<obj_type>::value; }
-	obj_list objects;
-	typename obj_list::iterator obj_it;
-	uint32 obj_i;
-	uint32 obj_size;
-
-	FactoryPoolDelete()
-	  : obj_it(objects.before_begin())
-	  , obj_i(size())
-	  , obj_size(0)
-	{
-	}
-
-	static bool getDel(const T* obj) noexcept { return reinterpret_cast<const bool*>(obj)[-1]; }
-	static void setDel(T* obj, bool del) noexcept { reinterpret_cast<bool*>(obj)[-1] = del; }
-
-	void push(T* obj)
-	{
-		if (obj_i >= size()) {
-			obj_i = 0;
-			if (auto it = std::next(obj_it); it == objects.end())
-				obj_it = objects.emplace_after(obj_it);
-			else
-				obj_it = it;
-		}
-		(*obj_it)[obj_i++] = obj;
-		obj_size++;
-	}
+	FactoryDefault = 0,
+	FactorySource = 1 << 0,  /// allocations with no upstream (i.e. malloc)
+	FactoryOwn = 1 << 1,     /// owns and will release memory
+	FactoryReuse = 1 << 2,   /// factory will attempt to reuse memory
+	FactoryNoFree = 1 << 3,  /// factory has deallocate or destroy, but it does nothing
+	FactoryPointer = 1 << 4, /// factory is a pointer to another factory
 };
-template <typename T>
-struct FactoryPoolDelete<T, true>
-{};
+
+namespace details {
+
+template <typename Fact>
+concept Factory_base = requires(Fact f) {
+	// not movable or copyable
+	requires std::default_initializable<Fact>;
+	requires !std::movable<Fact>;
+	requires !std::copyable<Fact>;
+
+	// required types
+	typename Fact::value_type;
+	typename Fact::pointer;
+	typename Fact::size_type;
+
+	// required functions, can be static or member
+	{ f.alignment() } -> std::same_as<typename Fact::size_type>;
+	{ f.element_size() } -> std::same_as<typename Fact::size_type>;
+	{ Fact::traits() } -> std::same_as<uint32_t>;
+
+	requires((Fact::traits() & FactorySource) != 0) || requires {
+		{ f.upstream() };
+	};
+};
+
+/**
+ * Class is a array factory.  Provides allocation of array's.
+ */
+template <typename Fact>
+concept ArrayFactory_base = details::Factory_base<Fact> && requires(Fact f) {
+	requires requires(typename Fact::pointer ptr, typename Fact::size_type elem) {
+		// array allocation
+		{ f.allocate(elem) } -> std::same_as<typename Fact::pointer>;
+		{ f.deallocate(ptr, elem) };
+	};
+};
+
+/**
+ * Class is a single element factory.  Provides allocation of single elements.
+ */
+template <typename Fact>
+concept SingleFactory_base = details::Factory_base<Fact> && requires(Fact f) {
+	requires requires(typename Fact::pointer ptr) {
+		// single allocation
+		{ f.create() } -> std::same_as<typename Fact::pointer>;
+		{ f.destroy(ptr) };
+	};
+};
+
 } // namespace details
 
-template <typename T>
-class Factory
+class void_factory
 {
 public:
-	static constexpr bool is_trivial() noexcept { return std::is_trivially_destructible_v<T>; }
-	static constexpr size_t size() noexcept { return sizeof(T); }
-	static constexpr size_t align() noexcept { return alignof(T); }
-	static constexpr size_t size_del() noexcept { return is_trivial() ? size() : size() + align(); }
-	using auto_delete = details::FactoryPoolDelete<T, is_trivial()>;
-	Factory() {}
-	Factory(std::pmr::memory_resource* upstream)
-	  : m_pool(upstream)
-	{
-	}
-	Factory(std::size_t initial_size)
-	  : m_pool(initial_size * size())
-	{
-	}
-	Factory(std::size_t initial_size, std::pmr::memory_resource* upstream)
-	  : m_pool(initial_size * size_del(), upstream)
-	{
-	}
-	~Factory() { release(); }
+	using value_type = std::byte;
+	using pointer = value_type*;
+	using size_type = size_t;
 
-	[[nodiscard]] void* allocate()
-	{
-		if constexpr (is_trivial()) {
-			return m_pool.allocate(size_del(), align());
-		} else {
-			return static_cast<void*>(static_cast<std::byte*>(m_pool.allocate(size_del(), align())) + align());
-		}
-	}
-	void deallocate(void* data)
-	{
-		if constexpr (is_trivial()) {
-			m_pool.deallocate(data, size_del(), align());
-		} else {
-			m_pool.deallocate(static_cast<void*>(static_cast<std::byte*>(data) - align()), size_del(), align());
-		}
-	}
+	static consteval uint32_t traits() noexcept { return FactorySource | FactoryNoFree; }
 
-	template <typename... Args>
-	[[nodiscard]] T* construct(Args&&... args)
-	{
-		T* data = ::new (allocate()) T(std::forward<Args>(args)...);
-		construct_(data);
-		return data;
-	}
-	void destruct(T* data)
-	{
-		destruct_(data);
-		deallocate(data);
-	}
+	constexpr void_factory() noexcept = default;
+	void_factory(const void_factory&) = delete;
+	void_factory operator=(const void_factory&) = delete;
 
-	void release() noexcept
-	{
-		if constexpr (!is_trivial()) {
-			constexpr uint32 objsize = auto_delete::size();
-			auto it = m_autoDelete.objects.before_begin();
-			for (uint32 i = 0, ie = m_autoDelete.obj_size; i < ie;) {
-				++it;
-				assert(it != m_autoDelete.objects.end());
-				for (uint32 j = 0, je = std::min(ie - i, objsize); j < je; ++i, ++j) {
-					T* data = (*it)[j];
-					if (auto_delete::getDel(data)) {
-						auto_delete::setDel(data, false);
-						std::destroy_at(data);
-					}
-				}
-			}
-			m_autoDelete.obj_it = m_autoDelete.objects.before_begin();
-			m_autoDelete.obj_i = objsize;
-			m_autoDelete.obj_size = 0;
-		}
-		m_pool.release();
-	}
+	constexpr bool setup() noexcept { return true; }
 
-protected:
-	void construct_(T* data)
-	{
-		if constexpr (!is_trivial()) {
-			auto_delete::setDel(data, true);
-			m_autoDelete.push(data);
-		}
-	}
-	void destruct_(T* data)
-	{
-		if constexpr (!is_trivial()) {
-			assert(auto_delete::getDel(data));
-			auto_delete::setDel(data, false);
-			std::destroy_at(data);
-		}
-	}
+	static consteval size_type alignment() noexcept { return alignof(max_align_t); }
+	static consteval size_type element_size() noexcept { return 1; }
 
-protected:
-	std::pmr::monotonic_buffer_resource m_pool;
-	auto_delete m_autoDelete;
+	constexpr pointer allocate(size_type) { return {}; }
+	constexpr void deallocate(pointer) {}
+	constexpr void deallocate(pointer, size_type) {}
 };
 
-template <typename T>
-class ReuseFactory : Factory<T>
+/**
+ * Class is a array factory.  Provides allocation of array's.
+ */
+template <typename Fact>
+concept ArrayFactory = details::ArrayFactory_base<Fact> && !details::SingleFactory_base<Fact>;
+
+/**
+ * Class is a single element factory.  Provides allocation of single elements.
+ */
+template <typename Fact>
+concept SingleFactory = details::SingleFactory_base<Fact> && !details::ArrayFactory_base<Fact>;
+
+/**
+ * Class is a factory.  Designed to provide flexible memory generation.
+ */
+template <typename Fact>
+concept Factory = ArrayFactory<Fact> || SingleFactory<Fact>;
+
+template <typename Fact, uint32_t T>
+concept FactoryTraitAll = Factory<Fact> && (Fact::traits() & T) == T;
+template <typename Fact, uint32_t T>
+concept FactoryTraitAny = Factory<Fact> && (Fact::traits() & T) != 0;
+template <typename Fact, uint32_t T>
+concept FactoryTraitNone = Factory<Fact> && (Fact::traits() & T) == 0;
+
+// setup or destructor calls release if it has one, free_upstream is set to false iff:
+// upstream is FactoryNoFree OR (upstream is FactoryOwn AND upstream is not FactoryPointer)
+template <Factory Fact>
+inline constexpr bool factory_chain_free_release =
+  FactoryTraitNone<Fact, FactoryNoFree> ||
+  (FactoryTraitNone<Fact, FactoryOwn> && FactoryTraitAny<Fact, FactoryPointer>);
+
+/**
+ * Class is a byte factory.  Provides allocation for byte object.
+ */
+template <typename Fact>
+concept ByteFactory = ArrayFactory<Fact> && requires(Fact f) {
+	requires std::same_as<typename Fact::value_type, std::byte>;
+	requires Fact::alignment() == alignof(max_align_t);
+	requires Fact::element_size() == 1;
+};
+
+/**
+ * A byte factory that supports dynamic align allocation.
+ */
+template <typename Fact>
+concept AlignByteFactory = ByteFactory<Fact> && requires(Fact f, Fact::pointer ptr, Fact::size_type elem) {
+	{ f.allocate(elem, elem) } -> std::same_as<typename Fact::pointer>;
+	{ f.deallocate(ptr, elem, elem) };
+};
+
+/**
+ * Class is a factory.  Designed to provide flexible memory generation.
+ */
+template <typename Fact>
+concept FreeArrayFactory = ArrayFactory<Fact> && requires(Fact f, typename Fact::pointer ptr) {
+	{ f.deallocate(ptr) };
+};
+
+template <typename Fact>
+concept VoidFactory = std::same_as<Fact, void_factory>;
+
+static_assert(ByteFactory<void_factory> && VoidFactory<void_factory> && FreeArrayFactory<void_factory>,
+              "void_factory must be a valid ByteFactory");
+
+/**
+ * Class has memory release functions.
+ */
+template <typename Fact>
+concept ReleaseFactory = Factory<Fact> && requires(Fact f, bool b) {
+	{ f.release() };
+	{ f.release(b) };
+};
+
+/**
+ * Class has memory reclaim functions.
+ */
+template <typename Fact>
+concept ReclaimFactory = ReleaseFactory<Fact> && requires(Fact f) {
+	{ f.reclaim() };
+};
+
+/// @brief Get factory upstream
+/// @param F factory
+/// @return F.upstream()
+Factory auto&
+upstream(Factory auto& F) noexcept
 {
-public:
-	using self = ReuseFactory<T>;
-	using super = Factory<T>;
+	return F.upstream();
+}
 
-	using super::super;
-	~ReuseFactory() { release(); }
-
-	[[nodiscard]] void* allocate()
-	{
-		if (m_reuse.empty())
-			return super::allocate();
-		else {
-			void* m = m_reuse.back();
-			m_reuse.pop_back();
-			return m;
-		}
-	}
-	void deallocate(void* data)
-	{
-		m_reuse.push_back(data);
-		super::deallocate(data);
-	}
-
-	template <typename... Args>
-	[[nodiscard]] T* construct(Args&&... args)
-	{
-		T* data = ::new (allocate()) T(std::forward<Args>(args)...);
-		this->construct_(data);
-		return data;
-	}
-	void destruct(T* data)
-	{
-		this->destruct_(data);
-		deallocate(data);
-	}
-
-	void release() noexcept
-	{
-		m_reuse = std::vector<void*>();
-		super::release();
-	}
-
-protected:
-	std::vector<void*> m_reuse;
-};
-
-template <typename T, size_t SlabN>
-class ReclaimFactory
+/// @brief Gets a upstream factory matching Fact type
+/// @param F factory
+/// @return Factory of type Fact, const auto deduced based on F
+template <Factory Fact>
+Factory auto&
+upstream(Factory auto& F) noexcept
 {
-public:
-	using self = ReclaimFactory<T, SlabN>;
-
-	struct Slab
-	{
-		std::array<std::byte, sizeof(T) * SlabN> data;
-		std::unique_ptr<Slab> next;
-		T* castArray() noexcept { return reinterpret_cast<T*>(data.data()); }
-	};
-
-	ReclaimFactory()
-	{
-		m_first = std::make_unique<Slab>();
-		m_current = m_first.get();
-		m_currentAt = m_current->castArray();
-		m_currentEnd = m_currentAt + SlabN;
-		m_reuse.reserve(64);
+	Factory auto& up = F.upstream();
+	if constexpr (std::same_as<std::remove_cvref_t<decltype(up)>, Fact>) {
+		return up;
+	} else {
+		return upstream<Fact>(up);
 	}
+}
 
-	[[nodiscard]] void* allocate()
-	{
-		if (m_reuse.empty()) {
-			if (m_currentAt == m_currentEnd) [[unlikely]] {
-				if (m_current->next == nullptr) {
-					m_current->next = std::make_unique<Slab>();
-				}
-				m_current = m_current->next.get();
-				m_currentAt = m_current->castArray();
-				m_currentEnd = m_currentAt + SlabN;
-			}
-			return m_currentAt++;
-		} else {
-			void* m = m_reuse.back();
-			m_reuse.pop_back();
-			return m;
-		}
-	}
-	void deallocate(void* data) { m_reuse.push_back(data); }
+} // namespace inx::memory
 
-	template <typename... Args>
-	[[nodiscard]] T* construct(Args&&... args)
-	{
-		T* data = std::construct_at<T>(static_cast<T*>(allocate()), std::forward<Args>(args)...);
-		return data;
-	}
-	void destruct(T* data)
-	{
-		std::destroy_at(data);
-		deallocate(data);
-	}
-
-	void reset() noexcept
-	{
-		m_current = m_first.get();
-		m_currentAt = m_current->castArray();
-		m_currentEnd = m_currentAt + SlabN;
-		m_reuse.clear();
-	}
-	void release() noexcept
-	{
-		m_current = m_first.get();
-		m_currentAt = m_current->castArray();
-		m_currentEnd = m_currentAt + SlabN;
-		m_reuse.clear();
-		m_first->next.release();
-	}
-
-protected:
-	std::unique_ptr<Slab> m_first;
-	Slab* m_current;
-	T* m_currentAt;
-	T* m_currentEnd;
-	std::vector<void*> m_reuse;
-};
-
-} // namespace inx::data
-
-#endif // INXLIB_MEMORY_FACTORY_HPP
+#endif // INXLIB_MEMORY_FACTORY_ARRAY_HPP

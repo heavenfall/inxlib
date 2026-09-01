@@ -25,9 +25,11 @@ SOFTWARE.
 #ifndef INXLIB_DATA_BIT_TABLE_HPP
 #define INXLIB_DATA_BIT_TABLE_HPP
 
-#include <cstring>
 #include <inxlib/inx.hpp>
-#include <inxlib/util/bits.hpp>
+
+#include <inxlib/numeric/bits.hpp>
+
+#include <cstring>
 #ifndef NDEBUG
 #include <vector>
 #endif
@@ -48,15 +50,15 @@ public:
 	static constexpr size_t bit_count = BitCount;
 	using pack_type = PackType;
 
-	static constexpr pack_type bit_mask = util::make_mask<pack_type, bit_count>();
+	static constexpr pack_type bit_mask = numeric::make_mask<pack_type, bit_count>();
 	static constexpr size_t bit_adj = std::bit_width(bit_count - 1);
 	static constexpr size_t char_adj = std::bit_width(static_cast<uint32_t>(CHAR_BIT - 1));
 	static constexpr size_t pack_bits = sizeof(pack_type) * CHAR_BIT;
 	static_assert(8 <= pack_bits && pack_bits <= 64, "pack_bits must be between 8 and 64");
 	static constexpr size_t pack_bits_size = std::bit_width(pack_bits - 1);
-	static constexpr pack_type pack_bits_mask = util::make_mask<pack_type, pack_bits_size>();
+	static constexpr pack_type pack_bits_mask = numeric::make_mask<pack_type, pack_bits_size>();
 	static constexpr size_t pack_size = pack_bits_size - bit_adj;
-	static constexpr pack_type pack_mask = util::make_mask<pack_type, pack_size>();
+	static constexpr pack_type pack_mask = numeric::make_mask<pack_type, pack_size>();
 	static constexpr size_t item_count = (1 << pack_size);
 
 	enum class op
@@ -316,7 +318,7 @@ protected:
 			uint32_t word = id.word(), bit = id.bit();
 			if (bit + (W<<bit_adj) > pack_bits) { // split bits
 				uint32 w1count = pack_bits - bit;
-				pack_type w2mask = util::make_mask<pack_type>((W << bit_adj) - w1count);
+				pack_type w2mask = numeric::make_mask<pack_type>((W << bit_adj) - w1count);
 				pack_type ans = bit_right_shift<pack_type>(mCells[word], bit) | bit_left_shift<pack_type>(mCells[word+1] & w2mask, w1count);
 				for (uint32 i = W << bit_adj; i < static_cast<uint32>(H * (W<<bit_adj)); i += W << bit_adj) {
 					word += mRowWords;
@@ -325,7 +327,7 @@ protected:
 
 				return ans;
 			} else {
-				pack_type w1mask = util::make_mask<pack_type>(W << bit_adj);
+				pack_type w1mask = numeric::make_mask<pack_type>(W << bit_adj);
 				pack_type ans = bit_right_shift<pack_type>(mCells[word], bit) & w1mask;
 				for (uint32 i = W << bit_adj; i < static_cast<uint32>(H * (W<<bit_adj)); i += W << bit_adj) {
 					word += mRowWords;
@@ -360,19 +362,19 @@ protected:
 				// readable in a single non-aligned read
 				row_words *= sizeof(size_t);
 				const auto* cell = std::bit_cast<const std::byte*>(data + word) + (bit >> char_adj);
-				bit &= inx::util::make_mask_v<decltype(bit), char_adj>;
+				bit &= inx::numeric::make_mask_v<decltype(bit), char_adj>;
 				constexpr size_t bit_row = bit_count * static_cast<size_t>(W);
 				size_t ans;
 				{
 					size_t tmp;
 					std::memcpy(&tmp, cell, sizeof(size_t));
-					ans = (tmp >> bit) & util::make_mask_v<pack_type, bit_row>;
+					ans = (tmp >> bit) & numeric::make_mask_v<pack_type, bit_row>;
 				}
 				for (size_t i = bit_row; i < bit_row * static_cast<size_t>(H); i += bit_row) {
 					cell += row_words;
 					size_t tmp;
 					std::memcpy(&tmp, cell, sizeof(size_t));
-					ans |= bit_shift_from_to(tmp, bit, i) & util::make_mask<pack_type>(bit_row, i);
+					ans |= bit_shift_from_to(tmp, bit, i) & numeric::make_mask<pack_type>(bit_row, i);
 				}
 				return static_cast<pack_type>(ans);
 			} else {

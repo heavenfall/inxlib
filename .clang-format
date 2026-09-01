@@ -1,5 +1,6 @@
 ---
 BasedOnStyle: Mozilla
+Standard: Latest
 AccessModifierOffset: '-4'
 IndentCaseLabels: 'false'
 IndentWidth: '4'

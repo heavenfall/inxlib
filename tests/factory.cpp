@@ -19,8 +19,6 @@
 #include <set>
 #include <unordered_set>
 
-#include <iostream>
-
 using namespace std::string_view_literals;
 
 namespace inx::memory {
